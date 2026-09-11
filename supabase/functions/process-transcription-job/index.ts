@@ -159,30 +159,7 @@ async function failJob(supabase: ServiceClient, job: JobRow, error: unknown): Pr
   }).eq("id", job.audio_ingestion_id);
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (!(await authenticate(req))) return unauthorizedResponse(corsHeaders);
-
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  let body: Body = {};
-  try { body = await req.json() as Body; } catch { /* Empty body is valid for cron polling. */ }
-  const requestedId = body.transcriptionJobId || body.jobId;
-  const now = new Date().toISOString();
-
-  let query = supabase.from("transcription_jobs").select("id, audio_ingestion_id, attempts, status").eq("status", "queued");
-  if (requestedId) query = query.eq("id", requestedId);
-  else query = query.or(`next_retry_at.is.null,next_retry_at.lte.${now}`).order("created_at", { ascending: true }).limit(1);
-  const { data: candidates, error: queryError } = await query;
-  if (queryError) return jsonResponse({ error: "No se pudo buscar el job de transcripción." }, 500);
-  const candidate = (candidates as JobRow[] | null)?.[0];
-  if (!candidate) return jsonResponse({ processed: false, reason: requestedId ? "job_not_queued" : "no_queued_jobs" });
-
-  const { data: claimed, error: claimError } = await supabase.from("transcription_jobs")
-    .update({ status: "processing", started_at: now, progress: 0, error_code: null, error_message_sanitized: null })
-    .eq("id", candidate.id).eq("status", "queued").select("id, audio_ingestion_id, attempts, status").maybeSingle();
-  if (claimError || !claimed) return jsonResponse({ processed: false, reason: "job_already_claimed" }, 409);
-  const job = claimed as JobRow;
-
+async function processClaimedJob(supabase: ServiceClient, job: JobRow): Promise<void> {
   try {
     const { data: ingestion, error: ingestionError } = await supabase.from("audio_ingestions")
       .select("id, center_id, professional_id, patient_id, session_id, source, storage_path, mime_type").eq("id", job.audio_ingestion_id).maybeSingle();
@@ -229,15 +206,49 @@ Deno.serve(async (req) => {
     } else {
       console.log("[process-transcription-job] Se omiten informes automáticos: la ingestión no tiene session_id y patient_id confirmados.");
     }
-    return jsonResponse({
-      processed: true,
-      transcriptionJobId: job.id,
-      status: "completed",
-      normalizedText: result.normalizedText,
-    });
   } catch (error) {
     console.error("[process-transcription-job] Job failed:", safeError(error));
-    await failJob(supabase, job, error);
-    return jsonResponse({ processed: true, transcriptionJobId: job.id, status: (job.attempts + 1) > MAX_ATTEMPTS ? "failed" : "queued" }, 502);
+    try {
+      await failJob(supabase, job, error);
+    } catch (failError) {
+      console.error("[process-transcription-job] Could not persist failed job state:", failError);
+    }
   }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (!(await authenticate(req))) return unauthorizedResponse(corsHeaders);
+
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  let body: Body = {};
+  try { body = await req.json() as Body; } catch { /* Empty body is valid for cron polling. */ }
+  const requestedId = body.transcriptionJobId || body.jobId;
+  const now = new Date().toISOString();
+
+  let query = supabase.from("transcription_jobs").select("id, audio_ingestion_id, attempts, status").eq("status", "queued");
+  if (requestedId) query = query.eq("id", requestedId);
+  else query = query.or(`next_retry_at.is.null,next_retry_at.lte.${now}`).order("created_at", { ascending: true }).limit(1);
+  const { data: candidates, error: queryError } = await query;
+  if (queryError) return jsonResponse({ error: "No se pudo buscar el job de transcripción." }, 500);
+  const candidate = (candidates as JobRow[] | null)?.[0];
+  if (!candidate) return jsonResponse({ processed: false, reason: requestedId ? "job_not_queued" : "no_queued_jobs" });
+
+  const { data: claimed, error: claimError } = await supabase.from("transcription_jobs")
+    .update({ status: "processing", started_at: now, progress: 0, error_code: null, error_message_sanitized: null })
+    .eq("id", candidate.id).eq("status", "queued").select("id, audio_ingestion_id, attempts, status").maybeSingle();
+  if (claimError || !claimed) return jsonResponse({ processed: false, reason: "job_already_claimed" }, 409);
+  const job = claimed as JobRow;
+
+  const edgeRuntime = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+  const processingPromise = processClaimedJob(supabase, job);
+  if (edgeRuntime?.waitUntil) {
+    edgeRuntime.waitUntil(processingPromise);
+  } else {
+    // Entorno sin EdgeRuntime (p. ej. deno check/tests locales): el job sigue lanzado
+    // y su propio try/catch evita dejar una promesa rechazada sin manejar.
+    processingPromise.catch((error) => console.error("[process-transcription-job] processClaimedJob sin EdgeRuntime:", error));
+  }
+
+  return jsonResponse({ processed: true, transcriptionJobId: job.id, status: "processing" });
 });

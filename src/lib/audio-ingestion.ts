@@ -58,7 +58,6 @@ interface ProcessTranscriptionJobResponse {
   processed: boolean;
   transcriptionJobId?: string;
   status?: string;
-  normalizedText?: string;
   reason?: string;
   error?: string;
 }
@@ -134,21 +133,24 @@ export async function uploadAndTranscribeAudio({
   if (completeError) throw new Error(await describeEdgeFunctionError(completeError, "No se pudo confirmar la subida del audio"));
   if (!completed?.success) throw new Error(completed?.error || "No se pudo confirmar la subida del audio");
 
-  // Intento directo: si responde a tiempo con el texto, listo — misma latencia percibida que
-  // el flujo síncrono de siempre. Si falla por cualquier motivo (incluido un timeout de
-  // inactividad de la plataforma), no se trata como fallo real: se cae al sondeo de abajo,
-  // porque el job puede seguir procesándose en el servidor pese a que esta petición no volvió.
+  // La función reclama el job y responde mientras la transcripción sigue en segundo plano.
+  // El resultado final se obtiene siempre desde audio_ingestions y transcripts.
+  let processInvocationError: string | null = null;
   try {
-    const { data: processed, error: processError } = await supabase.functions.invoke<ProcessTranscriptionJobResponse>(
+    const { error: processError } = await supabase.functions.invoke<ProcessTranscriptionJobResponse>(
       "process-transcription-job",
       { body: { transcriptionJobId: completed.transcriptionJobId } },
     );
-    if (!processError && processed?.processed && processed.status === "completed" && processed.normalizedText) {
-      return { audioIngestionId, transcription: processed.normalizedText };
+    if (processError) {
+      const status = (processError as { context?: { status?: number } }).context?.status;
+      if (status === 400 || status === 401 || status === 403 || status === 422) {
+        processInvocationError = await describeEdgeFunctionError(processError, "No se pudo iniciar la transcripcion");
+      }
     }
   } catch {
     // Error de red/timeout en la propia llamada: se ignora aquí, se resuelve por sondeo.
   }
+  if (processInvocationError) throw new Error(processInvocationError);
 
   const transcription = await pollForTranscript(audioIngestionId);
   return { audioIngestionId, transcription };
