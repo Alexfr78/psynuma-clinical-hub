@@ -549,7 +549,7 @@ export function TranscriptionAnalysisDialog({
                           <SelectTrigger onClick={(e) => e.stopPropagation()}>
                             <SelectValue placeholder="Elige una plantilla" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[10000]">
                             {customTemplates.map((template) => (
                               <SelectItem key={template.key} value={template.key}>
                                 {template.label}
@@ -571,7 +571,7 @@ export function TranscriptionAnalysisDialog({
                           <SelectTrigger onClick={(e) => e.stopPropagation()}>
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[10000]">
                             <SelectItem value={AUTO_MODEL_VALUE}>Automático</SelectItem>
                             {modelOptions.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
