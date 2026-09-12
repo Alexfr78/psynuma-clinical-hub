@@ -47,6 +47,48 @@ export function renderMarkdown(
     .join('\n\n');
 }
 
+/** Construye el texto editable combinado, conservando también las secciones vacías. */
+export function buildCombinedEditableText(
+  sections: AiDocumentSection[],
+  content: Record<string, string>,
+): string {
+  return sections
+    .map((section) => `## ${section.label}\n\n${content?.[section.key] ?? ''}`)
+    .join('\n\n');
+}
+
+/** Divide el texto editable combinado respetando las secciones conocidas y sin perder texto. */
+export function splitCombinedEditableText(
+  sections: AiDocumentSection[],
+  text: string,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  const sectionByHeader = new Map(sections.map((section) => [`## ${section.label}`, section.key]));
+  const lines = text.split('\n');
+  const chunks = new Map<string, string[]>();
+  const firstKey = sections[0]?.key;
+  let currentKey = firstKey;
+
+  for (const line of lines) {
+    const nextKey = sectionByHeader.get(line);
+    if (nextKey) {
+      currentKey = nextKey;
+      if (!chunks.has(currentKey)) chunks.set(currentKey, []);
+      continue;
+    }
+    if (currentKey) {
+      const chunk = chunks.get(currentKey) ?? [];
+      chunk.push(line);
+      chunks.set(currentKey, chunk);
+    }
+  }
+
+  for (const section of sections) {
+    result[section.key] = (chunks.get(section.key) ?? []).join('\n').trim();
+  }
+  return result;
+}
+
 /** Solo las secciones marcadas como compartibles con el paciente. */
 export function renderShareableMarkdown(
   sections: AiDocumentSection[],

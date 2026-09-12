@@ -1127,7 +1127,7 @@ serve(async (req) => {
       );
     }
 
-    // ─── Fallback: transcripción guardada de Plaud ─────────────────────────────
+    // ─── Fallback: transcripción guardada (pipeline nuevo y Plaud legado) ─────
     // Solo para plantillas de ámbito `session` y solo cuando el cliente no ha mandado
     // `transcription` ni `segments` (p. ej. el profesional cerró el diálogo y ha vuelto a
     // pulsar "Regenerar", sin la transcripción ya en memoria del navegador). Se ejecuta
@@ -1135,40 +1135,72 @@ serve(async (req) => {
     // guardada de `plaud_recordings` es tratar datos del paciente exactamente igual que
     // recibirla del llamador, así que tiene que pasar por la misma verificación.
     if (docType.scope === 'session' && !effectiveTranscription) {
-      const { data: recordings, error: recordingsError } = await supabaseService
-        .from('plaud_recordings')
-        .select('id, transcript_text, transcript_expires_at')
+      const nowIso = new Date().toISOString();
+      const { data: savedTranscripts, error: transcriptsError } = await supabaseService
+        .from('transcripts')
+        .select('id, normalized_text, expires_at')
         .eq('session_id', sessionId)
-        .order('transcript_fetched_at', { ascending: false });
+        .is('deleted_at', null)
+        .gt('expires_at', nowIso)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (recordingsError) {
-        console.error('[analyze] Error al buscar grabación de Plaud para la sesión:', recordingsError.message);
+      if (transcriptsError) {
+        console.error('[analyze] Error al buscar transcripción normalizada para la sesión:', transcriptsError.message);
       }
 
-      const nowIso = new Date().toISOString();
-      const validRecording = (recordings ?? []).find(
-        (r) => typeof r.transcript_text === 'string' && r.transcript_text.trim().length > 0
-          && typeof r.transcript_expires_at === 'string' && r.transcript_expires_at > nowIso
-      ) as { id: string; transcript_text: string; transcript_expires_at: string } | undefined;
+      const validTranscript = savedTranscripts as {
+        id: string;
+        normalized_text: string;
+        expires_at: string;
+      } | null;
 
-      if (validRecording) {
-        const turns = parseStoredPlaudTranscript(validRecording.transcript_text);
-        const built = buildTranscriptFromTurns(turns);
-        const rebuilt = built.transcript.trim();
-        if (rebuilt) {
-          effectiveTranscription = rebuilt;
-          diarizationApplied = built.hasDiarization;
-          originSource = 'plaud';
-          effectivePlaudRecordingId = validRecording.id;
-          console.log(`[analyze] Transcripción recuperada de plaud_recordings (${validRecording.id}) para la sesión ${sessionId}, vigente hasta ${validRecording.transcript_expires_at}.`);
+      if (validTranscript?.normalized_text?.trim()) {
+        effectiveTranscription = validTranscript.normalized_text.trim();
+        originSource = 'saved_transcript';
+        console.log(`[analyze] Transcripción recuperada de transcripts (${validTranscript.id}) para la sesión ${sessionId}, vigente hasta ${validTranscript.expires_at}.`);
+      }
+
+      // Solo se consulta Plaud (legado) si la tabla `transcripts` (pipeline activo) no dio
+      // resultado — evita una segunda ronda a la base de datos cuando ya hay transcripción.
+      let hadAnyPlaudRecording = false;
+      if (!effectiveTranscription) {
+        const { data: recordings, error: recordingsError } = await supabaseService
+          .from('plaud_recordings')
+          .select('id, transcript_text, transcript_expires_at')
+          .eq('session_id', sessionId)
+          .order('transcript_fetched_at', { ascending: false });
+
+        if (recordingsError) {
+          console.error('[analyze] Error al buscar grabación de Plaud para la sesión:', recordingsError.message);
+        }
+        hadAnyPlaudRecording = (recordings ?? []).length > 0;
+
+        const validRecording = (recordings ?? []).find(
+          (r) => typeof r.transcript_text === 'string' && r.transcript_text.trim().length > 0
+            && typeof r.transcript_expires_at === 'string' && r.transcript_expires_at > nowIso
+        ) as { id: string; transcript_text: string; transcript_expires_at: string } | undefined;
+
+        if (validRecording) {
+          const turns = parseStoredPlaudTranscript(validRecording.transcript_text);
+          const built = buildTranscriptFromTurns(turns);
+          const rebuilt = built.transcript.trim();
+          if (rebuilt) {
+            effectiveTranscription = rebuilt;
+            diarizationApplied = built.hasDiarization;
+            originSource = 'plaud';
+            effectivePlaudRecordingId = validRecording.id;
+            console.log(`[analyze] Transcripción recuperada de plaud_recordings (${validRecording.id}) para la sesión ${sessionId}, vigente hasta ${validRecording.transcript_expires_at}.`);
+          }
         }
       }
 
       if (!effectiveTranscription) {
-        const hadAnyRecording = (recordings ?? []).length > 0;
-        const message = hadAnyRecording
-          ? 'La transcripción de esta sesión ya no está disponible: Plaud la conserva solo 30 días y ese plazo ya ha pasado. Sube el audio de la sesión manualmente para poder generar el documento.'
-          : 'No se puede generar el documento: esta sesión no tiene ninguna grabación de Plaud asociada ni transcripción proporcionada. Sube el audio de la sesión o aporta la transcripción manualmente.';
+        const hadAnySavedTranscript = !!savedTranscripts || hadAnyPlaudRecording;
+        const message = hadAnySavedTranscript
+          ? 'La transcripción de esta sesión ya no está disponible: se conserva durante 30 días y ese plazo ya ha pasado. Sube el audio de la sesión o pega la transcripción manualmente.'
+          : 'No hay ninguna transcripción guardada disponible para esta sesión. Sube el audio de la sesión o pega la transcripción manualmente.';
         return jsonResponse({ error: message }, 400);
       }
     }

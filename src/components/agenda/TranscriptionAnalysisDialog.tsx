@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,14 +13,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
 import { modelOptionsForProvider } from '@/lib/ai-models';
-import { useAIDocuments, useSessionPlaudTranscriptAvailability } from "@/hooks/useAIDocuments";
+import { useAIDocuments, useSessionPlaudTranscriptAvailability, useSessionTranscriptAvailability } from "@/hooks/useAIDocuments";
 import { useCenter } from "@/hooks/useCenter";
 import { useAuth } from "@/hooks/useAuth";
 import { uploadAndTranscribeAudio } from "@/lib/audio-ingestion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Icon } from '@/components/ui/icon';
-import { parseSections, effectiveSections, effectiveMarkdown, renderEditableMarkdown } from "@/lib/ai-documents";
+import { supabase } from "@/integrations/supabase/client";
+import { buildCombinedEditableText, splitCombinedEditableText, parseSections, effectiveSections, effectiveMarkdown, renderEditableMarkdown } from "@/lib/ai-documents";
+import { useQueryClient } from "@tanstack/react-query";
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
 
 /**
@@ -85,6 +87,7 @@ export function TranscriptionAnalysisDialog({
   const [customModel, setCustomModel] = useState<string>(AUTO_MODEL_VALUE);
   const [customModelText, setCustomModelText] = useState<string>("");
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
+  const [activeReportTab, setActiveReportTab] = useState<string | undefined>();
   const modalRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -110,8 +113,12 @@ export function TranscriptionAnalysisDialog({
   // después de la puerta de consentimiento. Aquí solo hace falta saber si existe y hasta
   // cuándo, para decidir si el botón puede activarse y qué decirle al profesional.
   const plaudAvailability = useSessionPlaudTranscriptAvailability(open ? sessionId : undefined);
-  const hasPlaudFallback = plaudAvailability.data?.available ?? false;
-  const plaudExpiresAt = plaudAvailability.data?.expiresAt ?? null;
+  const transcriptAvailability = useSessionTranscriptAvailability(open ? sessionId : undefined);
+  const hasSavedTranscriptFallback = transcriptAvailability.data?.available || plaudAvailability.data?.available || false;
+  const savedTranscriptExpiresAt = transcriptAvailability.data?.available
+    ? transcriptAvailability.data.expiresAt
+    : plaudAvailability.data?.expiresAt ?? null;
+  const queryClient = useQueryClient();
 
   const clinicalTemplate = aiDocs.templates.find((t) => t.key === "clinical_report");
   const patientTemplate = aiDocs.templates.find((t) => t.key === "patient_report");
@@ -131,6 +138,26 @@ export function TranscriptionAnalysisDialog({
   // modelo, es este mismo modo (CONTRACT-2 §3.1), no uno aparte.
   const customTemplates = aiDocs.templates.filter((t) => t.audience !== "internal");
   const selectedCustomTemplates = customTemplates.filter((t) => selectedTemplateKeys.includes(t.key));
+
+  const generatedReports = [
+    clinicalDoc && { key: clinicalDoc.document_type.key, doc: clinicalDoc, template: clinicalTemplate },
+    patientDoc && { key: patientDoc.document_type.key, doc: patientDoc, template: patientTemplate },
+    ...otherTemplates.map((template) => {
+      const doc = aiDocs.documentsByKey.get(template.key);
+      return doc ? { key: template.key, doc, template } : null;
+    }),
+  ].filter((entry): entry is { key: string; doc: AiGeneratedDocumentWithType; template: AiDocumentType | undefined } => !!entry);
+  const availableOtherTemplates = otherTemplates.filter((template) => !aiDocs.documentsByKey.has(template.key));
+  const generatedReportKeys = generatedReports.map((entry) => entry.key).join(",");
+
+  // La lista depende de la caché de documentos y se sincroniza cuando cambia su identidad.
+  useEffect(() => {
+    if (!activeReportTab || !generatedReports.some((entry) => entry.key === activeReportTab)) {
+      setActiveReportTab(generatedReports[0]?.key);
+    }
+  // La lista se reconstruye a partir de la caché; la cadena de keys es la señal estable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeReportTab, generatedReportKeys]);
 
   // Modelos ofrecidos: los del proveedor configurado en el centro (CONTRACT-2 §2.1).
   const modelOptions = modelOptionsForProvider(center?.ai_provider);
@@ -156,23 +183,22 @@ export function TranscriptionAnalysisDialog({
    * en el cuadro de texto en este momento:
    *
    * 1. Está en el propio request (`hasTranscription`): lo de siempre.
-   * 2. El servidor la recupera solo de `plaud_recordings.transcript_text` si la grabación
-   *    de Plaud de esta sesión sigue vigente (retención de 30 días, ver
-   *    `analyze-session-transcription/index.ts`, fallback tras la puerta de consentimiento).
-   *    `hasPlaudFallback` refleja exactamente esa misma condición (`transcript_text` no
-   *    nulo y `transcript_expires_at` en el futuro) para poder habilitar el botón y avisar
-   *    de dónde saldrá el texto, sin tener que traer la transcripción entera al cliente.
+   * 2. El servidor la recupera solo de una transcripción guardada vigente — la tabla
+   *    `transcripts` del pipeline nuevo (retención de 30 días) o, como legado, de
+   *    `plaud_recordings.transcript_text` (ver `analyze-session-transcription/index.ts`,
+   *    fallback tras la puerta de consentimiento). `hasSavedTranscriptFallback` refleja si
+   *    existe alguna de las dos, sin traer la transcripción entera al cliente para saberlo.
    *
    * Si no se da ninguna de las dos, el botón se deshabilita con el motivo real: no hay nada
-   * de dónde sacar la transcripción (ni pegada, ni Plaud vigente).
+   * de dónde sacar la transcripción (ni pegada, ni guardada vigente).
    */
   const canGenerateTemplate = (template: AiDocumentType | undefined): { can: boolean; reason?: string } => {
     if (!template) return { can: false, reason: "Plantilla no disponible." };
     if (hasTranscription) return { can: true };
-    if (hasPlaudFallback) {
+    if (hasSavedTranscriptFallback) {
       return {
         can: true,
-        reason: `Se usará la transcripción guardada de Plaud, disponible hasta el ${formatPlaudExpiry(plaudExpiresAt)}.`,
+        reason: `Se usará la transcripción guardada, disponible hasta el ${formatPlaudExpiry(savedTranscriptExpiresAt)}.`,
       };
     }
     return {
@@ -309,6 +335,33 @@ export function TranscriptionAnalysisDialog({
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) handleAudioUpload(file);
+  };
+
+  const handleDeleteTranscript = async () => {
+    if (!sessionId || !window.confirm("¿Eliminar la transcripción guardada de esta sesión? Esta acción no se puede deshacer.")) return;
+    try {
+      const { error } = await supabase.from("transcripts").delete().eq("session_id", sessionId);
+      if (error) throw error;
+      await transcriptAvailability.refetch();
+      queryClient.invalidateQueries({ queryKey: ["ai-documents", "transcript-availability", sessionId] });
+      toast.success("Transcripción eliminada");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar la transcripción");
+    }
+  };
+
+  const handleDeleteDocument = async (doc: AiGeneratedDocumentWithType) => {
+    if (!window.confirm("¿Eliminar este informe? Esta acción no se puede deshacer.")) return;
+    try {
+      await aiDocs.deleteDocument(doc.id);
+      toast.success("Informe eliminado");
+      if (activeReportTab === doc.document_type.key) {
+        const next = generatedReports.find((entry) => entry.key !== doc.document_type.key);
+        setActiveReportTab(next?.key);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar el informe");
+    }
   };
 
   const isAnalyzing = aiDocs.isGenerating && generatingKey !== null;
@@ -465,9 +518,24 @@ export function TranscriptionAnalysisDialog({
 
           {/* Textarea — siempre visible */}
           <div className="space-y-2">
-            <label htmlFor="transcription-input" className="text-sm font-medium">
-              Transcripción de la sesión
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="transcription-input" className="text-sm font-medium">
+                Transcripción de la sesión
+              </label>
+              {transcriptAvailability.data?.available && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteTranscript}
+                  disabled={isAnalyzing || transcriptAvailability.isFetching}
+                  title="Eliminar transcripción guardada"
+                >
+                  <Icon name="delete" className="mr-1 h-3 w-3" />
+                  Eliminar
+                </Button>
+              )}
+            </div>
             <Textarea
               ref={textareaRef}
               id="transcription-input"
@@ -491,8 +559,8 @@ export function TranscriptionAnalysisDialog({
             <p className="text-xs text-muted-foreground">
               {transcription.length > 0
                 ? `${transcription.split(/\s+/).filter(Boolean).length} palabras`
-                : hasPlaudFallback
-                  ? `Se usará la transcripción guardada de Plaud, disponible hasta el ${formatPlaudExpiry(plaudExpiresAt)}.`
+                : hasSavedTranscriptFallback
+                  ? `Se usará la transcripción guardada, disponible hasta el ${formatPlaudExpiry(savedTranscriptExpiresAt)}.`
                   : (clinicalDoc || patientDoc)
                     ? "Necesaria también para regenerar: pégala de nuevo antes de generar o regenerar cualquier documento de esta sesión."
                     : "Pega la transcripción para comenzar el análisis"}
@@ -630,7 +698,7 @@ export function TranscriptionAnalysisDialog({
                   onClick={handleAutoGenerate}
                   disabled={
                     isTranscribing ||
-                    !(hasTranscription || hasPlaudFallback) ||
+                    !(hasTranscription || hasSavedTranscriptFallback) ||
                     !aiDocs.professionalDefault.template ||
                     !aiDocs.patientDefault.template ||
                     consent.isLoading ||
@@ -693,202 +761,73 @@ export function TranscriptionAnalysisDialog({
             </div>
           )}
 
-          {/* Informe clínico */}
-          {clinicalDoc && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="stethoscope" className="h-4 w-4 text-primary" />
-                  Informe clínico para profesionales
-                  {sessionId && (
-                    <Badge variant="outline" className="text-xs text-green-600">
-                      Guardado en sesión
-                    </Badge>
-                  )}
-                </h3>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => downloadTxt(effectiveMarkdown(clinicalDoc), `${filePrefix}_informe_clinico.txt`)}
-                  >
-                    <Icon name="download" className="mr-1 h-3 w-3" />
-                    Descargar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleGenerate("clinical_report", "Informe clínico")}
-                    disabled={isAnalyzing || !canGenerateTemplate(clinicalTemplate).can}
-                    title={canGenerateTemplate(clinicalTemplate).reason}
-                  >
-                    <Icon name="restart_alt" className="h-3 w-3 mr-1" />
-                    Regenerar
-                  </Button>
-                </div>
-              </div>
-              <DocumentSectionsEditor
-                doc={clinicalDoc}
-                template={clinicalTemplate}
-                isSaving={aiDocs.isSavingEdit}
-                onSave={(sections) =>
-                  aiDocs.saveEdit(clinicalDoc.id, sections, clinicalTemplate?.sections ?? clinicalDoc.document_type.sections)
-                }
-              />
-            </div>
-          )}
-
-          {/* Informe paciente */}
-          {patientDoc && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="person" className="h-4 w-4 text-primary" />
-                  Informe de sesión para el contacto
-                  {sessionId && (
-                    <Badge variant="outline" className="text-xs text-green-600">
-                      Guardado en sesión
-                    </Badge>
-                  )}
-                </h3>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => downloadTxt(effectiveMarkdown(patientDoc), `${filePrefix}_informe_paciente.txt`)}
-                  >
-                    <Icon name="download" className="mr-1 h-3 w-3" />
-                    Descargar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleGenerate("patient_report", "Informe para el paciente")}
-                    disabled={isAnalyzing || !canGenerateTemplate(patientTemplate).can}
-                    title={canGenerateTemplate(patientTemplate).reason}
-                  >
-                    <Icon name="restart_alt" className="h-3 w-3 mr-1" />
-                    Regenerar
-                  </Button>
-                </div>
-              </div>
-              <DocumentSectionsEditor
-                doc={patientDoc}
-                template={patientTemplate}
-                isSaving={aiDocs.isSavingEdit}
-                onSave={(sections) =>
-                  aiDocs.saveEdit(patientDoc.id, sections, patientTemplate?.sections ?? patientDoc.document_type.sections)
-                }
-              />
-              <div className="flex flex-wrap gap-2">
-                {patientPhone && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => sendPatientReport("whatsapp", effectiveMarkdown(patientDoc))}
-                    disabled={isSending || consent.isLoading || !!consent.whatsappBlockReason}
-                    title={consent.whatsappBlockReason || undefined}
-                  >
-                    {isSending ? (
-                      <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <Icon name="chat" className="h-4 w-4 mr-1" />
+          {generatedReports.length > 0 && (
+            <Tabs value={activeReportTab} onValueChange={setActiveReportTab} className="space-y-3">
+              <TabsList className="w-full justify-start overflow-x-auto">
+                {generatedReports.map(({ key, template }) => (
+                  <TabsTrigger key={key} value={key} className="shrink-0">
+                    {template?.label ?? key}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {generatedReports.map(({ key, doc, template }) => {
+                // `key` viene de `doc.document_type.key` (garantizado), no de la búsqueda de
+                // plantilla — que puede fallar a `undefined`. Nunca se debe decidir aquí en
+                // base a `template?.key`: es el único documento que se envía tal cual al
+                // paciente (WhatsApp/email), así que el gate de negrita/resaltado no puede
+                // depender de un valor que podría faltar.
+                const isPatientReport = key === "patient_report";
+                return (
+                  <TabsContent key={key} value={key} className="space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <Icon name={isPatientReport ? "person" : key === "clinical_report" ? "stethoscope" : "description"} className="h-4 w-4 text-primary" />
+                        {template?.label ?? key}
+                        {sessionId && <Badge variant="outline" className="text-xs text-green-600">Guardado en sesión</Badge>}
+                      </h3>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => downloadTxt(effectiveMarkdown(doc), `${filePrefix}_${key}.txt`)}>
+                          <Icon name="download" className="mr-1 h-3 w-3" /> Descargar
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleGenerate(key, template?.label ?? key)} disabled={isAnalyzing || !canGenerateTemplate(template).can} title={canGenerateTemplate(template).reason}>
+                          <Icon name="restart_alt" className="mr-1 h-3 w-3" /> Regenerar
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteDocument(doc)} disabled={aiDocs.isDeleting} title="Eliminar informe">
+                          <Icon name="delete" className="mr-1 h-3 w-3" /> Eliminar
+                        </Button>
+                      </div>
+                    </div>
+                    <CombinedDocumentEditor
+                      doc={doc}
+                      template={template}
+                      isSaving={aiDocs.isSavingEdit}
+                      allowFormatting={!isPatientReport}
+                      onSave={(sections) => aiDocs.saveEdit(doc.id, sections, template?.sections ?? doc.document_type.sections)}
+                    />
+                    {isPatientReport && (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {patientPhone && <Button size="sm" variant="outline" onClick={() => sendPatientReport("whatsapp", effectiveMarkdown(doc))} disabled={isSending || consent.isLoading || !!consent.whatsappBlockReason} title={consent.whatsappBlockReason || undefined}><Icon name={isSending ? "progress_activity" : "chat"} className={cn("h-4 w-4 mr-1", isSending && "animate-spin")} /> Enviar por WhatsApp</Button>}
+                          {patientEmail && <Button size="sm" variant="outline" onClick={() => sendPatientReport("email", effectiveMarkdown(doc))} disabled={isSending || consent.isLoading || !!consent.emailBlockReason} title={consent.emailBlockReason || undefined}><Icon name={isSending ? "progress_activity" : "mail"} className={cn("h-4 w-4 mr-1", isSending && "animate-spin")} /> Enviar por email</Button>}
+                        </div>
+                        {(consent.whatsappBlockReason || consent.emailBlockReason) && <div className="space-y-1">{consent.whatsappBlockReason && <p className="text-xs text-muted-foreground"><Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />{consent.whatsappBlockReason}</p>}{consent.emailBlockReason && <p className="text-xs text-muted-foreground"><Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />{consent.emailBlockReason}</p>}</div>}
+                      </>
                     )}
-                    Enviar por WhatsApp
-                  </Button>
-                )}
-                {patientEmail && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => sendPatientReport("email", effectiveMarkdown(patientDoc))}
-                    disabled={isSending || consent.isLoading || !!consent.emailBlockReason}
-                    title={consent.emailBlockReason || undefined}
-                  >
-                    {isSending ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="mail" className="h-4 w-4 mr-1" />}
-                    Enviar por email
-                  </Button>
-                )}
-              </div>
-              {(consent.whatsappBlockReason || consent.emailBlockReason) && (
-                <div className="space-y-1">
-                  {consent.whatsappBlockReason && (
-                    <p className="text-xs text-muted-foreground">
-                      <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
-                      {consent.whatsappBlockReason}
-                    </p>
-                  )}
-                  {consent.emailBlockReason && (
-                    <p className="text-xs text-muted-foreground">
-                      <Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />
-                      {consent.emailBlockReason}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           )}
 
-          {/* Otros documentos disponibles (nota SOAP, anamnesis, tareas...) */}
-          {otherTemplates.length > 0 && (
+          {/* Otros documentos pendientes de generar */}
+          {availableOtherTemplates.length > 0 && (
             <>
               <Separator />
               <div className="space-y-2">
-                <h3 className="flex items-center gap-2 text-sm font-semibold">
-                  <Icon name="library_books" className="h-4 w-4 text-muted-foreground" />
-                  Otros documentos
-                </h3>
-                {otherTemplates.map((template) => {
-                  const doc = aiDocs.documentsByKey.get(template.key);
+                <h3 className="flex items-center gap-2 text-sm font-semibold"><Icon name="library_books" className="h-4 w-4 text-muted-foreground" />Otros documentos</h3>
+                {availableOtherTemplates.map((template) => {
                   const gate = canGenerateTemplate(template);
-                  return (
-                    <Collapsible key={template.key}>
-                      <div className="rounded-lg border p-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-medium">{template.label}</p>
-                            {template.description && (
-                              <p className="text-xs text-muted-foreground">{template.description}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            {doc && (
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <Icon name="expand_more" className="h-3 w-3 mr-1" />
-                                  Ver
-                                </Button>
-                              </CollapsibleTrigger>
-                            )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={generatingKey !== null || !gate.can || !!consent.generateBlockReason}
-                              title={gate.reason}
-                              onClick={() => handleGenerate(template.key, template.label)}
-                            >
-                              {generatingKey === template.key ? (
-                                <Icon name="progress_activity" className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
-                                <Icon name={doc ? "restart_alt" : "auto_awesome"} className="h-3 w-3 mr-1" />
-                              )}
-                              {doc ? "Regenerar" : "Generar"}
-                            </Button>
-                          </div>
-                        </div>
-                        {doc && (
-                          <CollapsibleContent className="pt-1">
-                            <DocumentSectionsEditor
-                              doc={doc}
-                              template={template}
-                              isSaving={aiDocs.isSavingEdit}
-                              onSave={(sections) => aiDocs.saveEdit(doc.id, sections, template.sections)}
-                            />
-                          </CollapsibleContent>
-                        )}
-                      </div>
-                    </Collapsible>
-                  );
+                  return <div key={template.key} className="flex items-center justify-between gap-2 rounded-lg border p-3"><div><p className="text-sm font-medium">{template.label}</p>{template.description && <p className="text-xs text-muted-foreground">{template.description}</p>}</div><Button variant="outline" size="sm" disabled={generatingKey !== null || !gate.can || !!consent.generateBlockReason} title={gate.reason} onClick={() => handleGenerate(template.key, template.label)}><Icon name={generatingKey === template.key ? "progress_activity" : "auto_awesome"} className={cn("h-3 w-3 mr-1", generatingKey === template.key && "animate-spin")} />Generar</Button></div>;
                 })}
               </div>
             </>
@@ -920,138 +859,80 @@ function StepBadge({ n, done, active, label }: { n: number; done: boolean; activ
   );
 }
 
-/**
- * Editor por secciones de un documento generado. Si el documento no encaja con las
- * secciones declaradas por su plantilla (caso de los documentos heredados del backfill,
- * cuyo `content_sections` es `{"legacy": "..."}`), se muestra el markdown vigente en modo
- * lectura en vez de intentar repartirlo entre secciones que no existen — forzar ese reparto
- * perdería contenido en vez de solo mostrarlo distinto.
- */
-function DocumentSectionsEditor({
+/** Editor combinado de la pestaña: mantiene los encabezados para poder reconstruir secciones. */
+function CombinedDocumentEditor({
   doc,
   template,
   onSave,
   isSaving,
+  allowFormatting,
 }: {
   doc: AiGeneratedDocumentWithType;
   template: AiDocumentType | undefined;
   onSave: (sections: Record<string, string>) => void;
   isSaving: boolean;
+  allowFormatting: boolean;
 }) {
   const templateSections = useMemo(
     () => parseSections(template?.sections ?? doc.document_type.sections),
     [template, doc.document_type.sections],
   );
   const initialValues = useMemo(() => effectiveSections(doc), [doc]);
-  const [values, setValues] = useState<Record<string, string>>(initialValues);
-  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const initialText = useMemo(
+    () => buildCombinedEditableText(templateSections, initialValues),
+    [templateSections, initialValues],
+  );
+  const [text, setText] = useState(initialText);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => {
-    setValues(effectiveSections(doc));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc.id, doc.edited_sections, doc.content_sections]);
+  useEffect(() => setText(initialText), [initialText, doc.id, doc.edited_sections, doc.content_sections]);
 
   const hasKnownContent = templateSections.some((section) => (initialValues[section.key] ?? "").trim());
-
   if (templateSections.length === 0 || !hasKnownContent) {
-    return (
-      <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-        {effectiveMarkdown(doc) || "Sin contenido."}
-      </div>
-    );
+    return <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">{effectiveMarkdown(doc) || "Sin contenido."}</div>;
   }
 
-  const dirty = templateSections.some((section) => (values[section.key] ?? "") !== (initialValues[section.key] ?? ""));
-
-  const applyFormatting = (sectionKey: string, delimiter: "**" | "==") => {
-    const textarea = textareaRefs.current[sectionKey];
+  const applyFormatting = (delimiter: "**" | "==") => {
+    const textarea = textareaRef.current;
     if (!textarea) return;
-
-    const value = values[sectionKey] ?? "";
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selectedText = value.slice(start, end);
+    const selectedText = text.slice(start, end);
     const replacement = `${delimiter}${selectedText}${delimiter}`;
-    const nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
-    setValues((current) => ({ ...current, [sectionKey]: nextValue }));
-
-    const nextSelectionStart = selectedText ? start : start + delimiter.length;
-    const nextSelectionEnd = selectedText ? start + replacement.length : nextSelectionStart;
+    setText(`${text.slice(0, start)}${replacement}${text.slice(end)}`);
+    const nextStart = selectedText ? start : start + delimiter.length;
+    const nextEnd = selectedText ? start + replacement.length : nextStart;
     requestAnimationFrame(() => {
       textarea.focus();
-      textarea.setSelectionRange(nextSelectionStart, nextSelectionEnd);
+      textarea.setSelectionRange(nextStart, nextEnd);
     });
   };
 
   return (
     <div className="space-y-3">
-      {templateSections.map((section) => (
-        <div key={section.key} className="space-y-1">
-          <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            {section.label}
-            {section.shareable && (
-              <Badge variant="outline" className="text-[10px]">
-                Compartible
-              </Badge>
-            )}
-          </label>
-          {section.shareable ? (
-            <Textarea
-              value={values[section.key] ?? ""}
-              onChange={(e) => setValues((v) => ({ ...v, [section.key]: e.target.value }))}
-              className="min-h-[80px] text-sm"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <>
-              <div className="flex items-center gap-1" aria-label="Formato de texto interno">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => applyFormatting(section.key, "**")}
-                >
-                  <strong>B</strong>
-                  <span className="sr-only">Bold</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => applyFormatting(section.key, "==")}
-                >
-                  <mark className="bg-yellow-200/70 px-0.5 dark:bg-yellow-500/30">H</mark>
-                  <span className="sr-only">Highlight</span>
-                </Button>
-              </div>
-              <Textarea
-                ref={(element) => {
-                  textareaRefs.current[section.key] = element;
-                }}
-                value={values[section.key] ?? ""}
-                onChange={(e) => setValues((v) => ({ ...v, [section.key]: e.target.value }))}
-                className="min-h-[80px] text-sm"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              />
-              <div className="rounded-md border border-yellow-200/70 bg-yellow-50/60 p-3 text-sm dark:border-yellow-500/20 dark:bg-yellow-500/5">
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Vista previa</p>
-                <div className="whitespace-pre-wrap">{renderEditableMarkdown(values[section.key] ?? "")}</div>
-              </div>
-            </>
-          )}
+      {allowFormatting && (
+        <div className="flex items-center gap-1" aria-label="Formato de texto interno">
+          <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => applyFormatting("**")}><strong>B</strong><span className="sr-only">Negrita</span></Button>
+          <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => applyFormatting("==")}><mark className="bg-yellow-200/70 px-0.5 dark:bg-yellow-500/30">H</mark><span className="sr-only">Resaltado</span></Button>
         </div>
-      ))}
-      {dirty && (
-        <Button size="sm" onClick={() => onSave(values)} disabled={isSaving}>
-          {isSaving ? (
-            <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
-          ) : (
-            <Icon name="save" className="h-4 w-4 mr-1" />
-          )}
+      )}
+      <Textarea
+        ref={textareaRef}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        className="min-h-[300px] text-sm"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
+      />
+      {allowFormatting && (
+        <div className="rounded-md border border-yellow-200/70 bg-yellow-50/60 p-3 text-sm dark:border-yellow-500/20 dark:bg-yellow-500/5">
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Vista previa</p>
+          <div className="whitespace-pre-wrap">{renderEditableMarkdown(text)}</div>
+        </div>
+      )}
+      {text !== initialText && (
+        <Button size="sm" onClick={() => onSave(splitCombinedEditableText(templateSections, text))} disabled={isSaving}>
+          {isSaving ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="save" className="h-4 w-4 mr-1" />}
           Guardar cambios
         </Button>
       )}

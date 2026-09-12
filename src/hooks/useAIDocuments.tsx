@@ -218,6 +218,41 @@ export function useSessionPlaudTranscriptAvailability(sessionId: string | undefi
   });
 }
 
+export interface SessionTranscriptAvailability {
+  available: boolean;
+  expiresAt: string | null;
+  transcriptId: string | null;
+}
+
+const NO_TRANSCRIPT_AVAILABILITY: SessionTranscriptAvailability = {
+  available: false,
+  expiresAt: null,
+  transcriptId: null,
+};
+
+/** Comprueba si queda una transcripción normalizada vigente del pipeline de audio de la sesión. */
+export function useSessionTranscriptAvailability(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: [AI_DOCUMENTS_KEY, 'transcript-availability', sessionId],
+    queryFn: async (): Promise<SessionTranscriptAvailability> => {
+      const { data, error } = await supabase
+        .from('transcripts')
+        .select('id, expires_at')
+        .eq('session_id', sessionId)
+        .is('deleted_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data
+        ? { available: true, expiresAt: data.expires_at, transcriptId: data.id }
+        : NO_TRANSCRIPT_AVAILABILITY;
+    },
+    enabled: !!sessionId,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Documentos ya generados
 // ---------------------------------------------------------------------------
@@ -465,6 +500,21 @@ export function useSaveAiDocumentEdit() {
   });
 }
 
+/** Borra manualmente un documento generado por IA. */
+export function useDeleteAiDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (documentId: string) => {
+      const { error } = await aiDb.from('ai_generated_documents').delete().eq('id', documentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [AI_DOCUMENTS_KEY] });
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Hook compuesto — el que consumen los diálogos/paneles
 // ---------------------------------------------------------------------------
@@ -496,6 +546,7 @@ export function useAIDocuments(options: UseAIDocumentsOptions = {}) {
   const defaultsQuery = useAiDocumentDefaults(enabled ? centerId : undefined);
   const generateMutation = useGenerateAiDocument();
   const saveEditMutation = useSaveAiDocumentEdit();
+  const deleteDocumentMutation = useDeleteAiDocument();
 
   const templates = templatesQuery.data ?? [];
   const defaults = defaultsQuery.data ?? [];
@@ -539,6 +590,8 @@ export function useAIDocuments(options: UseAIDocumentsOptions = {}) {
     isGenerating: generateMutation.isPending,
     saveEdit,
     isSavingEdit: saveEditMutation.isPending,
+    deleteDocument: (documentId: string) => deleteDocumentMutation.mutateAsync(documentId),
+    isDeleting: deleteDocumentMutation.isPending,
     // "Generar automáticamente" (CONTRACT-2 §3.1).
     professionalDefault,
     patientDefault,
