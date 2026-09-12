@@ -20,7 +20,7 @@ import { uploadAndTranscribeAudio } from "@/lib/audio-ingestion";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Icon } from '@/components/ui/icon';
-import { parseSections, effectiveSections, effectiveMarkdown } from "@/lib/ai-documents";
+import { parseSections, effectiveSections, effectiveMarkdown, renderEditableMarkdown } from "@/lib/ai-documents";
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
 
 /**
@@ -944,6 +944,7 @@ function DocumentSectionsEditor({
   );
   const initialValues = useMemo(() => effectiveSections(doc), [doc]);
   const [values, setValues] = useState<Record<string, string>>(initialValues);
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   useEffect(() => {
     setValues(effectiveSections(doc));
@@ -962,6 +963,26 @@ function DocumentSectionsEditor({
 
   const dirty = templateSections.some((section) => (values[section.key] ?? "") !== (initialValues[section.key] ?? ""));
 
+  const applyFormatting = (sectionKey: string, delimiter: "**" | "==") => {
+    const textarea = textareaRefs.current[sectionKey];
+    if (!textarea) return;
+
+    const value = values[sectionKey] ?? "";
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.slice(start, end);
+    const replacement = `${delimiter}${selectedText}${delimiter}`;
+    const nextValue = `${value.slice(0, start)}${replacement}${value.slice(end)}`;
+    setValues((current) => ({ ...current, [sectionKey]: nextValue }));
+
+    const nextSelectionStart = selectedText ? start : start + delimiter.length;
+    const nextSelectionEnd = selectedText ? start + replacement.length : nextSelectionStart;
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextSelectionStart, nextSelectionEnd);
+    });
+  };
+
   return (
     <div className="space-y-3">
       {templateSections.map((section) => (
@@ -974,13 +995,54 @@ function DocumentSectionsEditor({
               </Badge>
             )}
           </label>
-          <Textarea
-            value={values[section.key] ?? ""}
-            onChange={(e) => setValues((v) => ({ ...v, [section.key]: e.target.value }))}
-            className="min-h-[80px] text-sm"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          />
+          {section.shareable ? (
+            <Textarea
+              value={values[section.key] ?? ""}
+              onChange={(e) => setValues((v) => ({ ...v, [section.key]: e.target.value }))}
+              className="min-h-[80px] text-sm"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <>
+              <div className="flex items-center gap-1" aria-label="Formato de texto interno">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => applyFormatting(section.key, "**")}
+                >
+                  <strong>B</strong>
+                  <span className="sr-only">Bold</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => applyFormatting(section.key, "==")}
+                >
+                  <mark className="bg-yellow-200/70 px-0.5 dark:bg-yellow-500/30">H</mark>
+                  <span className="sr-only">Highlight</span>
+                </Button>
+              </div>
+              <Textarea
+                ref={(element) => {
+                  textareaRefs.current[section.key] = element;
+                }}
+                value={values[section.key] ?? ""}
+                onChange={(e) => setValues((v) => ({ ...v, [section.key]: e.target.value }))}
+                className="min-h-[80px] text-sm"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              />
+              <div className="rounded-md border border-yellow-200/70 bg-yellow-50/60 p-3 text-sm dark:border-yellow-500/20 dark:bg-yellow-500/5">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Vista previa</p>
+                <div className="whitespace-pre-wrap">{renderEditableMarkdown(values[section.key] ?? "")}</div>
+              </div>
+            </>
+          )}
         </div>
       ))}
       {dirty && (

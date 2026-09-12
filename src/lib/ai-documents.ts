@@ -1,3 +1,4 @@
+import { createElement, type ReactNode } from 'react';
 import type { AiDocumentSection } from '@/types/ai-documents';
 
 /**
@@ -52,6 +53,53 @@ export function renderShareableMarkdown(
   content: Record<string, string>,
 ): string {
   return renderMarkdown(sections.filter((s) => s.shareable), content);
+}
+
+/**
+ * Renderiza el subconjunto de formato permitido en la edición interna del profesional.
+ * No forma parte del render canónico: las secciones compartibles siguen siendo texto literal.
+ */
+export function renderEditableMarkdown(text: string): ReactNode[] {
+  const renderRange = (value: string, keyPrefix: string): ReactNode[] => {
+    const nodes: ReactNode[] = [];
+    let cursor = 0;
+    let nodeIndex = 0;
+
+    while (cursor < value.length) {
+      const openingMatch = /(\*\*|==)/.exec(value.slice(cursor));
+      if (!openingMatch || openingMatch.index === undefined) {
+        nodes.push(value.slice(cursor));
+        break;
+      }
+
+      const openingStart = cursor + openingMatch.index;
+      const delimiter = openingMatch[0];
+      const closingStart = value.indexOf(delimiter, openingStart + delimiter.length);
+      if (closingStart === -1) {
+        nodes.push(value.slice(cursor));
+        break;
+      }
+
+      if (openingStart > cursor) nodes.push(value.slice(cursor, openingStart));
+
+      const inner = value.slice(openingStart + delimiter.length, closingStart);
+      const key = `${keyPrefix}-${nodeIndex++}`;
+      nodes.push(
+        delimiter === '**'
+          ? createElement('strong', { key }, renderRange(inner, key))
+          : createElement(
+              'mark',
+              { key, className: 'bg-yellow-200/70 dark:bg-yellow-500/30' },
+              renderRange(inner, key),
+            ),
+      );
+      cursor = closingStart + delimiter.length;
+    }
+
+    return nodes;
+  };
+
+  return renderRange(text, 'formatted');
 }
 
 /** Keys obligatorias que faltan o llegan vacías. Vacío = la respuesta es válida. */
