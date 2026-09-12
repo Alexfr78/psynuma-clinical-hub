@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
@@ -80,7 +81,7 @@ export function TranscriptionAnalysisDialog({
   // las predeterminadas de cada destinatario en un clic; personalizada deja elegir plantilla
   // y modelo. Reprocesar una sesión que ya tiene documentos es el mismo modo personalizado.
   const [generationMode, setGenerationMode] = useState<"auto" | "custom">("auto");
-  const [customTemplateKey, setCustomTemplateKey] = useState<string>("");
+  const [selectedTemplateKeys, setSelectedTemplateKeys] = useState<string[]>([]);
   const [customModel, setCustomModel] = useState<string>(AUTO_MODEL_VALUE);
   const [customModelText, setCustomModelText] = useState<string>("");
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
@@ -129,19 +130,23 @@ export function TranscriptionAnalysisDialog({
   // `patient_report` — reprocesar una sesión con otra plantilla, o con la misma pero otro
   // modelo, es este mismo modo (CONTRACT-2 §3.1), no uno aparte.
   const customTemplates = aiDocs.templates.filter((t) => t.audience !== "internal");
-  const selectedCustomTemplate = customTemplates.find((t) => t.key === customTemplateKey);
+  const selectedCustomTemplates = customTemplates.filter((t) => selectedTemplateKeys.includes(t.key));
 
   // Modelos ofrecidos: los del proveedor configurado en el centro (CONTRACT-2 §2.1).
   const modelOptions = modelOptionsForProvider(center?.ai_provider);
 
-  // Selecciona una plantilla por defecto en el desplegable de "Generar personalizada" en
-  // cuanto el catálogo está disponible, priorizando el informe clínico por ser el punto de
-  // partida más habitual.
+  // Marca el informe clínico por defecto en cuanto el catálogo está disponible, por ser el
+  // punto de partida más habitual — el profesional puede marcar también el de paciente, o
+  // cambiarlo por completo, antes de generar.
   useEffect(() => {
-    if (customTemplateKey || customTemplates.length === 0) return;
-    setCustomTemplateKey(clinicalTemplate?.key ?? customTemplates[0].key);
+    if (selectedTemplateKeys.length > 0 || customTemplates.length === 0) return;
+    setSelectedTemplateKeys([clinicalTemplate?.key ?? customTemplates[0].key]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customTemplates.length]);
+
+  const toggleTemplateSelection = (key: string, checked: boolean) => {
+    setSelectedTemplateKeys((prev) => (checked ? [...prev, key] : prev.filter((k) => k !== key)));
+  };
 
   const hasTranscription = transcription.trim().length >= MIN_TRANSCRIPTION_LENGTH;
 
@@ -213,11 +218,18 @@ export function TranscriptionAnalysisDialog({
     }
   };
 
-  /** "Generar personalizada": la plantilla y el modelo elegidos. También cubre reprocesar. */
+  /**
+   * "Generar personalizada": las plantillas marcadas (una, varias, o todas) con el modelo
+   * elegido. Se generan de una en una, en el orden en que aparecen en el catálogo, para que
+   * el indicador de progreso (`generatingKey`) siga reflejando cuál se está generando ahora
+   * mismo — igual que ya hacía "Generar automáticamente" con el par clínico/paciente.
+   */
   const handleCustomGenerate = async () => {
-    if (!selectedCustomTemplate) return;
+    if (selectedCustomTemplates.length === 0) return;
     const model = customModel === CUSTOM_MODEL_VALUE ? customModelText.trim() : customModel;
-    await handleGenerate(selectedCustomTemplate.key, selectedCustomTemplate.label, model);
+    for (const template of selectedCustomTemplates) {
+      await handleGenerate(template.key, template.label, model);
+    }
   };
 
   const handleReset = () => {
@@ -226,6 +238,7 @@ export function TranscriptionAnalysisDialog({
     setGenerationMode("auto");
     setCustomModel(AUTO_MODEL_VALUE);
     setCustomModelText("");
+    setSelectedTemplateKeys([]);
     setGeneratingKey(null);
   };
 
@@ -544,20 +557,29 @@ export function TranscriptionAnalysisDialog({
                   {generationMode === "custom" && (
                     <div className="grid gap-3 pl-6 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">Plantilla</label>
-                        <Select value={customTemplateKey} onValueChange={setCustomTemplateKey}>
-                          <SelectTrigger onClick={(e) => e.stopPropagation()}>
-                            <SelectValue placeholder="Elige una plantilla" />
-                          </SelectTrigger>
-                          <SelectContent className="z-[10000]">
-                            {customTemplates.map((template) => (
-                              <SelectItem key={template.key} value={template.key}>
+                        <label className="text-xs font-medium text-muted-foreground">
+                          Documentos a generar
+                        </label>
+                        <div
+                          className="space-y-1.5 rounded-md border p-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {customTemplates.map((template) => (
+                            <label
+                              key={template.key}
+                              className="flex items-center gap-2 text-sm cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={selectedTemplateKeys.includes(template.key)}
+                                onCheckedChange={(checked) => toggleTemplateSelection(template.key, checked === true)}
+                              />
+                              <span>
                                 {template.label}
                                 {aiDocs.documentsByKey.get(template.key) ? " (ya generado)" : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Modelo de IA</label>
@@ -633,13 +655,13 @@ export function TranscriptionAnalysisDialog({
                   onClick={handleCustomGenerate}
                   disabled={
                     isTranscribing ||
-                    !selectedCustomTemplate ||
-                    !canGenerateTemplate(selectedCustomTemplate).can ||
+                    selectedCustomTemplates.length === 0 ||
+                    !canGenerateTemplate(selectedCustomTemplates[0]).can ||
                     (customModel === CUSTOM_MODEL_VALUE && !customModelText.trim()) ||
                     consent.isLoading ||
                     !!consent.generateBlockReason
                   }
-                  title={selectedCustomTemplate ? canGenerateTemplate(selectedCustomTemplate).reason : undefined}
+                  title={selectedCustomTemplates[0] ? canGenerateTemplate(selectedCustomTemplates[0]).reason : undefined}
                   className="w-full"
                 >
                   {consent.isLoading ? (
@@ -647,12 +669,23 @@ export function TranscriptionAnalysisDialog({
                       <Icon name="progress_activity" className="h-4 w-4 mr-2 animate-spin" />
                       Comprobando consentimiento...
                     </>
+                  ) : selectedCustomTemplates.length === 0 ? (
+                    <>
+                      <Icon name="auto_awesome" className="h-4 w-4 mr-2" />
+                      Elige al menos un documento
+                    </>
+                  ) : selectedCustomTemplates.length === 1 ? (
+                    <>
+                      <Icon
+                        name={aiDocs.documentsByKey.get(selectedCustomTemplates[0].key) ? "restart_alt" : "auto_awesome"}
+                        className="h-4 w-4 mr-2"
+                      />
+                      {aiDocs.documentsByKey.get(selectedCustomTemplates[0].key) ? "Reprocesar" : "Generar"}: {selectedCustomTemplates[0].label}
+                    </>
                   ) : (
                     <>
-                      <Icon name={aiDocs.documentsByKey.get(customTemplateKey) ? "restart_alt" : "auto_awesome"} className="h-4 w-4 mr-2" />
-                      {aiDocs.documentsByKey.get(customTemplateKey)
-                        ? `Reprocesar: ${selectedCustomTemplate?.label ?? ""}`
-                        : `Generar: ${selectedCustomTemplate?.label ?? ""}`}
+                      <Icon name="auto_awesome" className="h-4 w-4 mr-2" />
+                      Generar {selectedCustomTemplates.length} documentos
                     </>
                   )}
                 </Button>
