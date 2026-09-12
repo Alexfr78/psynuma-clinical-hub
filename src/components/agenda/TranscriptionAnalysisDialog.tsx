@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
@@ -22,13 +23,17 @@ import { parseSections, effectiveSections, effectiveMarkdown } from "@/lib/ai-do
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
 
 /**
- * Modelos ofrecidos en el selector de "Generar personalizada" (CONTRACT-2 §2.1), calcado del
- * catálogo de `AISettingsSection.tsx` para el proveedor activo del centro. No incluye la
- * opción de modelo personalizado de Ajustes: aquí basta con "Automático" + el catálogo, ya
- * que un modelo realmente exótico se configura como predeterminado de la plantilla, no aquí.
+ * Modelos ofrecidos en el selector de "Generar personalizada" (CONTRACT-2 §2.1): el catálogo
+ * compartido de `@/lib/ai-models` para el proveedor activo del centro, más "Automático" y
+ * "Modelo personalizado..." (mismo patrón que `AISettingsSection.tsx` y
+ * `AIDocumentTemplatesSection.tsx`) — el catálogo fijo siempre va por detrás de los modelos
+ * que publican los proveedores, así que hace falta la vía de escape para poder probar uno
+ * nuevo aquí mismo sin esperar a que se añada a la lista.
  */
 /** Valor del `<Select>` de modelo cuando se deja en automático (no se manda `model` al servidor). */
 const AUTO_MODEL_VALUE = "auto";
+/** Valor del `<Select>` de modelo que activa el campo de texto libre. */
+const CUSTOM_MODEL_VALUE = "custom";
 
 interface TranscriptionAnalysisDialogProps {
   open: boolean;
@@ -77,6 +82,7 @@ export function TranscriptionAnalysisDialog({
   const [generationMode, setGenerationMode] = useState<"auto" | "custom">("auto");
   const [customTemplateKey, setCustomTemplateKey] = useState<string>("");
   const [customModel, setCustomModel] = useState<string>(AUTO_MODEL_VALUE);
+  const [customModelText, setCustomModelText] = useState<string>("");
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -210,7 +216,8 @@ export function TranscriptionAnalysisDialog({
   /** "Generar personalizada": la plantilla y el modelo elegidos. También cubre reprocesar. */
   const handleCustomGenerate = async () => {
     if (!selectedCustomTemplate) return;
-    await handleGenerate(selectedCustomTemplate.key, selectedCustomTemplate.label, customModel);
+    const model = customModel === CUSTOM_MODEL_VALUE ? customModelText.trim() : customModel;
+    await handleGenerate(selectedCustomTemplate.key, selectedCustomTemplate.label, model);
   };
 
   const handleReset = () => {
@@ -218,6 +225,7 @@ export function TranscriptionAnalysisDialog({
     setAudioFileName(null);
     setGenerationMode("auto");
     setCustomModel(AUTO_MODEL_VALUE);
+    setCustomModelText("");
     setGeneratingKey(null);
   };
 
@@ -553,7 +561,13 @@ export function TranscriptionAnalysisDialog({
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Modelo de IA</label>
-                        <Select value={customModel} onValueChange={setCustomModel}>
+                        <Select
+                          value={customModel}
+                          onValueChange={(v) => {
+                            setCustomModel(v);
+                            if (v !== CUSTOM_MODEL_VALUE) setCustomModelText("");
+                          }}
+                        >
                           <SelectTrigger onClick={(e) => e.stopPropagation()}>
                             <SelectValue />
                           </SelectTrigger>
@@ -564,8 +578,18 @@ export function TranscriptionAnalysisDialog({
                                 {option.label}
                               </SelectItem>
                             ))}
+                            <SelectItem value={CUSTOM_MODEL_VALUE}>Modelo personalizado...</SelectItem>
                           </SelectContent>
                         </Select>
+                        {customModel === CUSTOM_MODEL_VALUE && (
+                          <Input
+                            value={customModelText}
+                            onChange={(e) => setCustomModelText(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="Nombre del modelo (ej: gpt-5.4)"
+                            className="mt-1"
+                          />
+                        )}
                       </div>
                     </div>
                   )}
@@ -611,6 +635,7 @@ export function TranscriptionAnalysisDialog({
                     isTranscribing ||
                     !selectedCustomTemplate ||
                     !canGenerateTemplate(selectedCustomTemplate).can ||
+                    (customModel === CUSTOM_MODEL_VALUE && !customModelText.trim()) ||
                     consent.isLoading ||
                     !!consent.generateBlockReason
                   }
