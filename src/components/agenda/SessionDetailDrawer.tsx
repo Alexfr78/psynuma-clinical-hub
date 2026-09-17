@@ -1059,6 +1059,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     paymentLinkRequestRef.current = requestId;
     setIsGeneratingPaymentLink(true);
     try {
+      // Validate Stripe is actually configured before handing out a link.
       const checkoutUrl = await createStripeCheckout(requestedSessionId);
 
       const isCurrentRequest =
@@ -1066,8 +1067,21 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         activeSessionIdRef.current === requestedSessionId;
 
       if (checkoutUrl && isCurrentRequest) {
-        setPaymentLink({ sessionId: requestedSessionId, url: checkoutUrl });
-        await navigator.clipboard.writeText(checkoutUrl);
+        // Don't expose Stripe's long Checkout URL (it also expires in 24h).
+        // Share the short public link instead; it starts a fresh Checkout
+        // session when the contact opens it.
+        let linkToShare = checkoutUrl;
+        if (session.access_token) {
+          const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
+            'create-public-session-short-link',
+            { body: { session_id: requestedSessionId, target_type: 'session_payment' } },
+          );
+          if (!shortLinkError && shortLinkData?.path) {
+            linkToShare = buildPublicUrl(shortLinkData.path);
+          }
+        }
+        setPaymentLink({ sessionId: requestedSessionId, url: linkToShare });
+        await navigator.clipboard.writeText(linkToShare);
         toast({ title: 'Link de pago generado y copiado al portapapeles' });
       }
     } catch (error) {

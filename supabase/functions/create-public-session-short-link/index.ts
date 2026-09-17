@@ -28,8 +28,12 @@ Deno.serve(async (req) => {
     const { data: authData, error: authError } = await userClient.auth.getUser();
     if (authError || !authData.user) return json({ error: "Invalid authentication" }, 401);
 
-    const { session_id: sessionId } = await req.json() as { session_id?: string };
+    const { session_id: sessionId, target_type: rawTargetType } = await req.json() as {
+      session_id?: string;
+      target_type?: string;
+    };
     if (!sessionId) return json({ error: "session_id es requerido" }, 400);
+    const targetType = rawTargetType === "session_payment" ? "session_payment" : "session";
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL") || "",
@@ -57,7 +61,7 @@ Deno.serve(async (req) => {
     const path = await getOrCreatePublicShortLink({
       supabase: serviceClient,
       centerId: session.center_id,
-      targetType: "session",
+      targetType,
       targetToken: session.access_token,
       expiresAt: null,
     });
