@@ -229,6 +229,79 @@ export default function Auth() {
     }
   };
 
+  if (showForgotPassword) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
+        <div className="mb-8 flex flex-col items-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl gradient-clinical shadow-clinical">
+            <Icon name="psychology" className="h-9 w-9 text-primary-foreground" />
+          </div>
+          <h1 className="font-display text-3xl font-bold text-foreground">Psycma</h1>
+          <p className="mt-1 text-muted-foreground">Gestión Clínica Profesional</p>
+        </div>
+
+        <Card className="w-full max-w-md shadow-card">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Icon name="lock_reset" className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle>Restablecer contraseña</CardTitle>
+            <CardDescription>
+              Introduce tu email y te enviaremos un enlace para crear una nueva contraseña
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">Email</Label>
+                <div className="relative">
+                  <Icon name="mail" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="tu@email.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="pl-10"
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.resetEmail && (
+                  <p className="flex items-center gap-1 text-sm text-destructive">
+                    <Icon name="error" className="h-3 w-3" />
+                    {errors.resetEmail}
+                  </p>
+                )}
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  'Enviar enlace de recuperación'
+                )}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setErrors({});
+                }}
+                className="w-full text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Volver a iniciar sesión
+              </button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (needsMfaVerification) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
