@@ -363,6 +363,18 @@ export default function Auth() {
                     'Iniciar Sesión'
                   )}
                 </Button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(true);
+                    setResetEmail(loginEmail);
+                    setErrors({});
+                  }}
+                  className="w-full text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  ¿Has olvidado tu contraseña?
+                </button>
               </form>
             </TabsContent>
 
