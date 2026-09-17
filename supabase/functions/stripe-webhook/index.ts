@@ -743,6 +743,11 @@ async function handleSessionCheckout(
     throw new Error('Failed to load invoice automation settings');
   }
 
+  // Cuando la factura se envía automáticamente, ese aviso ya informa al
+  // paciente del pago/cita, así que se omite la confirmación de cita para
+  // no duplicar el mensaje (mismo criterio que handleBonoPurchase).
+  let invoiceSentToPatient = false;
+
   if (center.invoice_on_payment_mode === 'auto') {
     const { data: existingInvoiceItem, error: invoiceLookupError } = await supabase
       .from('invoice_items')
@@ -758,7 +763,7 @@ async function handleSessionCheckout(
 
     const date = new Date(sessionData.session_date).toLocaleDateString('es-ES');
     const description = `Sesión de ${sessionData.session_type || 'terapia'} - ${date}`;
-    
+
     let invoiceId = existingInvoiceItem?.invoice_id || null;
 
     if (!invoiceId) {
@@ -776,6 +781,8 @@ async function handleSessionCheckout(
       if (!invoiceId) {
         throw new Error('Automatic invoice creation failed');
       }
+
+      invoiceSentToPatient = true;
     }
 
     if (paymentRecord.invoice_id !== invoiceId) {
@@ -803,7 +810,9 @@ async function handleSessionCheckout(
     }
   }
 
-  await sendStripePaymentConfirmation(supabase, sessionId, sessionData);
+  if (!invoiceSentToPatient) {
+    await sendStripePaymentConfirmation(supabase, sessionId, sessionData);
+  }
 }
 
 async function sendStripePaymentConfirmation(
