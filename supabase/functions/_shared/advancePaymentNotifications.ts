@@ -237,7 +237,7 @@ export async function buildAdvancePaymentBlock(
   const stripe = await createStripeCheckoutUrl(supabase, session, patient, baseUrl);
   // Do not expose Stripe's long Checkout URL in notifications. The public
   // session page starts Checkout after the patient opens the short link.
-  const patientPaymentUrl = session.access_token
+  const patientPaymentShortPath = session.access_token
     ? await getOrCreatePublicShortLink({
         supabase,
         centerId,
@@ -246,6 +246,7 @@ export async function buildAdvancePaymentBlock(
         expiresAt: null,
       })
     : null;
+  const patientPaymentUrl = patientPaymentShortPath ? `${baseUrl}${patientPaymentShortPath}` : null;
   const defaults = DEFAULT_PAYMENT_OPTIONS[channel];
   const lines: string[] = [];
   const replaceVars = (text: string) => replacePaymentVars(text, {

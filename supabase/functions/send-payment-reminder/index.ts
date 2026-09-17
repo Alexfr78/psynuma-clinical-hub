@@ -99,23 +99,29 @@ serve(async (req) => {
     // creates the Stripe Checkout session only after the patient clicks.
     let stripeCheckoutUrl = '';
     if (include_stripe_link && center.oauth_stripe_credentials && debt.access_token) {
-      stripeCheckoutUrl = await getOrCreatePublicShortLink({
+      const shortPath = await getOrCreatePublicShortLink({
         supabase,
         centerId: center.id,
         targetType: "debt",
         targetToken: debt.access_token,
-      }) || `${baseUrl}/pagar/${encodeURIComponent(debt.access_token)}`;
+      });
+      stripeCheckoutUrl = shortPath
+        ? `${baseUrl}${shortPath}`
+        : `${baseUrl}/pagar/${encodeURIComponent(debt.access_token)}`;
     }
 
     // Generate bono purchase link if needed
     let bonoPurchaseUrl = '';
     if (include_bono_option && debt.access_token) {
-      bonoPurchaseUrl = await getOrCreatePublicShortLink({
+      const shortPath = await getOrCreatePublicShortLink({
         supabase,
         centerId: center.id,
         targetType: "debt_bono",
         targetToken: debt.access_token,
-      }) || `${baseUrl}/pagar/${encodeURIComponent(debt.access_token)}?bono=1`;
+      });
+      bonoPurchaseUrl = shortPath
+        ? `${baseUrl}${shortPath}`
+        : `${baseUrl}/pagar/${encodeURIComponent(debt.access_token)}?bono=1`;
     }
 
     // Format session date
