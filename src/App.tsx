@@ -69,6 +69,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<PublicLanding />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Public Routes (No Auth Required) */}
             <Route path="/cita/:token" element={<SessionManagement />} />
