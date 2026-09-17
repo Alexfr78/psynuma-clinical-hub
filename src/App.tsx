@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
@@ -68,6 +69,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<PublicLanding />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Public Routes (No Auth Required) */}
             <Route path="/cita/:token" element={<SessionManagement />} />
