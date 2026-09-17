@@ -33,6 +33,48 @@ export default function Auth() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [otpCode, setOtpCode] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+
+    const result = z.string().email('Email inválido').safeParse(resetEmail);
+    if (!result.success) {
+      setErrors({ resetEmail: result.error.errors[0]?.message ?? 'Email inválido' });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Correo enviado',
+          description: 'Si el email existe, recibirás un enlace para restablecer tu contraseña.',
+        });
+        setShowForgotPassword(false);
+        setResetEmail('');
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Ocurrió un error inesperado',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
