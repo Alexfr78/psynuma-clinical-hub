@@ -159,12 +159,11 @@ export function useWasender() {
   const disconnectWhatsApp = useMutation({
     mutationFn: async () => {
       if (!centerId) throw new Error('No center');
-      // Update local DB status to disconnected
-      const { error } = await supabase
-        .from('whatsapp_sessions')
-        .update({ status: 'disconnected', qr_code: null })
-        .eq('center_id', centerId);
+      const { data, error } = await supabase.functions.invoke('wasender-connect', {
+        body: { action: 'disconnect' },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.code || data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-session', centerId] });

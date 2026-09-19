@@ -98,6 +98,43 @@ serve(async (req) => {
       .eq("center_id", profile.center_id)
       .maybeSingle();
 
+    // Disconnect: really log the session out in WasenderAPI, otherwise the status
+    // poll would flip the row back to "connected".
+    if (body?.action === "disconnect") {
+      if (existingRow?.wasender_session_id) {
+        // Never touch a WasenderAPI session that another center row also points to
+        const { count: sharedWith } = await supabase
+          .from("whatsapp_sessions")
+          .select("id", { count: "exact", head: true })
+          .eq("wasender_session_id", existingRow.wasender_session_id)
+          .neq("center_id", profile.center_id);
+
+        if (!sharedWith) {
+          const res = await fetch(
+            `${WASENDER_API_URL}/whatsapp-sessions/${existingRow.wasender_session_id}/disconnect`,
+            { method: "POST", headers: { ...authHeaders, "Content-Type": "application/json" } },
+          );
+          if (!res.ok && res.status !== 404) {
+            const errorText = await res.text();
+            console.error("WasenderAPI disconnect error:", res.status, errorText.substring(0, 300));
+            return json({ error: "DISCONNECT_FAILED", code: "DISCONNECT_FAILED" });
+          }
+        } else {
+          console.warn(`Session ${existingRow.wasender_session_id} is shared with another center, only unlinking this center`);
+        }
+      }
+
+      const { error: disconnectError } = await supabase
+        .from("whatsapp_sessions")
+        .update({ status: "disconnected", qr_code: null, updated_at: new Date().toISOString() })
+        .eq("center_id", profile.center_id);
+      if (disconnectError) {
+        console.error("Error saving disconnected status:", disconnectError);
+        return json({ error: "DISCONNECT_FAILED", code: "DISCONNECT_FAILED" });
+      }
+      return json({ success: true, status: "disconnected" });
+    }
+
     let qrCode: string | null = null;
     let sessionStatus = "disconnected";
     let wasenderSessionId: string | null = null;
