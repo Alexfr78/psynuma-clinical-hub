@@ -150,15 +150,55 @@ serve(async (req) => {
         const todayDate = new Date().toISOString().split("T")[0];
         const in48h = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split("T")[0];
 
+        // The WasenderAPI account is shared by all centers: find out WHICH center's
+        // number received this message so we never confirm another center's session.
+        const sessionRef = payload.sessionId ?? payload.session_id ?? data.sessionId ?? data.session_id ?? null;
+        const signature = req.headers.get("x-webhook-signature");
+        let receivingCenterId: string | null = null;
+
+        if (sessionRef != null) {
+          const { data: bySession } = await supabase
+            .from("whatsapp_sessions")
+            .select("center_id")
+            .eq("wasender_session_id", String(sessionRef))
+            .maybeSingle();
+          receivingCenterId = bySession?.center_id ?? null;
+        }
+
+        if (!receivingCenterId && signature) {
+          const { data: bySecret } = await supabase
+            .from("whatsapp_sessions")
+            .select("center_id")
+            .eq("webhook_secret", signature)
+            .maybeSingle();
+          receivingCenterId = bySecret?.center_id ?? null;
+        }
+
         // Search patients by phone (try multiple formats)
-        const { data: patients } = await supabase
+        let patientQuery = supabase
           .from("patients")
-          .select("id")
+          .select("id, center_id")
           .or(`phone.eq.${cleanPhone},phone.eq.+34${cleanPhone},phone.eq.34${cleanPhone}`);
+
+        if (receivingCenterId) {
+          patientQuery = patientQuery.eq("center_id", receivingCenterId);
+        }
+
+        const { data: patients } = await patientQuery;
 
         if (!patients || patients.length === 0) {
           console.log(`No patient found for phone ${cleanPhone}`);
           break;
+        }
+
+        // Center unknown: only safe to continue if the phone belongs to a single center
+        if (!receivingCenterId) {
+          const centerIds = new Set(patients.map((p: { center_id: string }) => p.center_id));
+          if (centerIds.size > 1) {
+            console.warn(`Phone ${cleanPhone} exists in ${centerIds.size} centers and the receiving center could not be identified, skipping confirmation`);
+            break;
+          }
+          receivingCenterId = [...centerIds][0];
         }
 
         const patientIds = patients.map((p: { id: string }) => p.id);
@@ -168,6 +208,7 @@ serve(async (req) => {
           .from("sessions")
           .select("id, session_date, start_time, end_time, status, center_id, patient_id, professional_id, google_calendar_event_id")
           .in("patient_id", patientIds)
+          .eq("center_id", receivingCenterId)
           .eq("status", "scheduled")
           .gte("session_date", todayDate)
           .lte("session_date", in48h)

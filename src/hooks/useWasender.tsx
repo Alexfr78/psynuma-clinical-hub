@@ -81,12 +81,14 @@ export function useWasender() {
 
   // Connect WhatsApp (request QR)
   const connectWhatsApp = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('wasender-connect');
-      
+    mutationFn: async (params?: { phoneNumber?: string }) => {
+      const { data, error } = await supabase.functions.invoke('wasender-connect', {
+        body: { phone_number: params?.phoneNumber },
+      });
+
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      
+      if (data?.error) throw new Error(data.code || data.error);
+
       return data;
     },
     onSuccess: (data) => {
@@ -107,6 +109,10 @@ export function useWasender() {
       console.error('Error connecting WhatsApp:', error);
       if (error.message.includes('CREDENTIALS_MISSING')) {
         toast.error('Las credenciales de WasenderAPI no están configuradas');
+      } else if (error.message.includes('PHONE_REQUIRED')) {
+        toast.error('Introduce un número de teléfono válido con prefijo de país');
+      } else if (error.message.includes('SESSION_LIMIT')) {
+        toast.error('Se ha alcanzado el límite de números de WhatsApp del plan. Contacta con soporte.');
       } else {
         toast.error('Error al conectar WhatsApp');
       }

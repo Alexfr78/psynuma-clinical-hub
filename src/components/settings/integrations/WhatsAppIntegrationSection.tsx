@@ -54,6 +54,7 @@ export function WhatsAppIntegrationSection() {
   const [emergencyStop, setEmergencyStop] = useState(false);
   
   // Test message
+  const [connectPhone, setConnectPhone] = useState('');
   const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('');
   const [isSendingTest, setIsSendingTest] = useState(false);
@@ -139,8 +140,11 @@ export function WhatsAppIntegrationSection() {
   };
 
   const handleConnect = async () => {
-    await connectWhatsApp.mutateAsync();
+    await connectWhatsApp.mutateAsync({ phoneNumber: connectPhone });
   };
+
+  // Un centro sin sesión en WasenderAPI necesita el número para crearla
+  const needsPhone = !session?.wasender_session_id;
 
   const handleSendTest = async () => {
     if (!testPhone || !testMessage) {
@@ -368,9 +372,23 @@ export function WhatsAppIntegrationSection() {
                         <div className="p-6 bg-muted rounded-lg">
                           <Icon name="qr_code" className="h-16 w-16 text-muted-foreground" />
                         </div>
-                        <Button 
+                        {needsPhone && (
+                          <div className="w-full max-w-xs space-y-2">
+                            <Label htmlFor="connect-phone">Número de WhatsApp del centro</Label>
+                            <Input
+                              id="connect-phone"
+                              placeholder="34612345678"
+                              value={connectPhone}
+                              onChange={(e) => setConnectPhone(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Con código de país. Es el número desde el que se enviarán los mensajes.
+                            </p>
+                          </div>
+                        )}
+                        <Button
                           onClick={handleConnect}
-                          disabled={connectWhatsApp.isPending}
+                          disabled={connectWhatsApp.isPending || (needsPhone && !connectPhone.trim())}
                         >
                           {connectWhatsApp.isPending ? (
                             <>

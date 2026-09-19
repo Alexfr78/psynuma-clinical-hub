@@ -183,6 +183,7 @@ async function handleIncomingMessages(supabase: SupabaseClient, phoneNumberId: s
     const { data: patients } = await supabase
       .from("patients")
       .select("id")
+      .eq("center_id", center.id)
       .or(`phone.eq.${cleanPhone},phone.eq.+34${cleanPhone},phone.eq.34${cleanPhone}`);
 
     if (!patients || patients.length === 0) {
@@ -196,6 +197,7 @@ async function handleIncomingMessages(supabase: SupabaseClient, phoneNumberId: s
       .from("sessions")
       .select("id, session_date, start_time, end_time, status, center_id, patient_id, professional_id, google_calendar_event_id")
       .in("patient_id", patientIds)
+      .eq("center_id", center.id)
       .eq("status", "scheduled")
       .gte("session_date", todayDate)
       .lte("session_date", in48h)
