@@ -350,7 +350,9 @@ async function handleDebtPayment(
     ]);
 
     // Sync invoice status (issued -> paid) once the payment is fully applied.
-    const { error: recomputeError } = await supabase.rpc('recompute_debt_by_invoice', {
+    // Uses the service variant: the webhook runs without a user session, so the
+    // authenticated RPC would fail with "Not authenticated".
+    const { error: recomputeError } = await supabase.rpc('recompute_debt_by_invoice_service', {
       p_debt_id: debtId,
     });
     if (recomputeError) {
