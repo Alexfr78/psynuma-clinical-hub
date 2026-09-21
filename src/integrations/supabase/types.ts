@@ -9137,6 +9137,10 @@ export type Database = {
         Returns: Json
       }
       recompute_debt_by_invoice: { Args: { p_debt_id: string }; Returns: Json }
+      recompute_debt_by_invoice_service: {
+        Args: { p_debt_id: string }
+        Returns: Json
+      }
       record_audit_event: {
         Args: {
           p_action: string

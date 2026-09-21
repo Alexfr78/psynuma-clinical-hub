@@ -350,7 +350,9 @@ async function handleDebtPayment(
     ]);
 
     // Sync invoice status (issued -> paid) once the payment is fully applied.
-    const { error: recomputeError } = await supabase.rpc('recompute_debt_by_invoice', {
+    // Uses the service variant: the webhook runs without a user session, so the
+    // authenticated RPC would fail with "Not authenticated".
+    const { error: recomputeError } = await supabase.rpc('recompute_debt_by_invoice_service', {
       p_debt_id: debtId,
     });
     if (recomputeError) {
@@ -806,6 +808,29 @@ async function handleSessionCheckout(
       if (debtInvoiceError) {
         console.error('Failed to link session debt to invoice:', debtInvoiceError);
         throw new Error('Failed to link session debt to invoice');
+      }
+
+      // Sync the invoice status (issued -> paid) now that the payment and the
+      // debt are linked to it. Without this the invoice stays as "issued" and
+      // shows up as pending even though it is fully paid.
+      const { error: recomputeError } = await supabase.rpc('recompute_debt_by_invoice_service', {
+        p_debt_id: debtData.id,
+      });
+      if (recomputeError) {
+        console.error('Error syncing invoice status after Stripe session payment', {
+          debt_id: debtData.id,
+          message: recomputeError.message,
+        });
+      }
+    } else if (invoiceId) {
+      // No debt row for this session: mark the invoice paid directly.
+      const { error: invoicePaidError } = await supabase
+        .from('invoices')
+        .update({ status: 'paid', updated_at: new Date().toISOString() })
+        .eq('id', invoiceId)
+        .in('status', ['issued', 'partial']);
+      if (invoicePaidError) {
+        console.error('Failed to mark invoice as paid after Stripe session payment:', invoicePaidError);
       }
     }
   }
