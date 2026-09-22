@@ -13,6 +13,8 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = true
   [functions.finalize-web-recording]
     verify_jwt = true
+  [functions.delete-audio-recording]
+    verify_jwt = true
   [functions.process-transcription-job]
     # Doble camino de autenticación gestionado dentro de la función:
     # JWT de usuario para invocación manual, x-cron-secret para el cron.
