@@ -4,6 +4,7 @@ import { CONSENT_PURPOSE_LABELS, consentPurposeStatusReason } from '@/lib/consen
 import { MAX_RECORDING_BYTES, MAX_RECORDING_MS, STOP_RECORDING_BYTES, OrderedPartQueue, selectRecorderMimeType } from './parts';
 import { acknowledgePart, deleteRecording, readParts, readRecordings, saveRecording, type RecordingRecord, type StoredPart } from './storage';
 import { recorderRequest, uploadPart } from './api';
+import { isAccountBlockedCode } from '@/lib/transcription-account-errors';
 
 export interface RecorderState {
   phase: 'idle' | 'starting' | 'recording' | 'paused' | 'recoverable' | 'uploading' | 'transcribing' | 'completed' | 'error';
@@ -355,6 +356,22 @@ export class WebRecorderController {
         }
       }
       if (!error && data?.status === 'expired_unprocessed') throw new Error('La grabación ha caducado en el servidor. Puedes descartarla.');
+      if (!error && data?.status === 'queued_for_transcription') {
+        // Sin saldo o con la clave mal: el audio ya está a salvo en el servidor y se
+        // transcribirá solo cuando se arregle la cuenta, así que no hay nada que
+        // conservar en este dispositivo. El aviso queda en el panel principal.
+        const { data: job } = await supabase.from('transcription_jobs').select('error_code, error_message_sanitized')
+          .eq('audio_ingestion_id', this.record.id).maybeSingle();
+        this.assertAlive();
+        if (isAccountBlockedCode(job?.error_code)) {
+          await deleteRecording(this.record.id);
+          this.assertAlive();
+          this.record = undefined;
+          this.releaseLock?.(); this.releaseLock = undefined;
+          this.set({ phase: 'completed', warning: `${job?.error_message_sanitized ?? 'Hay un problema con la cuenta de OpenAI.'} El audio está guardado en el servidor y se transcribirá automáticamente cuando se resuelva.` });
+          return;
+        }
+      }
       await new Promise<void>((resolve) => { this.resolvePoll = resolve; this.pollTimer = setTimeout(resolve, 5000); });
     }
     if (!this.disposed) throw new Error('La transcripción sigue en segundo plano. Pulsa reintentar para volver a consultar su estado.');

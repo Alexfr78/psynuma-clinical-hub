@@ -108,10 +108,19 @@ export class OpenAITranscriptionProvider implements TranscriptionProvider {
       body: formData,
     });
     if (!response.ok) {
+      // Se lee el código de error de OpenAI para distinguir "sin saldo" (429
+      // insufficient_quota) de un límite de velocidad normal: el worker trata los
+      // problemas de cuenta como una espera, no como un intento fallido.
+      let openaiCode = "";
+      try {
+        const body = await response.json() as { error?: { code?: string; type?: string } };
+        openaiCode = body.error?.code || body.error?.type || "";
+      } catch { /* Cuerpo no JSON: se clasifica solo por el estado HTTP. */ }
+      const outOfCredit = openaiCode === "insufficient_quota" || openaiCode === "billing_hard_limit_reached";
       throw providerError(
-        response.status === 401 ? "authentication_failed" : "openai_transcription_failed",
-        "OpenAI transcription request failed.",
-        response.status >= 500 || response.status === 429,
+        outOfCredit ? "insufficient_quota" : response.status === 401 ? "authentication_failed" : "openai_transcription_failed",
+        outOfCredit ? "OpenAI account has no credit." : "OpenAI transcription request failed.",
+        outOfCredit || response.status >= 500 || response.status === 429,
       );
     }
     return [(await response.text()).trim()];

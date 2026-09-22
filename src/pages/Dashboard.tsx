@@ -13,6 +13,7 @@ import type { SessionWithRelations } from '@/hooks/useSessions';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { RecordSessionButton } from '@/components/web-recorder/RecordSessionButton';
+import { TranscriptionIssuesCard } from '@/components/web-recorder/TranscriptionIssuesCard';
 
 function useDashboardStats() {
   const { profile } = useAuth();
@@ -204,6 +205,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <TranscriptionIssuesCard />
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-card to-secondary/5" />

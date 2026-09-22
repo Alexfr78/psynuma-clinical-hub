@@ -193,6 +193,13 @@ async function callAIOnce(
     }
     const data = await response.json();
     if (!response.ok) {
+      const openaiCode = data.error?.code || data.error?.type;
+      if (openaiCode === 'insufficient_quota' || openaiCode === 'billing_hard_limit_reached') {
+        throw new ProviderError(
+          'La cuenta de OpenAI del centro no tiene saldo. Recárgala y vuelve a generar el informe: la transcripción sigue guardada.',
+          false,
+        );
+      }
       throw new ProviderError(data.error?.message || `OpenAI API error: ${response.status}`, response.status >= 500);
     }
     return data.choices?.[0]?.message?.content || '';

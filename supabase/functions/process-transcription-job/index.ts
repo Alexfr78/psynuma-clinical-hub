@@ -14,6 +14,17 @@ const corsHeaders = {
 };
 const BUCKET = "session-audio";
 const MAX_ATTEMPTS = 3;
+// Problemas de la cuenta del proveedor (sin saldo, clave revocada o sin configurar):
+// no dependen del audio, así que el job espera y se reintenta cada hora sin gastar
+// intentos hasta que el centro lo arregle o el audio caduque (7 días).
+const ACCOUNT_BLOCKED_CODES = new Set(["stt_insufficient_quota", "stt_authentication_failed", "stt_invalid_api_key", "openai_key_not_configured"]);
+const ACCOUNT_BLOCKED_RETRY_MS = 60 * 60 * 1000;
+const ACCOUNT_BLOCKED_MESSAGES: Record<string, string> = {
+  stt_insufficient_quota: "La cuenta de OpenAI no tiene saldo. Se reintentará automáticamente cada hora.",
+  stt_authentication_failed: "OpenAI ha rechazado la clave del centro. Revísala en Ajustes; se reintentará cada hora.",
+  stt_invalid_api_key: "La clave de OpenAI del centro no es válida. Revísala en Ajustes; se reintentará cada hora.",
+  openai_key_not_configured: "El centro no tiene clave de OpenAI configurada. Añádela en Ajustes; se reintentará cada hora.",
+};
 
 interface Body { transcriptionJobId?: string; jobId?: string; }
 interface JobRow {
@@ -133,6 +144,9 @@ function isCronRequest(req: Request): boolean {
 function safeError(error: unknown): { code: string; message: string } {
   const providerError = (error as { providerError?: TranscriptionProviderError; code?: string })?.providerError;
   const returnedProviderError = error as TranscriptionProviderError;
+  if (error instanceof Error && error.message === "openai_key_not_configured") {
+    return { code: "openai_key_not_configured", message: ACCOUNT_BLOCKED_MESSAGES.openai_key_not_configured };
+  }
   if (providerError) return { code: `stt_${providerError.code}`, message: "El proveedor de transcripción no pudo completar el audio." };
   if (returnedProviderError?.code && returnedProviderError?.message) {
     return { code: `stt_${returnedProviderError.code}`, message: "El proveedor de transcripción no pudo completar el audio." };
@@ -152,8 +166,18 @@ async function authenticate(req: Request): Promise<boolean> {
 }
 
 async function failJob(supabase: ServiceClient, job: JobRow, error: unknown): Promise<void> {
-  const attempts = (job.attempts ?? 0) + 1;
   const failure = safeError(error);
+  if (ACCOUNT_BLOCKED_CODES.has(failure.code)) {
+    await supabase.from("transcription_jobs").update({
+      status: "queued",
+      error_code: failure.code,
+      error_message_sanitized: ACCOUNT_BLOCKED_MESSAGES[failure.code] ?? failure.message,
+      next_retry_at: new Date(Date.now() + ACCOUNT_BLOCKED_RETRY_MS).toISOString(),
+    }).eq("id", job.id);
+    await supabase.from("audio_ingestions").update({ status: "queued_for_transcription" }).eq("id", job.audio_ingestion_id);
+    return;
+  }
+  const attempts = (job.attempts ?? 0) + 1;
   const terminal = attempts > MAX_ATTEMPTS;
   await supabase.from("transcription_jobs").update({
     status: terminal ? "failed" : "queued",
@@ -228,6 +252,8 @@ async function finalizeCompletedJob(
     progress: 100,
     completed_at: new Date().toISOString(),
     next_retry_at: null,
+    error_code: null,
+    error_message_sanitized: null,
   }).eq("id", job.id);
   await supabase.from("audio_ingestions").update({ status: "transcription_verified" }).eq("id", ingestion.id);
 
@@ -244,10 +270,20 @@ async function finalizeCompletedJob(
 async function processClaimedJob(supabase: ServiceClient, job: JobRow): Promise<void> {
   try {
     const { data: ingestion, error: ingestionError } = await supabase.from("audio_ingestions")
-      .select("id, center_id, professional_id, patient_id, session_id, source, storage_path, mime_type")
+      .select("id, center_id, professional_id, patient_id, session_id, source, storage_path, mime_type, status")
       .eq("id", job.audio_ingestion_id).maybeSingle();
     if (ingestionError || !ingestion) throw new Error("audio_ingestion_not_found");
-    const row = ingestion as IngestionRow;
+    const row = ingestion as IngestionRow & { status: string };
+    // Un job que esperaba por saldo no debe seguir reintentándose cuando el audio ya caducó.
+    if (row.status === "expired_unprocessed" || row.status === "audio_deleted") {
+      await supabase.from("transcription_jobs").update({
+        status: "failed",
+        error_code: "audio_expired",
+        error_message_sanitized: "El audio caducó antes de poder transcribirse.",
+        next_retry_at: null,
+      }).eq("id", job.id);
+      return;
+    }
     if (!row.storage_path) throw new Error("audio_storage_path_missing");
     const { data: center, error: centerError } = await supabase.from("centers")
       .select("openai_api_key_encrypted").eq("id", row.center_id).maybeSingle();
@@ -303,6 +339,8 @@ async function processClaimedJob(supabase: ServiceClient, job: JobRow): Promise<
       progress: complete ? 100 : Math.floor((completedChunkCount / totalChunks) * 100),
       status: complete ? "processing" : "queued",
       next_retry_at: complete ? null : new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      error_code: null,
+      error_message_sanitized: null,
     }).eq("id", job.id);
     if (chunkProgressError) throw new Error("transcription_job_progress_persist_failed");
     if (complete) await finalizeCompletedJob(supabase, job, row, transcriptChunks);
@@ -339,7 +377,7 @@ Deno.serve(async (req) => {
   if (!candidate) return jsonResponse({ processed: false, reason: requestedId ? "job_not_queued" : "no_queued_jobs" });
 
   const { data: claimed, error: claimError } = await supabase.from("transcription_jobs")
-    .update({ status: "processing", started_at: now, error_code: null, error_message_sanitized: null })
+    .update({ status: "processing", started_at: now })
     .eq("id", candidate.id).eq("status", "queued")
     .select("id, audio_ingestion_id, attempts, status, total_chunks, completed_chunk_count, transcript_chunks")
     .maybeSingle();
