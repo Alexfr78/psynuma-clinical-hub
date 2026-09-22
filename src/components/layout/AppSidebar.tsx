@@ -19,7 +19,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
-import { usePlaudNeedsReviewCount } from '@/hooks/usePlaudRecordings';
+import { useTranscriptionIssues } from '@/hooks/useTranscriptionIssues';
 import { useState, useEffect, useMemo } from 'react';
 import { MyProfileDialog } from '@/components/layout/MyProfileDialog';
 import { Icon } from '@/components/ui/icon';
@@ -46,7 +46,7 @@ const financeNavItems: NavItemDef[] = [
 
 // Secondary tools, tucked away in a collapsed "Más" group.
 // "Grabaciones" lleva su `badgeCount` aparte porque depende de una consulta (ver
-// `usePlaudNeedsReviewCount` más abajo) — la lista base se completa con él en el componente.
+// `useTranscriptionIssues` más abajo) — la lista base se completa con él en el componente.
 const baseMoreNavItems: NavItemDef[] = [
   { title: 'Sesiones', url: '/sesiones', icon: 'description' },
   { title: 'Consentimientos', url: '/consentimientos', icon: 'edit_document' },
@@ -75,24 +75,24 @@ export function AppSidebar() {
   const [isDark, setIsDark] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  // Grabaciones Plaud pendientes de revisión humana (ver CLAUDE.md / usePlaudRecordings.tsx):
-  // avisa en el menú para que esa bandeja no se quede sin atender. `data` es `undefined`
-  // mientras carga y `0` en cuanto no hay nada pendiente — en ambos casos no se pinta nada.
-  const { data: plaudNeedsReviewCount } = usePlaudNeedsReviewCount();
+  // Transcripciones en espera (cuenta de OpenAI) o fallidas con el audio aún guardado:
+  // avisa en el menú para que no se queden sin atender. Sin nada pendiente no se pinta nada.
+  const { data: transcriptionIssues } = useTranscriptionIssues();
+  const recordingsNeedingAttention = transcriptionIssues?.length || undefined;
 
   const moreNavItems: NavItemDef[] = useMemo(
     () => baseMoreNavItems.map((item) =>
       item.url === '/grabaciones'
         ? {
           ...item,
-          badgeCount: plaudNeedsReviewCount,
-          badgeAriaText: plaudNeedsReviewCount
-            ? `${plaudNeedsReviewCount} ${plaudNeedsReviewCount === 1 ? 'grabación' : 'grabaciones'} por revisar`
+          badgeCount: recordingsNeedingAttention,
+          badgeAriaText: recordingsNeedingAttention
+            ? `${recordingsNeedingAttention} ${recordingsNeedingAttention === 1 ? 'transcripción necesita' : 'transcripciones necesitan'} atención`
             : undefined,
         }
         : item,
     ),
-    [plaudNeedsReviewCount],
+    [recordingsNeedingAttention],
   );
 
   useEffect(() => {

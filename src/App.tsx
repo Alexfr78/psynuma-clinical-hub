@@ -46,6 +46,7 @@ import Referrals from "./pages/Referrals";
 import Autoregistros from "./pages/Autoregistros";
 import AutoregistroPublic from "./pages/AutoregistroPublic";
 import PlaudReview from "./pages/PlaudReview";
+import Recordings from "./pages/Recordings";
 import PublicShortLinkRedirect from "./pages/PublicShortLinkRedirect";
 import ShareAudio from "./pages/ShareAudio";
 import { WebRecorderProvider } from "@/hooks/useWebRecorder";
@@ -206,6 +207,12 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/grabaciones" element={
+              <ProtectedRoute>
+                <AppLayout><Recordings /></AppLayout>
+              </ProtectedRoute>
+            } />
+            {/* Bandeja de Plaud: integración abandonada, solo histórico (no está en el menú). */}
+            <Route path="/grabaciones/plaud" element={
               <ProtectedRoute>
                 <AppLayout><PlaudReview /></AppLayout>
               </ProtectedRoute>

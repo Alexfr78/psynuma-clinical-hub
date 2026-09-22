@@ -847,12 +847,21 @@ serve(async (req) => {
   const authHeader = req.headers.get('Authorization') || '';
   const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   if (!jwt) return unauthorizedResponse(corsHeaders);
-  const authClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
-  const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
-  const role = (claimsData?.claims as { role?: string; sub?: string })?.role;
-  const userId = (claimsData?.claims as { role?: string; sub?: string })?.sub;
-  if (claimsError || (role !== 'authenticated' && role !== 'service_role')) {
-    return unauthorizedResponse(corsHeaders);
+  // Las llamadas internas (process-transcription-job, informes automáticos) llegan con la
+  // clave de servicio del proyecto. Esa clave no es un JWT que `getClaims` pueda verificar
+  // (daba 401 y no se generaba ningún informe), así que se reconoce por comparación directa.
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  const isServiceCall = serviceRoleKey.length > 0 && jwt === serviceRoleKey;
+  let role: string | undefined = isServiceCall ? 'service_role' : undefined;
+  let userId: string | undefined;
+  if (!isServiceCall) {
+    const authClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
+    role = (claimsData?.claims as { role?: string; sub?: string })?.role;
+    userId = (claimsData?.claims as { role?: string; sub?: string })?.sub;
+    if (claimsError || (role !== 'authenticated' && role !== 'service_role')) {
+      return unauthorizedResponse(corsHeaders);
+    }
   }
 
   try {

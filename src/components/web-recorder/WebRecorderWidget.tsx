@@ -94,7 +94,7 @@ export function WebRecorderWidget() {
           {active && <p className="text-xs text-muted-foreground">Máximo 120 minutos, incluidas las pausas. La transcripción comienza al terminar.</p>}
           {state.phase === 'recoverable' && <p className="text-sm text-muted-foreground">La grabación se interrumpió. Puedes procesar el audio guardado; para seguir grabando tendrás que iniciar otra sesión.</p>}
           {state.phase === 'transcribing' && <p className="text-sm text-muted-foreground">Estamos procesando el audio. La transcripción aparecerá en la sesión; los informes se generan después en segundo plano, según los permisos y las plantillas configuradas.</p>}
-          {state.phase === 'completed' && <p className="text-sm text-muted-foreground">La transcripción está lista en la sesión. Los informes se generan en segundo plano, según los permisos y las plantillas configuradas. Revisa el borrador cuando esté disponible.</p>}
+          {state.phase === 'completed' && !state.warning && <p className="text-sm text-muted-foreground">Transcripción lista. La encontrarás en la cita (Agenda → la cita → «Transcripción disponible») y en Más → Grabaciones. Los borradores de informe se generan en segundo plano en uno o dos minutos.</p>}
           {state.warning && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">{state.warning}</p>}
           {(state.error || actionError) && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{actionError || state.error}</p>}
 

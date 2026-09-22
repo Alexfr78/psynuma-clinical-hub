@@ -120,6 +120,7 @@ import { useSessionAiDocuments } from '@/hooks/useAIDocuments';
 import { effectiveMarkdown } from '@/lib/ai-documents';
 import { createPatientReportLink, buildPatientReportNotice, PATIENT_REPORT_EMAIL_SUBJECT } from '@/lib/patient-report-links';
 import { RecordSessionButton } from '@/components/web-recorder/RecordSessionButton';
+import { SessionTranscriptCard } from '@/components/web-recorder/SessionTranscriptCard';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -1333,6 +1334,14 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 onStarted={() => onOpenChange(false)}
               />
             )}
+
+            <SessionTranscriptCard
+              sessionId={session.id}
+              onGenerateReports={onAnalyzeTranscription ? () => {
+                onOpenChange(false);
+                setTimeout(() => onAnalyzeTranscription(session.id), 300);
+              } : undefined}
+            />
 
             {/* Tags */}
             <div className="flex items-center gap-2">

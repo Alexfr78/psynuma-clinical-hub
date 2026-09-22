@@ -343,7 +343,7 @@ export class WebRecorderController {
           this.assertAlive();
           this.record = undefined;
           this.releaseLock?.(); this.releaseLock = undefined;
-          this.set({ phase: 'completed', warning: 'La transcripción está lista. Los informes se generan en segundo plano según los consentimientos y plantillas configuradas.' });
+          this.set({ phase: 'completed', warning: undefined });
           // Reports are best-effort and complete after transcription_verified.
           // Refresh active document queries for a bounded period, also when minimized.
           const until = Date.now() + 3 * 60 * 1000;

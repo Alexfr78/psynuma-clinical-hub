@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addMonths } from 'date-fns';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useSessions, useUpdateSession, SessionWithRelations } from '@/hooks/useSessions';
 import { CalendarHeader, CalendarView } from '@/components/agenda/CalendarHeader';
 import { WeekView } from '@/components/agenda/WeekView';
@@ -295,6 +296,17 @@ export default function Agenda() {
       window.removeEventListener('select-session', handleSelectSession as EventListener);
     };
   }, [sessions, toast]);
+
+  // Enlaces desde otras pantallas (p. ej. /grabaciones) abren una cita con ?sesion=<id>.
+  // Se reutiliza el evento `select-session` de arriba y se limpia el parámetro para que
+  // cerrar el panel no lo vuelva a abrir.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sessionParam = searchParams.get('sesion');
+  useEffect(() => {
+    if (!sessionParam) return;
+    window.dispatchEvent(new CustomEvent('select-session', { detail: { sessionId: sessionParam } }));
+    setSearchParams((params) => { params.delete('sesion'); return params; }, { replace: true });
+  }, [sessionParam, setSearchParams]);
 
   const handleSlotClick = (date: Date, startTime: string, endTime: string) => {
     setInitialDate(date);
