@@ -9215,6 +9215,10 @@ export type Database = {
         }
         Returns: Json
       }
+      retry_failed_transcription: {
+        Args: { p_audio_ingestion_id: string }
+        Returns: string
+      }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
       seed_ai_document_defaults_for_center: {
         Args: { p_center_id: string }
