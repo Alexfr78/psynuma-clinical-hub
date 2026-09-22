@@ -119,6 +119,7 @@ import { Icon } from '@/components/ui/icon';
 import { useSessionAiDocuments } from '@/hooks/useAIDocuments';
 import { effectiveMarkdown } from '@/lib/ai-documents';
 import { createPatientReportLink, buildPatientReportNotice, PATIENT_REPORT_EMAIL_SUBJECT } from '@/lib/patient-report-links';
+import { RecordSessionButton } from '@/components/web-recorder/RecordSessionButton';
 
 interface SessionDetailDrawerProps {
   session: SessionWithRelations | null;
@@ -1322,6 +1323,15 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   <Icon name="edit" className="h-4 w-4" />
                 </Button>
               </div>
+            )}
+
+            {displayPatient && !isBlockedSession && !editingPatient && (
+              <RecordSessionButton
+                patientId={displayPatient.id}
+                sessionId={session.id}
+                patientName={patientName}
+                onStarted={() => onOpenChange(false)}
+              />
             )}
 
             {/* Tags */}
