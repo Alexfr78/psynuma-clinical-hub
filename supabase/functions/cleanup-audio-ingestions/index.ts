@@ -12,6 +12,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { removeWebRecordingParts } from "../_shared/webRecording.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,26 +62,41 @@ Deno.serve(async (req) => {
   // anterior).
   const { data: pendingDeletion, error: fetchError } = await supabase
     .from("audio_ingestions")
-    .select("id, storage_path")
-    .in("status", ["expired_unprocessed", "transcription_verified"])
+    .select("id, storage_path, source, center_id, deleted_at")
+    .in("status", ["expired_unprocessed", "transcription_verified", "audio_deleted"])
     .not("storage_path", "is", null);
 
   let deletedObjects = 0;
   if (fetchError) {
     console.error("[cleanup-audio-ingestions] Failed to list pending deletions:", fetchError.message);
   } else if (pendingDeletion && pendingDeletion.length > 0) {
-    const paths = pendingDeletion.map((row) => row.storage_path as string);
-    const { error: removeError } = await supabase.storage.from(BUCKET).remove(paths);
+    const cleanable = [];
+    for (const row of pendingDeletion) {
+      if (row.source === "web_recorder") {
+        try { await removeWebRecordingParts(supabase, `${row.center_id}/${row.id}/parts`); }
+        catch { console.warn("[cleanup-audio-ingestions] Part cleanup deferred", row.id); continue; }
+        // Signed upload URLs already issued may still be used for two hours.
+        // Keep the pointer until a later cron has removed any late uploads.
+        if (row.deleted_at && Date.now() - new Date(row.deleted_at).getTime() < 3 * 3600000) continue;
+      }
+      cleanable.push(row);
+    }
+    const paths = cleanable.map((row) => row.storage_path as string);
+    const { error: removeError } = paths.length > 0
+      ? await supabase.storage.from(BUCKET).remove(paths)
+      : { error: null };
 
     if (removeError) {
       console.error("[cleanup-audio-ingestions] Storage removal failed:", removeError.message);
     } else {
       deletedObjects = paths.length;
-      const ids = pendingDeletion.map((row) => row.id as string);
-      await supabase
-        .from("audio_ingestions")
-        .update({ status: "audio_deleted", storage_path: null, deleted_at: new Date().toISOString() })
-        .in("id", ids);
+      for (const row of cleanable) {
+        await supabase.from("audio_ingestions").update({
+          status: "audio_deleted",
+          storage_path: row.source === "web_recorder" && !row.deleted_at ? row.storage_path : null,
+          deleted_at: row.deleted_at ?? new Date().toISOString(),
+        }).eq("id", row.id);
+      }
     }
   }
 

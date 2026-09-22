@@ -23,6 +23,7 @@ import { SessionWithRelations, useUpdateSession } from '@/hooks/useSessions';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { Icon } from '@/components/ui/icon';
 import { useSessionAiDocuments } from '@/hooks/useAIDocuments';
+import { useWebRecorder } from '@/hooks/useWebRecorder';
 
 interface SessionDetailDialogProps {
   session: SessionWithRelations | null;
@@ -46,6 +47,9 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
   const updateSession = useUpdateSession();
   const { syncToGoogle } = useGoogleCalendarUpdate(session?.professional_id);
   const [isUpdating, setIsUpdating] = useState(false);
+  const recorder = useWebRecorder();
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
   // Fuente de verdad para saber si ya hay informes IA de esta sesión: `ai_generated_documents`,
   // no las columnas espejo `ai_summary_clinical`/`ai_summary_patient` que se usaban antes —
   // ver `TranscriptionAnalysisDialog.tsx` y el contrato de la migración.
@@ -231,6 +235,34 @@ export function SessionDetailDialog({ session, open, onOpenChange, onAnalyzeTran
           )}
 
           {/* Analyze Transcription */}
+          {session.patient_id && (
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                disabled={isStartingRecording || !['idle', 'completed'].includes(recorder.state.phase)}
+                onClick={async () => {
+                  setRecordingError(null);
+                  setIsStartingRecording(true);
+                  try {
+                    await recorder.start({ patientId: session.patient_id!, sessionId: session.id, patientName });
+                    onOpenChange(false);
+                  } catch (error) {
+                    setRecordingError(error instanceof Error ? error.message : 'No se pudo iniciar la grabación.');
+                  } finally {
+                    setIsStartingRecording(false);
+                  }
+                }}
+              >
+                <Icon name={isStartingRecording ? 'progress_activity' : 'mic'} className={`mr-2 h-4 w-4 ${isStartingRecording ? 'animate-spin' : ''}`} />
+                {isStartingRecording ? 'Preparando grabación...' : 'Grabar sesión'}
+              </Button>
+              <p className="text-xs text-muted-foreground">La transcripción comienza al terminar. Se requiere consentimiento para grabación y procesamiento con IA.</p>
+              {recordingError && <p role="alert" className="text-sm text-destructive">{recordingError}</p>}
+              {!['idle', 'completed', 'starting'].includes(recorder.state.phase) && (
+                <p className="text-xs text-muted-foreground">Hay una grabación en curso o pendiente. Revísala en el panel de grabación.</p>
+              )}
+            </div>
+          )}
           {onAnalyzeTranscription && (
             <Button
               variant="outline"

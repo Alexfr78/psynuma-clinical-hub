@@ -48,6 +48,8 @@ import AutoregistroPublic from "./pages/AutoregistroPublic";
 import PlaudReview from "./pages/PlaudReview";
 import PublicShortLinkRedirect from "./pages/PublicShortLinkRedirect";
 import ShareAudio from "./pages/ShareAudio";
+import { WebRecorderProvider } from "@/hooks/useWebRecorder";
+import { WebRecorderWidget } from "@/components/web-recorder/WebRecorderWidget";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +68,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <WebRecorderProvider>
           <Routes>
             <Route path="/" element={<PublicLanding />} />
             <Route path="/auth" element={<Auth />} />
@@ -210,6 +213,8 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <WebRecorderWidget />
+          </WebRecorderProvider>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

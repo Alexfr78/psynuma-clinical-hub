@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
     const { data: ingestion, error: fetchError } = await supabase
       .from("audio_ingestions")
-      .select("id, center_id, professional_id, storage_path, status, checksum")
+      .select("id, center_id, professional_id, storage_path, status, checksum, source")
       .eq("id", audioIngestionId)
       .maybeSingle();
 
@@ -85,6 +85,10 @@ Deno.serve(async (req) => {
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+    }
+
+    if (ingestion.source === "web_recorder") {
+      return new Response(JSON.stringify({ error: "Las grabaciones web deben finalizarse con finalize-web-recording" }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Idempotencia: si ya se completó, devolver el estado actual sin duplicar

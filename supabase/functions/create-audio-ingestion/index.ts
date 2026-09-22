@@ -13,6 +13,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { unauthorizedResponse } from "../_shared/authGuard.ts";
+import { checkPatientConsent } from "../_shared/consent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,7 @@ const corsHeaders = {
 };
 
 const BUCKET = "session-audio";
-const ALLOWED_SOURCES = ["android_recorder", "samsung_media_store", "share_target", "manual_upload"];
+const ALLOWED_SOURCES = ["android_recorder", "samsung_media_store", "share_target", "manual_upload", "web_recorder"];
 const SIGNED_URL_EXPIRY_SECONDS = 15 * 60; // 15 minutos
 
 interface CreateAudioIngestionBody {
@@ -111,6 +112,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (source === "web_recorder") {
+      const respond = (error: string, status: number) => new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (role !== "authenticated" || !userId || professionalId !== userId) return respond("Se requiere la sesión del profesional que graba", 403);
+      if (!patientId || !sessionId) return respond("patientId y sessionId son obligatorios para grabar una sesión", 400);
+      if (mimeType !== "audio/webm;codecs=opus" && mimeType !== "audio/webm" && mimeType !== "audio/mp4" && mimeType !== "audio/mp4;codecs=mp4a.40.2") return respond("Formato de grabación no compatible", 400);
+      const [{ data: patient }, { data: session }, { data: roles }] = await Promise.all([
+        supabase.from("patients").select("id").eq("id", patientId).eq("center_id", centerId).maybeSingle(),
+        supabase.from("sessions").select("id").eq("id", sessionId).eq("patient_id", patientId).eq("center_id", centerId).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId).in("role", ["admin", "professional"]),
+      ]);
+      if (!patient || !session || !roles?.length) return respond("No tienes permiso para grabar esta sesión o el paciente no coincide", 403);
+      for (const purpose of ["recording", "ai_processing"] as const) {
+        const consent = await checkPatientConsent(supabase, patientId, purpose);
+        if (!consent.granted) {
+          const reasons = { no_consent: "No hay consentimiento registrado para esta finalidad.", not_signed: "El consentimiento está pendiente de firma.", revoked: "El contacto revocó esta autorización.", expired: "La autorización ha caducado.", purpose_not_granted: "El contacto no autorizó esta finalidad al firmar." };
+          return respond(`${purpose === "recording" ? "Grabación de sesiones" : "Tratamiento con IA"}: ${reasons[consent.reason ?? "no_consent"]}`, 403);
+        }
+      }
+    }
+
     const { data: inserted, error: insertError } = await supabase
       .from("audio_ingestions")
       .insert({
@@ -141,6 +162,13 @@ Deno.serve(async (req) => {
     const ingestionId = inserted.id as string;
     // Ruta sin nombres de paciente ni datos clínicos, solo IDs técnicos.
     const storagePath = `${centerId}/${ingestionId}/audio`;
+
+    if (source === "web_recorder") {
+      const { error } = await supabase.from("audio_ingestions").update({ storage_path: storagePath }).eq("id", ingestionId);
+      if (error) return new Response(JSON.stringify({ error: "No se pudo preparar la grabación" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // The final object can only be written by finalize-web-recording.
+      return new Response(JSON.stringify({ success: true, audioIngestionId: ingestionId }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: signed, error: signedError } = await supabase.storage
       .from(BUCKET)
