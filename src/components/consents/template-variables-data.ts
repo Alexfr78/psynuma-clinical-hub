@@ -9,6 +9,8 @@ export const TEMPLATE_VARIABLES = [
   { key: '{especialidad}', label: 'Especialidad', category: 'profesional' },
   { key: '{nombre_centro}', label: 'Nombre del centro', category: 'centro' },
   { key: '{direccion_centro}', label: 'Dirección del centro', category: 'centro' },
+  { key: '{email_centro}', label: 'Email del centro', category: 'centro' },
+  { key: '{telefono_centro}', label: 'Teléfono del centro', category: 'centro' },
   { key: '{fecha_actual}', label: 'Fecha de generación', category: 'otros' },
   { key: '{campos_verificacion}', label: 'Campos de verificación', category: 'formulario' },
 ];

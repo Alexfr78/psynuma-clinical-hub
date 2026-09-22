@@ -243,6 +243,8 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
       '{especialidad}': 'Psicología Clínica',
       '{nombre_centro}': 'Centro Psycma',
       '{direccion_centro}': 'C/ Gran Vía 123, Madrid',
+      '{email_centro}': 'info@centropsycma.es',
+      '{telefono_centro}': '600 000 000',
       '{fecha_actual}': new Date().toLocaleDateString('es-ES', {
         day: 'numeric',
         month: 'long',

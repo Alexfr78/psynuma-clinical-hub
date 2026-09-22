@@ -60,7 +60,7 @@ export function CreateConsentDialog({
   const { templates, isLoading: templatesLoading } = useConsentTemplates();
   const { createConsent } = useConsents(patient.id);
   const { center } = useCenter();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [preview, setPreview] = useState<string>('');
 
   const activeTemplates = templates.filter((t) => t.is_active);
@@ -102,6 +102,10 @@ export function CreateConsentDialog({
       '{direccion_centro}': center?.address
         ? `${center.address}, ${center.city || ''}`
         : '',
+      // Sin email de centro configurado se usa el del profesional, para que el
+      // apartado "datos de contacto" del consentimiento nunca quede vacío.
+      '{email_centro}': center?.email || profile?.email || user?.email || '',
+      '{telefono_centro}': center?.phone || '',
       '{fecha_actual}': format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es }),
     };
 
@@ -110,7 +114,7 @@ export function CreateConsentDialog({
     });
 
     setPreview(content);
-  }, [selectedTemplate, patient, profile, center]);
+  }, [selectedTemplate, patient, profile, center, user?.email]);
 
   const onSubmit = async (values: FormValues) => {
     const result = await createConsent.mutateAsync({
