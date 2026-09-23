@@ -2487,6 +2487,7 @@ export type Database = {
           session_reminder_enabled: boolean | null
           session_reminder_hours_before: number | null
           session_reminder_timing: string | null
+          stt_model: string | null
           tax_id: string | null
           transcript_retention_days: number | null
           unpaid_advance_cancellation_alert_threshold: number | null
@@ -2594,6 +2595,7 @@ export type Database = {
           session_reminder_enabled?: boolean | null
           session_reminder_hours_before?: number | null
           session_reminder_timing?: string | null
+          stt_model?: string | null
           tax_id?: string | null
           transcript_retention_days?: number | null
           unpaid_advance_cancellation_alert_threshold?: number | null
@@ -2701,6 +2703,7 @@ export type Database = {
           session_reminder_enabled?: boolean | null
           session_reminder_hours_before?: number | null
           session_reminder_timing?: string | null
+          stt_model?: string | null
           tax_id?: string | null
           transcript_retention_days?: number | null
           unpaid_advance_cancellation_alert_threshold?: number | null
