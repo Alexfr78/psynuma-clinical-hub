@@ -53,7 +53,9 @@ export function RecordSessionButton({
 }: RecordSessionButtonProps) {
   const recorder = useWebRecorder();
   const [starting, setStarting] = useState(false);
-  const busy = !['idle', 'completed'].includes(recorder.state.phase);
+  // 'transcribing' no cuenta: el audio ya está en el servidor y la consulta sigue con la
+  // siguiente sesión, que suele ir pegada a la anterior.
+  const busy = !['idle', 'completed', 'transcribing'].includes(recorder.state.phase);
   const isThisSession = busy && recorder.state.sessionId === sessionId;
   const consentGranted = useRecordingConsentGranted(patientId, variant === 'compact');
 
@@ -86,7 +88,7 @@ export function RecordSessionButton({
       disabled={starting || busy}
       title={
         busy && !isThisSession
-          ? 'Ya hay una grabación en curso o pendiente'
+          ? (recorder.state.otherTab ? 'Se está grabando en otra pestaña de Psycma' : 'Ya hay una grabación en curso o pendiente')
           : variant === 'compact' && !consentGranted
             ? 'Falta el consentimiento de grabación o de tratamiento por IA'
             : 'Grabar y transcribir al terminar'

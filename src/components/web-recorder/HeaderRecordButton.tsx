@@ -60,14 +60,16 @@ export function HeaderRecordButton() {
   if (!isAdmin && !isProfessional) return null;
 
   const recording = state.phase === 'recording' || state.phase === 'paused';
-  if (recording || ['starting', 'uploading', 'transcribing', 'recoverable', 'error'].includes(state.phase)) {
+  // Durante 'transcribing' el botón sigue disponible: la transcripción corre en el
+  // servidor y no impide grabar la sesión siguiente.
+  if (recording || ['starting', 'uploading', 'recoverable', 'error'].includes(state.phase)) {
     return (
       <div
         role="status"
         className="flex shrink-0 items-center gap-1.5 rounded-md border border-destructive/40 px-2.5 py-1 text-xs font-medium text-destructive sm:text-sm"
       >
         <span className={cn('h-2 w-2 rounded-full bg-destructive', state.phase === 'recording' && 'animate-pulse')} />
-        {recording ? formatElapsed(state.elapsedMs) : 'Grabación pendiente'}
+        {recording ? formatElapsed(state.elapsedMs) : state.otherTab ? 'Grabando en otra pestaña' : 'Grabación pendiente'}
       </div>
     );
   }

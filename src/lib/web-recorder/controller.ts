@@ -5,6 +5,7 @@ import { MAX_RECORDING_BYTES, MAX_RECORDING_MS, STOP_RECORDING_BYTES, OrderedPar
 import { acknowledgePart, deleteRecording, readParts, readRecordings, saveRecording, type RecordingRecord, type StoredPart } from './storage';
 import { recorderRequest, uploadPart } from './api';
 import { isAccountBlockedCode } from '@/lib/transcription-account-errors';
+import { blockPwaReload } from '@/lib/pwa-update-guard';
 
 export interface RecorderState {
   phase: 'idle' | 'starting' | 'recording' | 'paused' | 'recoverable' | 'uploading' | 'transcribing' | 'completed' | 'error';
@@ -16,6 +17,8 @@ export interface RecorderState {
   error?: string;
   sessionId?: string;
   canDiscard?: boolean;
+  /** La grabación pendiente la tiene viva otra pestaña: aquí no se puede tocar. */
+  otherTab?: boolean;
 }
 export const idleRecorderState: RecorderState = { phase: 'idle', elapsedMs: 0, level: 0, pendingParts: 0 };
 export interface StartRecording { patientId: string; sessionId: string; patientName: string; }
@@ -44,6 +47,14 @@ export class WebRecorderController {
   private disposed = false;
   private initializing = true;
   private reportTimer?: ReturnType<typeof setInterval>;
+  /**
+   * Transcripción ya entregada al servidor: el audio está completo allí y este
+   * dispositivo no guarda nada. Se sigue sondeando para refrescar la sesión, pero NO
+   * bloquea empezar otra grabación — las sesiones seguidas son lo normal en consulta.
+   */
+  private pending?: { id: string; jobId: string; sessionId: string; patientId: string };
+  /** Mientras graba, ninguna actualización de la PWA puede recargar la página. */
+  private allowPwaReload?: () => void;
 
   constructor(
     private professionalId: string,
@@ -71,8 +82,15 @@ export class WebRecorderController {
       this.record = records.find((r) => r.professionalId === this.professionalId && r.centerId === this.centerId);
       if (this.record) {
         const parts = await readParts(this.record.id);
-        this.set({ phase: 'recoverable', canDiscard: !this.record.jobId, elapsedMs: this.record.elapsedMs, pendingParts: parts.length,
-          sessionId: this.record.sessionId, warning: 'La grabación se interrumpió. Puedes transcribir las partes guardadas; no se puede reanudar el micrófono.' });
+        // Otra pestaña puede tener esta misma grabación EN CURSO (el registro vive en
+        // IndexedDB, que es común a todas). Si el cerrojo entre pestañas está cogido, no
+        // se interrumpió nada: se está grabando en otro sitio y aquí no hay que tocarla.
+        const busyElsewhere = await this.isLockedByAnotherTab();
+        this.set({ phase: 'recoverable', canDiscard: !busyElsewhere && !this.record.jobId, elapsedMs: this.record.elapsedMs,
+          pendingParts: parts.length, sessionId: this.record.sessionId, otherTab: busyElsewhere,
+          warning: busyElsewhere
+            ? 'Se está grabando en otra pestaña de Psycma. Vuelve a ella para pausar o terminar: aquí no se puede.'
+            : 'La grabación se interrumpió. Puedes transcribir las partes guardadas; no se puede reanudar el micrófono.' });
       }
     } catch {
       this.set({ warning: 'El almacenamiento local no está disponible. La grabación no podrá iniciarse hasta que esté habilitado.' });
@@ -91,6 +109,15 @@ export class WebRecorderController {
     }
   };
   private online = () => { if (this.active()) this.uploadInBackground(); };
+
+  /** ¿Hay otra pestaña con el cerrojo de grabación cogido? Sin soporte, se asume que no. */
+  private async isLockedByAnotherTab(): Promise<boolean> {
+    if (this.releaseLock) return false;
+    try {
+      const state = await navigator.locks?.query?.();
+      return !!state?.held?.some((lock) => lock.name === 'psycma-web-recorder');
+    } catch { return false; }
+  }
 
   private async lock() {
     if (this.releaseLock) return;
@@ -179,6 +206,7 @@ export class WebRecorderController {
       this.assertAlive();
       this.recorder.start(10_000);
       this.hasStarted = true;
+      this.allowPwaReload = blockPwaReload();
       this.set({ phase: 'recording', patientName: input.patientName, sessionId: input.sessionId });
       this.timer = setInterval(() => this.tick(), 250);
       void this.acquireWakeLock();
@@ -319,62 +347,97 @@ export class WebRecorderController {
       await saveRecording(this.record);
     }
     this.assertAlive();
-    this.set({ phase: 'transcribing', canDiscard: false, warning: undefined });
+    // El audio ya está entero en el servidor: se suelta el registro local y el cerrojo
+    // para poder grabar la siguiente sesión mientras esta se transcribe.
+    this.pending = {
+      id: this.record.id, jobId: this.record.jobId!,
+      sessionId: this.record.sessionId, patientId: this.record.patientId,
+    };
+    await deleteRecording(this.record.id);
+    this.record = undefined;
+    this.queue?.stop();
+    this.queue = undefined;
+    this.releaseLock?.(); this.releaseLock = undefined;
+    this.set({ phase: 'transcribing', canDiscard: false, otherTab: false, warning: undefined, pendingParts: 0 });
     // A timeout does not cancel the server job. Cron also recovers queued jobs.
-    void recorderRequest('process-transcription-job', { transcriptionJobId: this.record.jobId }).catch(() => {});
+    void recorderRequest('process-transcription-job', { transcriptionJobId: this.pending.jobId }).catch(() => {});
     await this.poll();
   }
 
   async recover() { await this.finish(); }
 
+  /**
+   * Sondea la transcripción que ya está en el servidor. No bloquea nada: si mientras
+   * tanto empieza otra grabación, este sondeo sigue en segundo plano y se limita a
+   * refrescar la sesión correspondiente sin tocar el estado visible.
+   */
   private async poll() {
     const deadline = Date.now() + 30 * 60 * 1000;
-    while (!this.disposed && this.record && Date.now() < deadline) {
-      const { data, error } = await supabase.from('audio_ingestions').select('status').eq('id', this.record.id).maybeSingle();
-      this.assertAlive();
-      if (!error && data?.status === 'failed') throw new Error('La transcripción ha fallado. El audio sigue sujeto a la retención del servidor; revisa la configuración de IA.');
+    while (!this.disposed && this.pending && Date.now() < deadline) {
+      const tracked = this.pending;
+      const { data, error } = await supabase.from('audio_ingestions').select('status').eq('id', tracked.id).maybeSingle();
+      if (this.disposed) return;
+      if (!error && data?.status === 'failed') {
+        this.pending = undefined;
+        this.report('La transcripción ha fallado. El audio sigue guardado en el servidor: puedes reintentarla desde Grabaciones.');
+        return;
+      }
       if (!error && (data?.status === 'transcription_verified' || data?.status === 'audio_deleted')) {
-        const { data: transcript, error: transcriptError } = await supabase.from('transcripts').select('id').eq('audio_ingestion_id', this.record.id).limit(1).maybeSingle();
-        this.assertAlive();
+        const { data: transcript, error: transcriptError } = await supabase.from('transcripts')
+          .select('id').eq('audio_ingestion_id', tracked.id).limit(1).maybeSingle();
+        if (this.disposed) return;
         if (!transcriptError && transcript) {
-          const { sessionId, patientId } = this.record;
-          this.invalidate(sessionId, patientId);
-          await deleteRecording(this.record.id);
-          this.assertAlive();
-          this.record = undefined;
-          this.releaseLock?.(); this.releaseLock = undefined;
-          this.set({ phase: 'completed', warning: undefined });
+          this.pending = undefined;
+          this.invalidate(tracked.sessionId, tracked.patientId);
+          this.finishedState();
           // Reports are best-effort and complete after transcription_verified.
           // Refresh active document queries for a bounded period, also when minimized.
           const until = Date.now() + 3 * 60 * 1000;
           clearInterval(this.reportTimer);
           this.reportTimer = setInterval(() => {
             if (Date.now() >= until) clearInterval(this.reportTimer);
-            else this.invalidate(sessionId, patientId);
+            else this.invalidate(tracked.sessionId, tracked.patientId);
           }, 5000);
           return;
         }
       }
-      if (!error && data?.status === 'expired_unprocessed') throw new Error('La grabación ha caducado en el servidor. Puedes descartarla.');
+      if (!error && data?.status === 'expired_unprocessed') {
+        this.pending = undefined;
+        this.report('La grabación caducó en el servidor antes de transcribirse.');
+        return;
+      }
       if (!error && data?.status === 'queued_for_transcription') {
-        // Sin saldo o con la clave mal: el audio ya está a salvo en el servidor y se
-        // transcribirá solo cuando se arregle la cuenta, así que no hay nada que
-        // conservar en este dispositivo. El aviso queda en el panel principal.
-        const { data: job } = await supabase.from('transcription_jobs').select('error_code, error_message_sanitized')
-          .eq('audio_ingestion_id', this.record.id).maybeSingle();
-        this.assertAlive();
+        // Sin saldo o con la clave mal: el audio está a salvo en el servidor y se
+        // transcribirá solo cuando se arregle la cuenta. El aviso queda en el panel.
+        const { data: job } = await supabase.from('transcription_jobs')
+          .select('error_code, error_message_sanitized').eq('audio_ingestion_id', tracked.id).maybeSingle();
+        if (this.disposed) return;
         if (isAccountBlockedCode(job?.error_code)) {
-          await deleteRecording(this.record.id);
-          this.assertAlive();
-          this.record = undefined;
-          this.releaseLock?.(); this.releaseLock = undefined;
-          this.set({ phase: 'completed', warning: `${job?.error_message_sanitized ?? 'Hay un problema con la cuenta de OpenAI.'} El audio está guardado en el servidor y se transcribirá automáticamente cuando se resuelva.` });
+          this.pending = undefined;
+          this.report(`${job?.error_message_sanitized ?? 'Hay un problema con la cuenta de OpenAI.'} El audio está guardado en el servidor y se transcribirá automáticamente cuando se resuelva.`);
           return;
         }
       }
       await new Promise<void>((resolve) => { this.resolvePoll = resolve; this.pollTimer = setTimeout(resolve, 5000); });
     }
-    if (!this.disposed) throw new Error('La transcripción sigue en segundo plano. Pulsa reintentar para volver a consultar su estado.');
+    if (!this.disposed && this.pending) {
+      this.pending = undefined;
+      this.report('La transcripción sigue en segundo plano. Puedes seguir su estado en Grabaciones.');
+    }
+  }
+
+  /** Mensaje sobre una transcripción ya entregada: nunca pisa una grabación en curso. */
+  private report(warning: string) {
+    if (this.record || this.active()) {
+      console.warn('[web-recorder]', warning);
+      return;
+    }
+    this.set({ ...idleRecorderState, phase: 'completed', warning });
+  }
+
+  private finishedState() {
+    if (this.record || this.active()) return;
+    this.set({ ...idleRecorderState, phase: 'completed', warning: undefined });
   }
 
   async discard() {
@@ -415,6 +478,8 @@ export class WebRecorderController {
 
   private releaseMedia() {
     clearInterval(this.timer);
+    this.allowPwaReload?.();
+    this.allowPwaReload = undefined;
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = undefined;
     void this.audioContext?.close().catch(() => {});
@@ -425,6 +490,7 @@ export class WebRecorderController {
   }
   dispose() {
     this.disposed = true;
+    this.pending = undefined;
     this.queue?.stop();
     if (this.active()) this.recorder!.stop(); // ondataavailable still durably saves the final chunk.
     this.releaseMedia();

@@ -34,7 +34,9 @@ export function WebRecorderWidget() {
 
   const active = state.phase === 'recording' || state.phase === 'paused';
   const processing = ['starting', 'uploading', 'transcribing'].includes(state.phase);
-  const recoverable = state.phase === 'recoverable' || state.phase === 'error';
+  // Con la grabación viva en otra pestaña no se ofrece ninguna acción: el cerrojo entre
+  // pestañas las rechazaría, y el mensaje solo confundiría.
+  const recoverable = (state.phase === 'recoverable' || state.phase === 'error') && !state.otherTab;
   const showDiscardConfirmation = confirmDiscard && state.canDiscard;
   const run = async (action: () => void | Promise<void>) => {
     setBusy(true);
@@ -57,7 +59,9 @@ export function WebRecorderWidget() {
       <div className="flex items-center gap-3 bg-primary px-4 py-3 text-primary-foreground">
         <Icon name={processing ? 'progress_activity' : 'mic'} className={`h-5 w-5 shrink-0 ${processing ? 'animate-spin' : ''}`} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold" role="status">{phaseLabels[state.phase]}</p>
+          <p className="text-sm font-semibold" role="status">
+            {state.otherTab && state.phase === 'recoverable' ? 'Grabando en otra pestaña' : phaseLabels[state.phase]}
+          </p>
           {minimized && <p className="text-xs tabular-nums">{formatElapsed(state.elapsedMs)} · {state.pendingParts} pendientes</p>}
         </div>
         <Button
@@ -77,7 +81,7 @@ export function WebRecorderWidget() {
         <div className="max-h-[65dvh] space-y-4 overflow-y-auto p-4">
           <div>
             <p className="truncate text-sm font-medium" title={state.patientName}>{state.patientName || 'Sesión guardada en este dispositivo'}</p>
-            <p className="mt-2 text-xs text-muted-foreground">Tiempo de sesión</p>
+            <p className="mt-2 text-xs text-muted-foreground">{state.otherTab ? 'Tiempo registrado hasta ahora' : 'Tiempo de sesión'}</p>
             <p className="mt-1 font-mono text-3xl font-semibold tabular-nums" aria-label={`Tiempo de sesión: ${formatElapsed(state.elapsedMs)}`}>{formatElapsed(state.elapsedMs)}</p>
           </div>
 
@@ -92,8 +96,8 @@ export function WebRecorderWidget() {
 
           {state.phase !== 'completed' && <p className="text-xs text-muted-foreground">{state.pendingParts > 0 ? `${state.pendingParts} partes pendientes de subir. Mantén esta pestaña abierta.` : 'No hay partes pendientes de subir.'}</p>}
           {active && <p className="text-xs text-muted-foreground">Máximo 120 minutos, incluidas las pausas. La transcripción comienza al terminar.</p>}
-          {state.phase === 'recoverable' && <p className="text-sm text-muted-foreground">La grabación se interrumpió. Puedes procesar el audio guardado; para seguir grabando tendrás que iniciar otra sesión.</p>}
-          {state.phase === 'transcribing' && <p className="text-sm text-muted-foreground">Estamos procesando el audio. La transcripción aparecerá en la sesión; los informes se generan después en segundo plano, según los permisos y las plantillas configuradas.</p>}
+          {state.phase === 'recoverable' && !state.otherTab && <p className="text-sm text-muted-foreground">La grabación se interrumpió. Puedes procesar el audio guardado; para seguir grabando tendrás que iniciar otra sesión.</p>}
+          {state.phase === 'transcribing' && <p className="text-sm text-muted-foreground">Estamos procesando el audio, que ya está a salvo en el servidor. Puedes empezar la grabación de la siguiente sesión sin esperar: esta seguirá su curso y aparecerá en su cita.</p>}
           {state.phase === 'completed' && !state.warning && <p className="text-sm text-muted-foreground">Transcripción lista. La encontrarás en la cita (Agenda → la cita → «Transcripción disponible») y en Más → Grabaciones. Los borradores de informe se generan en segundo plano en uno o dos minutos.</p>}
           {state.warning && <p role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">{state.warning}</p>}
           {(state.error || actionError) && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{actionError || state.error}</p>}

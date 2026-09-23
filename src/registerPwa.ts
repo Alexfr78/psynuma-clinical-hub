@@ -1,4 +1,5 @@
 import { registerSW } from "virtual:pwa-register";
+import { runWhenPwaReloadAllowed } from "@/lib/pwa-update-guard";
 
 let hasControllerChanged = false;
 
@@ -86,7 +87,8 @@ export function registerPwa() {
     },
     onNeedRefresh() {
       console.log('[PWA] New version available, forcing refresh...');
-      void updateSW(true);
+      // Se aplaza si hay una grabación en curso: recargar mataría el micrófono.
+      runWhenPwaReloadAllowed(() => { void updateSW(true); });
     },
     onOfflineReady() {},
   });
@@ -95,6 +97,6 @@ export function registerPwa() {
     if (hasControllerChanged) return;
     hasControllerChanged = true;
     console.log('[PWA] Controller changed, reloading...');
-    window.location.reload();
+    runWhenPwaReloadAllowed(() => window.location.reload());
   });
 }
