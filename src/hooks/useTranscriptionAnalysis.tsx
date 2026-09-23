@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useCenter } from './useCenter';
-import { checkPatientConsent, type ConsentCheckResult, type ConsentPurpose } from '@/lib/consent-verification';
+import { checkPatientConsent, getSessionConsentPatients, type ConsentCheckResult, type ConsentPurpose } from '@/lib/consent-verification';
 import { createPatientReportLink, buildPatientReportNotice, PATIENT_REPORT_EMAIL_SUBJECT } from '@/lib/patient-report-links';
 
 // Explicit purpose marker (see migration in
@@ -95,10 +95,27 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
   });
 
   const { data: consentResults, isLoading: isConsentLoading } = useQuery({
-    queryKey: ['patient-consent-status', consentPatientId, ...CONSENT_PURPOSES],
+    queryKey: ['patient-consent-status', consentPatientId, sessionId, ...CONSENT_PURPOSES],
     queryFn: async () => {
+      // IA e informes exigen el consentimiento de TODOS los participantes (sesiones de
+      // pareja); los canales de envío siguen siendo los del titular.
+      const participants = sessionId
+        ? await getSessionConsentPatients(supabase, sessionId, consentPatientId!)
+        : [{ id: consentPatientId!, name: '' }];
+      const checkAll = async (purpose: ConsentPurpose): Promise<ConsentCheckResult> => {
+        for (const participant of participants) {
+          const result = await checkPatientConsent(supabase, participant.id, purpose);
+          if (!result.granted) return result;
+        }
+        return { granted: true };
+      };
       const entries = await Promise.all(
-        CONSENT_PURPOSES.map(async (purpose) => [purpose, await checkPatientConsent(supabase, consentPatientId!, purpose)] as const)
+        CONSENT_PURPOSES.map(async (purpose) => [
+          purpose,
+          purpose === 'ai_processing' || purpose === 'report_generation'
+            ? await checkAll(purpose)
+            : await checkPatientConsent(supabase, consentPatientId!, purpose),
+        ] as const)
       );
       return Object.fromEntries(entries) as Record<ConsentPurpose, ConsentCheckResult>;
     },

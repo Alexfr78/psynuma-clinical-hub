@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { checkPatientConsent } from '@/lib/consent-verification';
+import { checkSessionConsent } from '@/lib/consent-verification';
 import { CONSENT_PURPOSE_LABELS, consentPurposeStatusReason } from '@/lib/consent-block-messages';
 import { MAX_RECORDING_BYTES, MAX_RECORDING_MS, STOP_RECORDING_BYTES, OrderedPartQueue, selectRecorderMimeType } from './parts';
 import { acknowledgePart, deleteRecording, readParts, readRecordings, saveRecording, type RecordingRecord, type StoredPart } from './storage';
@@ -148,9 +148,12 @@ export class WebRecorderController {
         this.record = pending;
         throw new Error('Hay una grabación pendiente en este dispositivo. Recupera o descarta esa grabación.');
       }
-      for (const purpose of ['recording', 'ai_processing'] as const) {
-        const consent = await checkPatientConsent(supabase, input.patientId, purpose);
-        if (!consent.granted) throw new Error(`${CONSENT_PURPOSE_LABELS[purpose]}: ${consentPurposeStatusReason(consent)}`);
+      // En sesiones de pareja tienen que consentir los dos miembros.
+      const consent = await checkSessionConsent(supabase, input.sessionId, ['recording', 'ai_processing'], input.patientId);
+      if (!consent.granted) {
+        const who = consent.patients.length > 1 && consent.deniedPatient?.name ? ` (${consent.deniedPatient.name})` : '';
+        const purpose = consent.deniedPurpose ?? 'recording';
+        throw new Error(`${CONSENT_PURPOSE_LABELS[purpose]}${who}: ${consentPurposeStatusReason(consent.deniedResult ?? { granted: false, reason: 'no_consent' })}`);
       }
       this.assertAlive();
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {

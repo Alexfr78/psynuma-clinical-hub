@@ -26,9 +26,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['patient-sessions', patientId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sessions')
-        .select(`
+      const select = `
           *,
           patient:patients!sessions_patient_id_fkey(
             id, first_name, last_name, email, phone
@@ -36,13 +34,46 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
           )
-        `)
-        .eq('patient_id', patientId)
-        .order('session_date', { ascending: false });
+        `;
+      // Sesiones como titular + sesiones de pareja en las que participa.
+      const { data: participantRows, error: participantError } = await supabase
+        .from('session_participants')
+        .select('session_id')
+        .eq('patient_id', patientId);
+      if (participantError) throw participantError;
+      const participantSessionIds = (participantRows ?? []).map((r) => r.session_id);
+
+      let query = supabase.from('sessions').select(select);
+      query = participantSessionIds.length > 0
+        ? query.or(`patient_id.eq.${patientId},id.in.(${participantSessionIds.join(',')})`)
+        : query.eq('patient_id', patientId);
+      const { data, error } = await query.order('session_date', { ascending: false });
 
       if (error) throw error;
       return data as unknown as SessionWithRelations[];
     },
+  });
+
+  // Otro miembro de cada sesión de pareja (titular o participante, el que no sea este contacto).
+  const sessionIds = useMemo(() => (sessions ?? []).map((s) => s.id), [sessions]);
+  const { data: companions } = useQuery({
+    queryKey: ['patient-session-companions', patientId, sessionIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('session_participants')
+        .select('session_id, patient:patients!session_participants_patient_id_fkey(id, first_name, last_name)')
+        .in('session_id', sessionIds);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const row of data ?? []) {
+        const participant = (row as unknown as { patient: { id: string; first_name: string; last_name: string } }).patient;
+        const session = sessions?.find((s) => s.id === row.session_id);
+        const other = participant.id === patientId ? session?.patient : participant;
+        if (other) map.set(row.session_id, `${other.first_name} ${other.last_name}`.trim());
+      }
+      return map;
+    },
+    enabled: sessionIds.length > 0,
   });
 
   useEffect(() => {
@@ -154,6 +185,13 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
                         <span className="capitalize">{session.session_type}</span>
                       </div>
                     )}
+
+                    {companions?.get(session.id) && (
+                      <div className="flex items-center gap-1 text-primary">
+                        <Icon name="favorite" className="h-3.5 w-3.5" />
+                        <span>Con {companions.get(session.id)}</span>
+                      </div>
+                    )}
                   </div>
 
                   {session.notes && (
@@ -165,6 +203,11 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
 
                 <div className="text-right">
                   <p className="text-lg font-semibold">{Number(session.price).toFixed(2)}€</p>
+                  {session.patient_id !== patientId && session.patient && (
+                    <p className="text-xs text-muted-foreground">
+                      Paga {session.patient.first_name}
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>

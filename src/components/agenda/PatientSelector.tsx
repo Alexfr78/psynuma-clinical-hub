@@ -21,9 +21,11 @@ import { Icon } from '@/components/ui/icon';
 interface PatientSelectorProps {
   onSelect: (patientId: string) => void;
   disabled?: boolean;
+  excludeIds?: string[];
+  placeholder?: string;
 }
 
-export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
+export function PatientSelector({ onSelect, disabled, excludeIds, placeholder = 'Buscar contacto...' }: PatientSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const { data: patients, isLoading } = usePatients({ search: searchValue });
@@ -40,7 +42,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
         >
           <div className="flex items-center gap-2 text-muted-foreground">
             <Icon name="person" className="h-4 w-4" />
-            <span>Buscar contacto...</span>
+            <span>{placeholder}</span>
           </div>
           <Icon name="unfold_more" className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -57,7 +59,7 @@ export function PatientSelector({ onSelect, disabled }: PatientSelectorProps) {
               {isLoading ? 'Buscando...' : 'No se encontraron contactos.'}
             </CommandEmpty>
             <CommandGroup>
-              {patients?.map((patient) => (
+              {patients?.filter((patient) => !excludeIds?.includes(patient.id)).map((patient) => (
                 <CommandItem
                   key={patient.id}
                   value={patient.id}

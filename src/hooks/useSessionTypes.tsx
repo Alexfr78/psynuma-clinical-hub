@@ -25,6 +25,8 @@ export interface SessionType {
   vat_regime_key: string | null;
   // First consultation flag for closed agenda mode
   is_first_consultation: boolean | null;
+  // Sesión de pareja: pide el segundo miembro al reservar
+  is_couple: boolean;
 }
 
 export interface SessionTypeInsert {
@@ -42,6 +44,7 @@ export interface SessionTypeInsert {
   non_subject_code?: NonSubjectCode | null;
   vat_regime_key?: string;
   is_first_consultation?: boolean;
+  is_couple?: boolean;
 }
 
 export interface SessionTypeUpdate {
@@ -61,6 +64,7 @@ export interface SessionTypeUpdate {
   non_subject_code?: NonSubjectCode | null;
   vat_regime_key?: string;
   is_first_consultation?: boolean;
+  is_couple?: boolean;
 }
 
 export function useSessionTypes() {
@@ -130,6 +134,18 @@ export function useCreateSessionType() {
         });
 
       if (error) throw error;
+
+      // La RPC no recibe estos indicadores; se guardan justo después.
+      if (data && (sessionType.is_couple || sessionType.is_first_consultation)) {
+        const { error: flagsError } = await supabase
+          .from('session_types')
+          .update({
+            is_couple: sessionType.is_couple ?? false,
+            is_first_consultation: sessionType.is_first_consultation ?? false,
+          })
+          .eq('id', data);
+        if (flagsError) throw flagsError;
+      }
       return data;
     },
     onSuccess: () => {

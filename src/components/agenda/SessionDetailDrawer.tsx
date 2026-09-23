@@ -88,6 +88,7 @@ import type { SessionPaymentLink } from '@/lib/session-payment-link';
 import { createStripeCheckout } from '@/hooks/useSessionIntegrations';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { PatientSelector } from './PatientSelector';
+import { SessionCouplePanel } from './SessionCouplePanel';
 import { usePatient, Patient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
 import { buildPublicUrl, getPublicBaseUrl } from '@/lib/public-base-url';
@@ -1324,6 +1325,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   <Icon name="edit" className="h-4 w-4" />
                 </Button>
               </div>
+            )}
+
+            {displayPatient && !isBlockedSession && !editingPatient && (
+              <SessionCouplePanel session={session} onNavigate={() => onOpenChange(false)} />
             )}
 
             {displayPatient && !isBlockedSession && !editingPatient && (

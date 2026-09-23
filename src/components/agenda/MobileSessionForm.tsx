@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { SessionNotificationSettings } from './SessionNotificationSettings';
 import { RecurrenceSettings } from './RecurrenceSettings';
 import { MobilePatientSearch } from './MobilePatientSearch';
+import { CoupleSessionFields } from './CoupleSessionFields';
 import { RecurrenceConfig } from '@/types/recurring';
 import type { QuickSessionFormValues } from './QuickCreateSessionDialog';
 import { Icon } from '@/components/ui/icon';
@@ -315,6 +316,8 @@ export function MobileSessionForm({
                     </FormItem>
                   )}
                 />
+
+                <CoupleSessionFields form={form} isCoupleType={!!selectedType?.is_couple} />
 
                 {/* ── Date (inline calendar) ── */}
                 <FormField

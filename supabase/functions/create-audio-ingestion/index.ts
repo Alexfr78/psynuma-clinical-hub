@@ -13,7 +13,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { unauthorizedResponse } from "../_shared/authGuard.ts";
-import { checkPatientConsent } from "../_shared/consent.ts";
+import { checkSessionConsent } from "../_shared/consent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -123,12 +123,12 @@ Deno.serve(async (req) => {
         supabase.from("user_roles").select("role").eq("user_id", userId).in("role", ["admin", "professional"]),
       ]);
       if (!patient || !session || !roles?.length) return respond("No tienes permiso para grabar esta sesión o el paciente no coincide", 403);
-      for (const purpose of ["recording", "ai_processing"] as const) {
-        const consent = await checkPatientConsent(supabase, patientId, purpose);
-        if (!consent.granted) {
-          const reasons = { no_consent: "No hay consentimiento registrado para esta finalidad.", not_signed: "El consentimiento está pendiente de firma.", revoked: "El contacto revocó esta autorización.", expired: "La autorización ha caducado.", purpose_not_granted: "El contacto no autorizó esta finalidad al firmar." };
-          return respond(`${purpose === "recording" ? "Grabación de sesiones" : "Tratamiento con IA"}: ${reasons[consent.reason ?? "no_consent"]}`, 403);
-        }
+      // En sesiones de pareja tienen que consentir TODOS los participantes.
+      const consent = await checkSessionConsent(supabase, sessionId, ["recording", "ai_processing"] as const, patientId);
+      if (!consent.granted) {
+        const reasons = { no_consent: "No hay consentimiento registrado para esta finalidad.", not_signed: "El consentimiento está pendiente de firma.", revoked: "El contacto revocó esta autorización.", expired: "La autorización ha caducado.", purpose_not_granted: "El contacto no autorizó esta finalidad al firmar." };
+        const who = consent.patients.length > 1 && consent.deniedPatient?.name ? ` (${consent.deniedPatient.name})` : "";
+        return respond(`${consent.deniedPurpose === "recording" ? "Grabación de sesiones" : "Tratamiento con IA"}${who}: ${reasons[consent.deniedResult?.reason ?? "no_consent"]}`, 403);
       }
     }
 

@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { decryptSecret } from "../_shared/crypto.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
-import { checkPatientConsent, type ConsentCheckResult, type ConsentPurpose } from "../_shared/consent.ts";
+import { checkPatientConsent, checkSessionConsent, type ConsentCheckResult, type ConsentPurpose } from "../_shared/consent.ts";
 import { buildTranscriptFromTurns, type DiarizedTurn } from "../_shared/transcriptDiarization.ts";
 import {
   buildJsonFormatInstruction,
@@ -1105,21 +1105,39 @@ serve(async (req) => {
         ? (docType.required_consent_purposes as ConsentPurpose[])
         : ['ai_processing', 'report_generation'];
 
-    const consentResults = await Promise.all(
-      requiredPurposes.map((purpose) => checkPatientConsent(supabaseService, patientId!, purpose))
-    );
-    const deniedIndex = consentResults.findIndex((r) => !r.granted);
+    // En sesiones de pareja el consentimiento lo tienen que haber dado TODOS los
+    // participantes (titular + session_participants), no solo quien paga.
+    let denied: { purpose: ConsentPurpose; result: ConsentCheckResult; patientId: string; patientName?: string } | null = null;
+    if (docType.scope === 'session' && sessionId) {
+      const check = await checkSessionConsent(supabaseService, sessionId, requiredPurposes, patientId!);
+      if (!check.granted) {
+        denied = {
+          purpose: check.deniedPurpose!,
+          result: check.deniedResult!,
+          patientId: check.deniedPatient?.id ?? patientId!,
+          patientName: check.patients.length > 1 ? check.deniedPatient?.name : undefined,
+        };
+      }
+    } else {
+      const consentResults = await Promise.all(
+        requiredPurposes.map((purpose) => checkPatientConsent(supabaseService, patientId!, purpose))
+      );
+      const deniedIndex = consentResults.findIndex((r) => !r.granted);
+      if (deniedIndex !== -1) {
+        denied = { purpose: requiredPurposes[deniedIndex], result: consentResults[deniedIndex], patientId: patientId! };
+      }
+    }
 
-    if (deniedIndex !== -1) {
-      const deniedPurpose = requiredPurposes[deniedIndex];
-      const deniedResult: ConsentCheckResult = consentResults[deniedIndex];
+    if (denied) {
+      const deniedPurpose = denied.purpose;
+      const deniedResult: ConsentCheckResult = denied.result;
 
       if (centerId) {
         logAuditEvent({
           supabase: supabaseService, req,
           userId: null,
           organizationId: centerId,
-          patientId,
+          patientId: denied.patientId,
           resourceType: 'clinical_notes',
           action: 'ACCESS_DENIED',
           status: 'denied',
@@ -1134,7 +1152,9 @@ serve(async (req) => {
 
       return jsonResponse(
         {
-          error: 'No se puede generar el documento: el contacto no ha otorgado el consentimiento necesario para el procesamiento por IA.',
+          error: denied.patientName
+            ? `No se puede generar el documento: ${denied.patientName} no ha otorgado el consentimiento necesario para el procesamiento por IA.`
+            : 'No se puede generar el documento: el contacto no ha otorgado el consentimiento necesario para el procesamiento por IA.',
           consentDenied: true,
           purpose: deniedPurpose,
           reason: deniedResult.reason,

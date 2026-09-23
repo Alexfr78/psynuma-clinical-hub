@@ -274,16 +274,26 @@ export function useSessionAiDocuments(sessionId: string | undefined) {
   });
 }
 
-/** Todos los documentos generados de un paciente (cualquier sesión), con su plantilla resuelta. */
+/**
+ * Todos los documentos generados de un paciente (cualquier sesión), con su plantilla resuelta.
+ * Incluye los de sesiones de pareja en las que participa sin ser el titular.
+ */
 export function usePatientAiDocuments(patientId: string | undefined) {
   return useQuery({
     queryKey: [AI_DOCUMENTS_KEY, 'patient', patientId],
     queryFn: async () => {
-      const { data, error } = await aiDb
-        .from('ai_generated_documents')
-        .select(DOCUMENT_WITH_TYPE_SELECT)
-        .eq('patient_id', patientId)
-        .order('generated_at', { ascending: false });
+      const { data: participantRows, error: participantError } = await supabase
+        .from('session_participants')
+        .select('session_id')
+        .eq('patient_id', patientId!);
+      if (participantError) throw participantError;
+      const coupleSessionIds = (participantRows ?? []).map((r) => r.session_id);
+
+      let query = aiDb.from('ai_generated_documents').select(DOCUMENT_WITH_TYPE_SELECT);
+      query = coupleSessionIds.length > 0
+        ? query.or(`patient_id.eq.${patientId},session_id.in.(${coupleSessionIds.join(',')})`)
+        : query.eq('patient_id', patientId);
+      const { data, error } = await query.order('generated_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as AiGeneratedDocumentWithType[];
     },

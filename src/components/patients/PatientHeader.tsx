@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Patient } from '@/hooks/usePatients';
 import { PatientStatusBadge } from './PatientStatusBadge';
 import { PatientStatusToggle } from './PatientStatusToggle';
+import { PatientPartnerLink } from './PatientPartnerLink';
 import { Icon } from '@/components/ui/icon';
 
 interface PatientHeaderProps {
@@ -116,6 +117,10 @@ export function PatientHeader({ patient, onEditClick }: PatientHeaderProps) {
               )}
             </div>
           )}
+
+          <div className="mt-3">
+            <PatientPartnerLink patient={patient} />
+          </div>
 
           <p className="mt-3 text-xs text-muted-foreground">
             Contacto desde {format(new Date(patient.created_at), "d 'de' MMMM yyyy", { locale: es })}

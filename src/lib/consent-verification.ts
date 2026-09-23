@@ -140,3 +140,69 @@ export async function checkPatientConsent(
     return { granted: false, reason: 'no_consent' };
   }
 }
+
+// --- Sesiones con varios participantes (pareja) ---
+// Una sesión de pareja solo cumple una finalidad si la cumplen TODOS sus
+// participantes: el titular (sessions.patient_id) y los de session_participants.
+
+export interface SessionConsentPatient {
+  id: string;
+  name: string;
+}
+
+export interface SessionConsentCheckResult {
+  granted: boolean;
+  /** Primer participante al que le falta el consentimiento (si alguno). */
+  deniedPatient?: SessionConsentPatient;
+  deniedPurpose?: ConsentPurpose;
+  deniedResult?: ConsentCheckResult;
+  /** Todos los participantes comprobados. */
+  patients: SessionConsentPatient[];
+}
+
+export async function getSessionConsentPatients(
+  supabase: ConsentsSupabaseClient,
+  sessionId: string,
+  fallbackPatientId?: string,
+): Promise<SessionConsentPatient[]> {
+  const [{ data: session }, { data: participants }] = await Promise.all([
+    supabase
+      .from('sessions')
+      .select('patient:patients!sessions_patient_id_fkey(id, first_name, last_name)')
+      .eq('id', sessionId)
+      .maybeSingle(),
+    supabase
+      .from('session_participants')
+      .select('patient:patients!session_participants_patient_id_fkey(id, first_name, last_name)')
+      .eq('session_id', sessionId),
+  ]);
+  type Row = { patient: { id: string; first_name: string | null; last_name: string | null } | null } | null;
+  const rows = [session as unknown as Row, ...((participants ?? []) as unknown as Row[])];
+  const patients = rows
+    .map((row) => row?.patient)
+    .filter((p): p is NonNullable<typeof p> => !!p)
+    .map((p) => ({ id: p.id, name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() }));
+  if (patients.length === 0 && fallbackPatientId) return [{ id: fallbackPatientId, name: '' }];
+  return patients;
+}
+
+export async function checkSessionConsent(
+  supabase: ConsentsSupabaseClient,
+  sessionId: string,
+  purposes: readonly ConsentPurpose[],
+  fallbackPatientId?: string,
+): Promise<SessionConsentCheckResult> {
+  const patients = await getSessionConsentPatients(supabase, sessionId, fallbackPatientId);
+  if (patients.length === 0) {
+    return { granted: false, patients, deniedPurpose: purposes[0], deniedResult: { granted: false, reason: 'no_consent' } };
+  }
+  for (const patient of patients) {
+    for (const purpose of purposes) {
+      const result = await checkPatientConsent(supabase, patient.id, purpose);
+      if (!result.granted) {
+        return { granted: false, patients, deniedPatient: patient, deniedPurpose: purpose, deniedResult: result };
+      }
+    }
+  }
+  return { granted: true, patients };
+}

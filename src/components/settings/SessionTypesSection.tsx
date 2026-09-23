@@ -150,6 +150,7 @@ export function SessionTypesSection() {
         non_subject_code: null,
         vat_regime_key: '01',
         is_first_consultation: false,
+        is_couple: false,
       },
     ]);
     setExpandedFiscal(newId);
@@ -200,6 +201,8 @@ export function SessionTypesSection() {
             exemption_code: item.exemption_code as ExemptionCode,
             non_subject_code: item.non_subject_code as NonSubjectCode,
             vat_regime_key: item.vat_regime_key || '01',
+            is_first_consultation: item.is_first_consultation ?? false,
+            is_couple: item.is_couple ?? false,
           })
         );
       } else if (item.id) {
@@ -216,7 +219,8 @@ export function SessionTypesSection() {
             Number(original.vat_rate || 0) !== Number(item.vat_rate || 0) ||
             original.exemption_code !== item.exemption_code ||
             original.non_subject_code !== item.non_subject_code ||
-            Boolean(original.is_first_consultation) !== Boolean(item.is_first_consultation);
+            Boolean(original.is_first_consultation) !== Boolean(item.is_first_consultation) ||
+            Boolean(original.is_couple) !== Boolean(item.is_couple);
 
           if (hasChanged) {
             promises.push(
@@ -233,6 +237,7 @@ export function SessionTypesSection() {
                 non_subject_code: item.non_subject_code as NonSubjectCode,
                 vat_regime_key: item.vat_regime_key || '01',
                 is_first_consultation: item.is_first_consultation ?? false,
+                is_couple: item.is_couple ?? false,
               })
             );
           }
@@ -572,6 +577,22 @@ export function SessionTypesSection() {
                         </Label>
                         <span className="text-xs text-muted-foreground ml-2">
                           (No se mostrará en reservas públicas si la agenda está cerrada)
+                        </span>
+                      </div>
+
+                      {/* Couple session toggle */}
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`couple-${itemId}`}
+                          checked={item.is_couple ?? false}
+                          onCheckedChange={(checked) => handleChange(index, 'is_couple', !!checked)}
+                        />
+                        <Label htmlFor={`couple-${itemId}`} className="text-sm flex items-center gap-2 cursor-pointer">
+                          <Icon name="favorite" className="h-4 w-4 text-muted-foreground" />
+                          Es sesión de pareja
+                        </Label>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (Al reservar se pide el otro miembro y el aviso llega a los dos)
                         </span>
                       </div>
                     </div>

@@ -22,6 +22,8 @@ export interface RecurringSeries {
   cancellation_policy: string;
   notes_default: string | null;
   bono_id: string | null;
+  /** Segundo miembro en series de pareja (se copia a cada sesión generada). */
+  partner_patient_id: string | null;
   rrule_json: RecurrenceConfig;
   max_occurrences: number;
   last_generated_until: string | null;
@@ -45,6 +47,7 @@ export interface RecurringSeriesInsert {
   cancellation_policy?: string;
   notes_default?: string | null;
   bono_id?: string | null;
+  partner_patient_id?: string | null;
   rrule_json: RecurrenceConfig;
   max_occurrences?: number;
 }

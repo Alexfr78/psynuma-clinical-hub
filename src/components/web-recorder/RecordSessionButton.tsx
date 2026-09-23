@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { useWebRecorder } from '@/hooks/useWebRecorder';
 import { supabase } from '@/integrations/supabase/client';
-import { checkPatientConsent } from '@/lib/consent-verification';
+import { checkSessionConsent } from '@/lib/consent-verification';
 import { cn } from '@/lib/utils';
 
 interface RecordSessionButtonProps {
@@ -23,16 +23,15 @@ interface RecordSessionButtonProps {
  * ¿El paciente tiene firmados los permisos que exige la grabadora (grabación + tratamiento por IA)?
  * Solo sirve para pintar el botón; la comprobación que manda sigue siendo la del controlador.
  */
-function useRecordingConsentGranted(patientId: string, enabled: boolean) {
+function useRecordingConsentGranted(patientId: string, sessionId: string, enabled: boolean) {
   const { data } = useQuery({
-    queryKey: ['consents', 'recording-ready', patientId],
+    queryKey: ['consents', 'recording-ready', patientId, sessionId],
     queryFn: async () => {
-      const results = await Promise.all(
-        (['recording', 'ai_processing'] as const).map((purpose) => checkPatientConsent(supabase, patientId, purpose)),
-      );
-      return results.every((r) => r.granted);
+      // En sesiones de pareja cuenta el consentimiento de los dos miembros.
+      const result = await checkSessionConsent(supabase, sessionId, ['recording', 'ai_processing'], patientId);
+      return result.granted;
     },
-    enabled: enabled && !!patientId,
+    enabled: enabled && !!patientId && !!sessionId,
     staleTime: 60_000,
   });
   return data === true;
@@ -57,7 +56,7 @@ export function RecordSessionButton({
   // siguiente sesión, que suele ir pegada a la anterior.
   const busy = !['idle', 'completed', 'transcribing'].includes(recorder.state.phase);
   const isThisSession = busy && recorder.state.sessionId === sessionId;
-  const consentGranted = useRecordingConsentGranted(patientId, variant === 'compact');
+  const consentGranted = useRecordingConsentGranted(patientId, sessionId, variant === 'compact');
 
   const handleClick = async (event: MouseEvent) => {
     event.stopPropagation();

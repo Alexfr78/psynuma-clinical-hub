@@ -84,9 +84,15 @@ import { useAllLocationSchedules } from '@/hooks/useLocationSchedules';
 import { getDefaultLocationForDate } from '@/lib/location-defaults';
 import { resolvePaymentSettings } from '@/lib/payment-mode';
 import { Icon } from '@/components/ui/icon';
+import { CoupleSessionFields } from './CoupleSessionFields';
+import { resolveCoupleRoles } from '@/lib/couple-session';
+import { useSetSessionPartner } from '@/hooks/usePatientRelationships';
 
 const quickSessionSchema = z.object({
   patient_id: z.string().uuid('Selecciona un contacto'),
+  // Sesión de pareja: segundo miembro y quién de los dos paga (titular).
+  partner_patient_id: z.string().optional(),
+  couple_payer: z.enum(['patient', 'partner']).default('patient'),
   professional_id: z.string().uuid('Selecciona un profesional'),
   session_date: z.date({ required_error: 'Selecciona una fecha' }),
   start_time: z.string().min(1, 'Hora de inicio requerida'),
@@ -224,6 +230,8 @@ export function QuickCreateSessionDialog({
     resolver: zodResolver(quickSessionSchema),
     defaultValues: {
       patient_id: '',
+      partner_patient_id: '',
+      couple_payer: 'patient',
       professional_id: user?.id || '',
       session_date: initialDate || new Date(),
       start_time: initialStartTime || '09:00',
@@ -251,10 +259,21 @@ export function QuickCreateSessionDialog({
   const watchStartTime = form.watch('start_time');
   const watchProfessionalId = form.watch('professional_id');
   const watchSessionDate = form.watch('session_date');
+  const watchPartnerId = form.watch('partner_patient_id');
+  const watchCouplePayer = form.watch('couple_payer');
+  const isCoupleType = !!sessionTypes?.find((t) => t.id === watchSessionType)?.is_couple;
+  // El titular (quien paga) decide precio personalizado, bonos y modo de pago.
+  const { titularId } = resolveCoupleRoles({
+    patientId: watchPatientId,
+    partnerId: watchPartnerId,
+    payer: watchCouplePayer,
+    isCoupleType,
+  });
+  const setSessionPartner = useSetSessionPartner();
 
   // Resolve effective price (custom price / tariff plan / base) for this patient + session type
   const { data: resolvedPrice } = useResolvedPrice(
-    watchPatientId || undefined,
+    titularId || undefined,
     'session_type',
     watchSessionType || undefined,
     watchSessionDate ? format(watchSessionDate, 'yyyy-MM-dd') : undefined,
@@ -264,7 +283,7 @@ export function QuickCreateSessionDialog({
   // Use integrations for the selected professional (not necessarily the authenticated user)
   const { integrations, oauthConnections } = useProfessionalIntegrations(watchProfessionalId || undefined);
   
-  const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
+  const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(titularId || undefined);
 
   // Fetch all location schedules for smart auto-selection
   const locationIds = locations?.map(l => l.id) || [];
@@ -284,15 +303,15 @@ export function QuickCreateSessionDialog({
 
   // Auto-select first active bono when patient has bonos available
   useEffect(() => {
-    if (patientBonos && patientBonos.length > 0 && watchPatientId) {
+    if (patientBonos && patientBonos.length > 0 && titularId) {
       const currentBono = form.getValues('bono_id');
-      if (!currentBono || currentBono === 'none' || currentBono === '') {
+      if (!currentBono || currentBono === 'none' || currentBono === '' || !patientBonos.some((b) => b.id === currentBono)) {
         form.setValue('bono_id', patientBonos[0].id);
       }
-    } else if (watchPatientId) {
+    } else if (titularId) {
       form.setValue('bono_id', 'none');
     }
-  }, [patientBonos, watchPatientId, form]);
+  }, [patientBonos, titularId, form]);
 
   // Clear new bono tracking when bono selection changes to something else
   useEffect(() => {
@@ -385,6 +404,8 @@ export function QuickCreateSessionDialog({
 
       form.reset({
         patient_id: '',
+        partner_patient_id: '',
+        couple_payer: 'patient',
         professional_id: user?.id || professionals?.[0]?.id || '',
         session_date: dateForDefaults,
         start_time: initialStartTime || '09:00',
@@ -466,6 +487,16 @@ export function QuickCreateSessionDialog({
   ) => {
     const usesBono = values.bono_id && values.bono_id !== 'none' && values.bono_id !== '';
     const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
+    const roles = resolveCoupleRoles({
+      patientId: values.patient_id,
+      partnerId: values.partner_patient_id,
+      payer: values.couple_payer,
+      isCoupleType: !!selectedSessionType?.is_couple,
+    });
+    const titularPatient = patients?.find((p) => p.id === roles.titularId);
+    const participantPatient = roles.participantId
+      ? patients?.find((p) => p.id === roles.participantId)
+      : undefined;
     const basePrice = selectedSessionType?.default_price ?? 0;
     const useResolved = !!resolvedPrice && !usesBono;
     const sessionPrice = useResolved ? resolvedPrice!.applied_price : basePrice;
@@ -485,7 +516,7 @@ export function QuickCreateSessionDialog({
     }
     
     const effectivePaymentMode = values.payment_mode === '__default__' ? null : values.payment_mode;
-    const patientPaymentSettings = selectedPatient as {
+    const patientPaymentSettings = titularPatient as {
       payment_mode?: string | null;
       require_advance_payment_always?: boolean | null;
     } | undefined;
@@ -546,7 +577,7 @@ export function QuickCreateSessionDialog({
 
         await createRecurringSeries.mutateAsync({
           seriesData: {
-            patient_id: values.patient_id,
+            patient_id: roles.titularId,
             professional_id: values.professional_id,
             base_start_datetime: fullStartDate.toISOString(),
             duration_minutes: durationMinutes > 0 ? durationMinutes : 60,
@@ -559,6 +590,7 @@ export function QuickCreateSessionDialog({
             notes_default: null,
             bono_id: usesBono ? values.bono_id : null,
             rrule_json: recurrenceConfig,
+            partner_patient_id: roles.participantId,
           },
           occurrences,
           sessionTypeId: values.session_type,
@@ -577,7 +609,7 @@ export function QuickCreateSessionDialog({
 
       // Single session creation (existing logic)
       const newSession = await createSession.mutateAsync({
-        patient_id: values.patient_id,
+        patient_id: roles.titularId,
         professional_id: values.professional_id,
         session_date: format(values.session_date, 'yyyy-MM-dd'),
         start_time: values.start_time,
@@ -602,8 +634,12 @@ export function QuickCreateSessionDialog({
         ...pricingSnapshots,
       } as Omit<SessionInsert, 'center_id'>);
 
+      if (roles.participantId && newSession?.id) {
+        await setSessionPartner.mutateAsync({ sessionId: newSession.id, partnerId: roles.participantId });
+      }
+
       // Handle video/calendar integrations for non-draft sessions (non-critical)
-      if (!asDraft && newSession?.id && selectedPatient) {
+      if (!asDraft && newSession?.id && titularPatient) {
         try {
           const isVideoSession = values.session_modality === 'zoom' || values.session_modality === 'google_meet';
           
@@ -612,7 +648,7 @@ export function QuickCreateSessionDialog({
               {
                 id: newSession.id,
                 professional_id: values.professional_id,
-                patient_id: values.patient_id,
+                patient_id: roles.titularId,
                 session_date: format(values.session_date, 'yyyy-MM-dd'),
                 start_time: values.start_time,
                 end_time: values.end_time,
@@ -621,9 +657,9 @@ export function QuickCreateSessionDialog({
                 session_type: selectedSessionType?.name,
               },
               {
-                first_name: selectedPatient.first_name,
-                last_name: selectedPatient.last_name,
-                email: selectedPatient.email,
+                first_name: titularPatient.first_name,
+                last_name: titularPatient.last_name,
+                email: titularPatient.email,
               },
               integrations,
               oauthConnections || []
@@ -652,7 +688,7 @@ export function QuickCreateSessionDialog({
               {
                 id: newSession.id,
                 professional_id: values.professional_id,
-                patient_id: values.patient_id,
+                patient_id: roles.titularId,
                 session_date: format(values.session_date, 'yyyy-MM-dd'),
                 start_time: values.start_time,
                 end_time: values.end_time,
@@ -661,9 +697,9 @@ export function QuickCreateSessionDialog({
                 payment_mode: effectivePaymentMode,
               },
               {
-                first_name: selectedPatient.first_name,
-                last_name: selectedPatient.last_name,
-                email: selectedPatient.email,
+                first_name: titularPatient.first_name,
+                last_name: titularPatient.last_name,
+                email: titularPatient.email,
               },
               integrations,
               oauthConnections || []
@@ -702,12 +738,12 @@ export function QuickCreateSessionDialog({
       // Send immediate notifications if any are enabled (only for non-drafts)
       const hasNotifications = values.notify_whatsapp || values.notify_email || values.notify_sms;
       let notificationResult;
-      if (!asDraft && hasNotifications && newSession?.id && selectedPatient) {
+      if (!asDraft && hasNotifications && newSession?.id && titularPatient) {
         notificationResult = await sendSessionNotificationDirect({
-          patientId: values.patient_id,
-          patientName: `${selectedPatient.first_name} ${selectedPatient.last_name}`,
-          patientPhone: selectedPatient.phone,
-          patientEmail: selectedPatient.email,
+          patientId: roles.titularId,
+          patientName: `${titularPatient.first_name} ${titularPatient.last_name}`,
+          patientPhone: titularPatient.phone,
+          patientEmail: titularPatient.email,
           sessionId: newSession.id,
           sessionDate: format(values.session_date, 'dd/MM/yyyy'),
           sessionTime: values.start_time,
@@ -720,7 +756,28 @@ export function QuickCreateSessionDialog({
             sms: values.notify_sms,
           },
         }, profile!.center_id, center);
-        
+
+        // En sesiones de pareja el aviso de la cita también llega al otro miembro.
+        if (participantPatient) {
+          await sendSessionNotificationDirect({
+            patientId: participantPatient.id,
+            patientName: `${participantPatient.first_name} ${participantPatient.last_name}`,
+            patientPhone: participantPatient.phone,
+            patientEmail: participantPatient.email,
+            sessionId: newSession.id,
+            sessionDate: format(values.session_date, 'dd/MM/yyyy'),
+            sessionTime: values.start_time,
+            professionalName: selectedProfessional ? `${selectedProfessional.first_name} ${selectedProfessional.last_name}` : undefined,
+            sessionType: selectedSessionType?.name || values.session_type,
+            type: 'notification',
+            channels: {
+              whatsapp: values.notify_whatsapp,
+              email: values.notify_email,
+              sms: values.notify_sms,
+            },
+          }, profile!.center_id, center).catch((err) => console.error('Partner notification failed:', err));
+        }
+
         // Invalidate notification queries manually
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
         queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
@@ -855,6 +912,15 @@ export function QuickCreateSessionDialog({
 
   const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
     const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
+
+    if (selectedSessionType?.is_couple && !values.partner_patient_id) {
+      toast({
+        title: 'Falta el otro miembro de la pareja',
+        description: 'Elige con quién es la sesión de pareja.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     // Validate and fix end_time if it's equal or less than start_time
     if (values.end_time <= values.start_time) {
@@ -1302,6 +1368,8 @@ export function QuickCreateSessionDialog({
                 );
               }}
             />
+
+            <CoupleSessionFields form={form} isCoupleType={isCoupleType} />
 
             {/* Cancellation Policy */}
             <FormField
