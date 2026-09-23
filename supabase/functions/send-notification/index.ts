@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { decryptSecret } from "../_shared/crypto.ts";
 import { checkPatientConsent, type ConsentDenialReason } from "../_shared/consent.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
+import { isWhatsAppOptedOut, normalizeWhatsAppPhone } from "../_shared/whatsapp-reply-intent.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL"); // e.g., "noreply@tudominio.com"
@@ -123,6 +124,26 @@ async function isClinicalReportNotification(
   const clinical = (session.ai_summary_clinical || '').trim();
   const patient = (session.ai_summary_patient || '').trim();
   return (!!clinical && msg === clinical) || (!!patient && msg === patient);
+}
+
+async function isOptedOutPatientRecipient(
+  supabase: SupabaseClient,
+  notification: NotificationRow,
+): Promise<boolean> {
+  if (!notification.patient_id) return false;
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("phone")
+    .eq("id", notification.patient_id)
+    .maybeSingle();
+  if (!patient?.phone) return false;
+
+  // A patient_id can also be carried by a professional alert. Only apply the
+  // patient preference when the recipient is actually that patient's phone.
+  if (normalizeWhatsAppPhone(patient.phone) !== normalizeWhatsAppPhone(notification.recipient)) {
+    return false;
+  }
+  return isWhatsAppOptedOut(supabase, notification.center_id, notification.recipient);
 }
 
 function consentDenialMessage(reason: ConsentDenialReason | undefined, channel: 'whatsapp' | 'email'): string {
@@ -732,7 +753,21 @@ serve(async (req) => {
                 .eq("center_id", notification.center_id)
                 .maybeSingle();
               
-              wasenderConnected = wasenderSession?.status === 'connected';
+            wasenderConnected = wasenderSession?.status === 'connected';
+            }
+
+            const optedOut = await isOptedOutPatientRecipient(
+              supabase,
+              notification as NotificationRow,
+            );
+            const sendMethod = centerConfig?.whatsapp_send_method || 'web';
+            const hasAutomaticProvider =
+              (centerConfig?.wasender_enabled && wasenderConnected && !centerConfig?.wasender_emergency_stop)
+              || sendMethod === 'api';
+            if (optedOut && hasAutomaticProvider) {
+              errorMessage = 'opt_out';
+              console.log(`[send-notification] WhatsApp delivery skipped for opted-out patient ${notification.recipient}`);
+              break;
             }
 
             console.log(`[send-notification] WhatsApp delivery check:`, {
@@ -768,7 +803,6 @@ serve(async (req) => {
             }
 
             // PRIORITY 2: Meta API (if configured)
-            const sendMethod = centerConfig?.whatsapp_send_method || 'web';
             if (sendMethod === 'api') {
               const encryptedToken = centerConfig?.whatsapp_access_token;
               const phoneNumberId = centerConfig?.whatsapp_phone_number_id;

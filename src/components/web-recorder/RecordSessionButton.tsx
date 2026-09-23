@@ -1,8 +1,11 @@
 import { useState, type MouseEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { useWebRecorder } from '@/hooks/useWebRecorder';
+import { supabase } from '@/integrations/supabase/client';
+import { checkPatientConsent } from '@/lib/consent-verification';
 import { cn } from '@/lib/utils';
 
 interface RecordSessionButtonProps {
@@ -14,6 +17,25 @@ interface RecordSessionButtonProps {
   className?: string;
   /** Se llama cuando la grabación ya ha arrancado (p. ej. para cerrar el panel que la contiene). */
   onStarted?: () => void;
+}
+
+/**
+ * ¿El paciente tiene firmados los permisos que exige la grabadora (grabación + tratamiento por IA)?
+ * Solo sirve para pintar el botón; la comprobación que manda sigue siendo la del controlador.
+ */
+function useRecordingConsentGranted(patientId: string, enabled: boolean) {
+  const { data } = useQuery({
+    queryKey: ['consents', 'recording-ready', patientId],
+    queryFn: async () => {
+      const results = await Promise.all(
+        (['recording', 'ai_processing'] as const).map((purpose) => checkPatientConsent(supabase, patientId, purpose)),
+      );
+      return results.every((r) => r.granted);
+    },
+    enabled: enabled && !!patientId,
+    staleTime: 60_000,
+  });
+  return data === true;
 }
 
 /**
@@ -33,6 +55,7 @@ export function RecordSessionButton({
   const [starting, setStarting] = useState(false);
   const busy = !['idle', 'completed'].includes(recorder.state.phase);
   const isThisSession = busy && recorder.state.sessionId === sessionId;
+  const consentGranted = useRecordingConsentGranted(patientId, variant === 'compact');
 
   const handleClick = async (event: MouseEvent) => {
     event.stopPropagation();
@@ -61,11 +84,20 @@ export function RecordSessionButton({
       variant={variant === 'compact' ? 'outline' : 'default'}
       size={variant === 'compact' ? 'sm' : 'default'}
       disabled={starting || busy}
-      title={busy && !isThisSession ? 'Ya hay una grabación en curso o pendiente' : 'Grabar y transcribir al terminar'}
+      title={
+        busy && !isThisSession
+          ? 'Ya hay una grabación en curso o pendiente'
+          : variant === 'compact' && !consentGranted
+            ? 'Falta el consentimiento de grabación o de tratamiento por IA'
+            : 'Grabar y transcribir al terminar'
+      }
       aria-label={`Grabar sesión de ${patientName}`}
       className={cn(
         variant === 'full' && 'w-full',
-        variant === 'compact' && 'shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive',
+        variant === 'compact' && 'shrink-0',
+        variant === 'compact' && (consentGranted
+          ? 'border-success/40 text-success hover:bg-success/10 hover:text-success'
+          : 'border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive'),
         className,
       )}
       onClick={handleClick}

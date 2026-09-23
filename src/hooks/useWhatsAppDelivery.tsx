@@ -182,7 +182,7 @@ export function useWhatsAppDelivery() {
     // Live DB check for WasenderAPI status (avoids stale cache)
     if (center?.wasender_enabled && !center?.wasender_emergency_stop) {
       const { data: liveSession } = await supabase
-        .from('whatsapp_sessions')
+        .from('whatsapp_sessions_safe')
         .select('status, wasender_session_id')
         .eq('center_id', params.centerId)
         .maybeSingle();

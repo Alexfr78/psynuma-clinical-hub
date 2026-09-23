@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { classifyReply, normalizeWhatsAppPhone } from "../_shared/whatsapp-reply-intent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,27 +121,25 @@ serve(async (req) => {
 
         // Wasender sends data.messages with messageBody and remoteJid
         const msg = data.messages || data;
-        const messageText = (msg.messageBody || msg.message?.text || data.text || data.body || "").trim().toLowerCase();
+        const rawText = (msg.messageBody || msg.message?.text || data.text || data.body || "").trim();
         const rawPhone = msg.remoteJid || msg.key?.remoteJid || data.from || data.sender || data.phone || "";
         // Strip @s.whatsapp.net suffix if present
         const fromPhone = rawPhone.replace(/@s\.whatsapp\.net$/, "");
 
-        if (!messageText || !fromPhone) {
+        if (!rawText || !fromPhone) {
           console.log("No text or phone in incoming message, skipping");
           break;
         }
 
-        // Check if message is a confirmation
-        const confirmationKeywords = ["sí", "si", "yes", "1", "confirmo", "confirmar", "ok", "vale"];
-        const isConfirmation = confirmationKeywords.some(kw => messageText === kw || messageText.startsWith(kw));
-
-        if (!isConfirmation) {
+        const messageText = rawText.toLowerCase();
+        const intent = classifyReply(rawText);
+        if (intent === "none") {
           console.log(`Message "${messageText}" is not a confirmation, skipping`);
           break;
         }
 
         // Normalize phone
-        let cleanPhone = fromPhone.replace(/\D/g, "");
+        let cleanPhone = normalizeWhatsAppPhone(fromPhone);
         if (cleanPhone.startsWith("34") && cleanPhone.length === 11) {
           cleanPhone = cleanPhone.slice(2);
         }
@@ -172,6 +171,55 @@ serve(async (req) => {
             .eq("webhook_secret", signature)
             .maybeSingle();
           receivingCenterId = bySecret?.center_id ?? null;
+        }
+
+        if ((intent === "opt_out" || intent === "opt_in") && receivingCenterId) {
+          const phoneKey = normalizeWhatsAppPhone(fromPhone);
+          const now = new Date().toISOString();
+          let preferenceError;
+          if (intent === "opt_out") {
+            ({ error: preferenceError } = await supabase.from("whatsapp_opt_outs").upsert({
+              center_id: receivingCenterId,
+              phone: phoneKey,
+              opted_out_at: now,
+              opted_in_at: null,
+              source: "patient_reply",
+            }, { onConflict: "center_id,phone" }));
+          } else {
+            const { data: existingOptOut } = await supabase
+              .from("whatsapp_opt_outs")
+              .select("id")
+              .eq("center_id", receivingCenterId)
+              .eq("phone", phoneKey)
+              .maybeSingle();
+            ({ error: preferenceError } = existingOptOut
+              ? await supabase.from("whatsapp_opt_outs").update({ opted_in_at: now }).eq("id", existingOptOut.id)
+              : await supabase.from("whatsapp_opt_outs").insert({
+                  center_id: receivingCenterId,
+                  phone: phoneKey,
+                  opted_out_at: now,
+                  opted_in_at: now,
+                  source: "patient_reply",
+                }));
+          }
+          if (preferenceError) {
+            console.error("[wasender-webhook] Error saving WhatsApp opt preference:", preferenceError);
+          }
+          await supabase.from("whatsapp_messages").insert({
+            center_id: receivingCenterId,
+            phone: fromPhone,
+            content: rawText,
+            type: "text",
+            direction: "incoming",
+            message_type: "incoming",
+            status: "delivered",
+          });
+          break;
+        }
+
+        if (intent === "opt_out" || intent === "opt_in") {
+          console.warn("[wasender-webhook] Opt preference ignored because receiving center is unknown");
+          break;
         }
 
         // Search patients by phone (try multiple formats)
@@ -277,8 +325,9 @@ serve(async (req) => {
         await supabase.from("whatsapp_messages").insert({
           center_id: targetSession.center_id,
           phone: fromPhone,
-          content: messageText,
+          content: rawText,
           type: "text",
+          direction: "incoming",
           message_type: "incoming",
           patient_id: targetSession.patient_id,
           session_id: targetSession.id,

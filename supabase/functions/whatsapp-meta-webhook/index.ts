@@ -1,16 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { classifyReply, normalizeWhatsAppPhone } from "../_shared/whatsapp-reply-intent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-hub-signature-256",
 };
-
-// Words that count as an affirmative reply to "Responde SÍ para confirmar"
-// in a session reminder. Mirrors the WasenderAPI webhook's confirmation
-// logic (supabase/functions/wasender-webhook/index.ts) adapted to Meta's
-// event shape.
-const CONFIRMATION_KEYWORDS = ["sí", "si", "yes", "1", "confirmo", "confirmar", "ok", "vale"];
 
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
@@ -161,8 +156,41 @@ async function handleIncomingMessages(supabase: SupabaseClient, phoneNumberId: s
       meta_message_id: msg.id || null,
     });
 
-    const isConfirmation = CONFIRMATION_KEYWORDS.some((kw) => messageText === kw || messageText.startsWith(kw));
-    if (!isConfirmation) {
+    const intent = classifyReply(rawText);
+    const phoneKey = normalizeWhatsAppPhone(fromPhone);
+    if (intent === "opt_out" || intent === "opt_in") {
+      const now = new Date().toISOString();
+      let preferenceError;
+      if (intent === "opt_out") {
+        ({ error: preferenceError } = await supabase.from("whatsapp_opt_outs").upsert({
+          center_id: center.id,
+          phone: phoneKey,
+          opted_out_at: now,
+          opted_in_at: null,
+          source: "patient_reply",
+        }, { onConflict: "center_id,phone" }));
+      } else {
+        const { data: existingOptOut } = await supabase
+          .from("whatsapp_opt_outs")
+          .select("id")
+          .eq("center_id", center.id)
+          .eq("phone", phoneKey)
+          .maybeSingle();
+        ({ error: preferenceError } = existingOptOut
+          ? await supabase.from("whatsapp_opt_outs").update({ opted_in_at: now }).eq("id", existingOptOut.id)
+          : await supabase.from("whatsapp_opt_outs").insert({
+              center_id: center.id,
+              phone: phoneKey,
+              opted_out_at: now,
+              opted_in_at: now,
+              source: "patient_reply",
+            }));
+      }
+      if (preferenceError) console.error("[whatsapp-meta-webhook] Error saving WhatsApp opt preference:", preferenceError);
+      continue;
+    }
+
+    if (intent !== "confirm") {
       console.log(`[whatsapp-meta-webhook] Message "${messageText}" is not a confirmation, skipping`);
       continue;
     }
@@ -172,7 +200,7 @@ async function handleIncomingMessages(supabase: SupabaseClient, phoneNumberId: s
       continue;
     }
 
-    let cleanPhone = fromPhone.replace(/\D/g, "");
+    let cleanPhone = phoneKey;
     if (cleanPhone.startsWith("34") && cleanPhone.length === 11) {
       cleanPhone = cleanPhone.slice(2);
     }

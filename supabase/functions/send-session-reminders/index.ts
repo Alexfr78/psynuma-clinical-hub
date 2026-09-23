@@ -7,6 +7,7 @@ import {
   markAdvancePaymentNotificationSent,
 } from "../_shared/advancePaymentNotifications.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
+import { isWhatsAppOptedOut } from "../_shared/whatsapp-reply-intent.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const WASENDER_API_URL = "https://www.wasenderapi.com/api";
@@ -743,8 +744,14 @@ serve(async (req) => {
           });
         }
 
-        // Send WhatsApp reminder
-        if (channels.whatsapp && patient.phone) {
+        // Send WhatsApp reminder (skipped if the patient replied STOP to this center)
+        const whatsappOptedOut = channels.whatsapp && patient.phone
+          ? await isWhatsAppOptedOut(supabase, center.id, patient.phone)
+          : false;
+        if (whatsappOptedOut) {
+          console.log(`Skipping WhatsApp reminder for patient ${patient.id}: opted out`);
+        }
+        if (channels.whatsapp && patient.phone && !whatsappOptedOut) {
           let whatsappSentVia: string | null = null;
           let whatsappError: string | null = null;
           let metaMessageId: string | undefined;

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "https://esm.sh/pdf-lib@1.17.1";
 import { getVerificationResponseValue, normalizeVerificationCheckboxes } from "../_shared/consent.ts";
+import { isWhatsAppOptedOut } from "../_shared/whatsapp-reply-intent.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -137,6 +138,22 @@ async function sendConsentCopyWhatsApp(
   if (cleanPhone.length === 9 && /^[67]/.test(cleanPhone)) cleanPhone = '34' + cleanPhone;
   const to = `+${cleanPhone}`;
   const text = `Hola ${params.patientName}, aquí tienes la copia de tu consentimiento firmado: ${params.templateName}.`;
+
+  if (await isWhatsAppOptedOut(supabase, params.centerId, params.patientPhone)) {
+    console.log("[generate-consent-pdf] WhatsApp copy skipped because the patient opted out");
+    await supabase.from("whatsapp_messages").insert({
+      center_id: params.centerId,
+      patient_id: params.patientId,
+      phone: to,
+      content: text,
+      type: "document",
+      message_type: "consent_copy",
+      media_url: params.documentUrl,
+      status: "failed",
+      error_message: "opt_out",
+    });
+    return;
+  }
 
   const { data: messageRecord } = await supabase
     .from("whatsapp_messages")

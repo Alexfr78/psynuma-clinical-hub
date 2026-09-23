@@ -304,7 +304,7 @@ export async function sendSessionNotificationDirect(
       // Priority 1: WasenderAPI if enabled and connected
       if (center.wasender_enabled && !center.wasender_emergency_stop) {
         const { data: wasenderSession } = await supabase
-          .from('whatsapp_sessions')
+          .from('whatsapp_sessions_safe')
           .select('status')
           .eq('center_id', centerId)
           .maybeSingle();

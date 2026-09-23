@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { decryptSecret } from "../_shared/crypto.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
+import { isWhatsAppOptedOut } from "../_shared/whatsapp-reply-intent.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -608,8 +609,22 @@ Deno.serve(async (req) => {
         whatsapp_send_method: center?.whatsapp_send_method,
       });
 
+      const whatsappOptedOut = await isWhatsAppOptedOut(supabase, invoice.center_id, phone);
+      if (whatsappOptedOut) {
+        console.log(`[send-invoice-notification] WhatsApp skipped because the patient opted out`);
+        await supabase.from('notifications').insert({
+          center_id: invoice.center_id,
+          patient_id: patientId,
+          type: 'whatsapp',
+          recipient: phone,
+          message,
+          status: 'failed',
+          error_message: 'opt_out',
+        });
+      }
+
       // PRIORITY 1: WasenderAPI (if enabled AND connected AND not emergency stopped)
-      if (center?.wasender_enabled && wasenderConnected && !center?.wasender_emergency_stop) {
+      if (!whatsappOptedOut && center?.wasender_enabled && wasenderConnected && !center?.wasender_emergency_stop) {
         console.log('[send-invoice-notification] Using WasenderAPI (Priority 1)');
         whatsappSendMethod = 'wasender';
         
@@ -641,7 +656,7 @@ Deno.serve(async (req) => {
       }
 
       // PRIORITY 2: Meta API (if configured and WasenderAPI didn't succeed)
-      if (!whatsappSent && center?.whatsapp_send_method === 'api' && center?.whatsapp_access_token && center?.whatsapp_phone_number_id) {
+      if (!whatsappOptedOut && !whatsappSent && center?.whatsapp_send_method === 'api' && center?.whatsapp_access_token && center?.whatsapp_phone_number_id) {
         console.log('[send-invoice-notification] Using Meta API (Priority 2)');
         whatsappSendMethod = 'api';
         

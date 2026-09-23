@@ -8,6 +8,19 @@ const corsHeaders = {
 
 const WASENDER_API_URL = "https://www.wasenderapi.com/api";
 
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  const length = Math.max(aBytes.length, bBytes.length);
+  let difference = aBytes.length ^ bBytes.length;
+
+  for (let index = 0; index < length; index++) {
+    difference |= (aBytes[index] ?? 0) ^ (bBytes[index] ?? 0);
+  }
+
+  return difference === 0;
+}
+
 interface SessionWithPatient {
   id: string;
   session_date: string;
@@ -37,6 +50,22 @@ interface SessionWithPatient {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const cronSecret = req.headers.get("x-cron-secret") ?? "";
+  const expectedSecret = Deno.env.get("CRON_SECRET");
+  if (!expectedSecret) {
+    console.error("[wasender-send-reminders] CRON_SECRET not configured");
+    return new Response(JSON.stringify({ error: "Function not configured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (!timingSafeEqual(cronSecret, expectedSecret)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

@@ -60,7 +60,10 @@ serve(async (req) => {
         id,
         center_id,
         message_id,
-        retry_count,
+        attempts,
+        max_attempts,
+        next_retry_at,
+        status,
         whatsapp_messages (
           id,
           phone,
@@ -71,7 +74,9 @@ serve(async (req) => {
         )
       `)
       .is("processed_at", null)
+      .eq("status", "pending")
       .lte("scheduled_at", new Date().toISOString())
+      .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`)
       .order("scheduled_at", { ascending: true })
       .limit(10);
 
@@ -104,7 +109,7 @@ serve(async (req) => {
         console.log(`Skipping message for center ${item.center_id} - emergency stop or disabled`);
         await supabase
           .from("whatsapp_queue")
-          .update({ processed_at: new Date().toISOString() })
+          .update({ status: "completed", processed_at: new Date().toISOString() })
           .eq("id", item.id);
         continue;
       }
@@ -112,18 +117,23 @@ serve(async (req) => {
       // Get the session for this center
       const { data: session } = await supabase
         .from("whatsapp_sessions")
-        .select("wasender_session_id, status")
+        .select("wasender_session_id, status, api_key")
         .eq("center_id", item.center_id)
         .single();
 
       if (!session?.wasender_session_id || session.status !== "connected") {
         console.log(`Session not connected for center ${item.center_id}`);
-        // Increment retry count
+        const attempts = (item.attempts || 0) + 1;
+        const maxAttempts = item.max_attempts || 3;
+        const retryAt = new Date(Date.now() + 60000).toISOString();
         await supabase
           .from("whatsapp_queue")
           .update({ 
-            retry_count: (item.retry_count || 0) + 1,
-            scheduled_at: new Date(Date.now() + 60000).toISOString(), // Retry in 1 minute
+            attempts,
+            next_retry_at: retryAt,
+            scheduled_at: retryAt,
+            status: attempts >= maxAttempts ? "failed" : "pending",
+            ...(attempts >= maxAttempts ? { processed_at: new Date().toISOString(), error_message: "WhatsApp session not connected" } : {}),
           })
           .eq("id", item.id);
         failed++;
@@ -134,35 +144,26 @@ serve(async (req) => {
       if (!message || message.status === "sent") {
         await supabase
           .from("whatsapp_queue")
-          .update({ processed_at: new Date().toISOString() })
+          .update({ status: "completed", processed_at: new Date().toISOString() })
           .eq("id", item.id);
         continue;
       }
 
       try {
-        // Build message body
-        let messageBody: Record<string, unknown>;
-        
-        if (message.type === "image" && message.media_url) {
-          messageBody = {
-            to: message.phone,
-            media_url: message.media_url,
-            caption: message.content,
-          };
-        } else {
-          messageBody = {
-            to: message.phone,
-            text: message.content,
-          };
-        }
+        // Keep this endpoint and payload aligned with wasender-send-message.
+        const messageBody = {
+          to: message.phone,
+          text: message.content,
+        };
+        const sendToken = session.api_key || wasenderToken;
 
         // Send via WasenderAPI - correct endpoint
         const sendResponse = await fetch(
-          `${WASENDER_API_URL}/whatsapp-sessions/${session.wasender_session_id}/messages/text`,
+          `${WASENDER_API_URL}/send-message`,
           {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${wasenderToken}`,
+              "Authorization": `Bearer ${sendToken}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify(messageBody),
@@ -185,17 +186,19 @@ serve(async (req) => {
           // Mark queue item as processed
           await supabase
             .from("whatsapp_queue")
-            .update({ processed_at: new Date().toISOString() })
+            .update({ status: "completed", processed_at: new Date().toISOString() })
             .eq("id", item.id);
 
           processed++;
         } else {
           // Handle failure with exponential backoff
-          const retryCount = (item.retry_count || 0) + 1;
-          const backoffMs = Math.min(60000 * Math.pow(2, retryCount), 3600000); // Max 1 hour
+          const attempts = (item.attempts || 0) + 1;
+          const maxAttempts = item.max_attempts || 3;
+          const backoffMs = Math.min(60000 * Math.pow(2, attempts), 3600000); // Max 1 hour
+          const nextRetryAt = new Date(Date.now() + backoffMs).toISOString();
 
-          if (retryCount >= 5) {
-            // Mark as failed after 5 retries
+          if (attempts >= maxAttempts) {
+            // Mark as failed after the row's configured number of attempts.
             await supabase
               .from("whatsapp_messages")
               .update({
@@ -206,14 +209,23 @@ serve(async (req) => {
 
             await supabase
               .from("whatsapp_queue")
-              .update({ processed_at: new Date().toISOString() })
+              .update({
+                status: "failed",
+                attempts,
+                next_retry_at: nextRetryAt,
+                processed_at: new Date().toISOString(),
+                error_message: sendResult.message || sendResult.error || "Max retries exceeded",
+              })
               .eq("id", item.id);
           } else {
             await supabase
               .from("whatsapp_queue")
               .update({
-                retry_count: retryCount,
-                scheduled_at: new Date(Date.now() + backoffMs).toISOString(),
+                status: "pending",
+                attempts,
+                next_retry_at: nextRetryAt,
+                scheduled_at: nextRetryAt,
+                error_message: sendResult.message || sendResult.error || null,
               })
               .eq("id", item.id);
           }
@@ -221,6 +233,32 @@ serve(async (req) => {
         }
       } catch (sendError) {
         console.error(`Error sending message ${message.id}:`, sendError);
+        const attempts = (item.attempts || 0) + 1;
+        const maxAttempts = item.max_attempts || 3;
+        const backoffMs = Math.min(60000 * Math.pow(2, attempts), 3600000);
+        const nextRetryAt = new Date(Date.now() + backoffMs).toISOString();
+
+        await supabase
+          .from("whatsapp_queue")
+          .update({
+            status: attempts >= maxAttempts ? "failed" : "pending",
+            attempts,
+            next_retry_at: nextRetryAt,
+            scheduled_at: nextRetryAt,
+            processed_at: attempts >= maxAttempts ? new Date().toISOString() : null,
+            error_message: (sendError as Error).message || "WasenderAPI request failed",
+          })
+          .eq("id", item.id);
+
+        if (attempts >= maxAttempts) {
+          await supabase
+            .from("whatsapp_messages")
+            .update({
+              status: "failed",
+              error_message: (sendError as Error).message || "Max retries exceeded",
+            })
+            .eq("id", message.id);
+        }
         failed++;
       }
 

@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 import {
   Table,
@@ -37,6 +38,8 @@ const methodConfig: Record<string, { label: string; icon: React.ReactNode }> = {
 };
 
 export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoice }: PaymentHistoryTableProps) {
+  const navigate = useNavigate();
+
   if (payments.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -88,7 +91,16 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                   </Badge>
                 )}
                 {payment.invoices?.invoice_number && (
-                  <Badge variant="outline">{payment.invoices.invoice_number}</Badge>
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer hover:bg-accent"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/facturas?invoiceId=${payment.invoice_id}`);
+                    }}
+                  >
+                    {payment.invoices.invoice_number}
+                  </Badge>
                 )}
                 {refundState === 'refunded' && (
                   <Badge variant="destructive" className="gap-1">
@@ -189,7 +201,17 @@ export function PaymentHistoryTable({ payments, onEdit, onDelete, onLinkToInvoic
                     )}
                   </TableCell>
                   <TableCell>
-                    {payment.invoices?.invoice_number || '-'}
+                    {payment.invoices?.invoice_number ? (
+                      <span
+                        className="cursor-pointer hover:text-primary hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/facturas?invoiceId=${payment.invoice_id}`);
+                        }}
+                      >
+                        {payment.invoices.invoice_number}
+                      </span>
+                    ) : '-'}
                   </TableCell>
                   <TableCell>
                     {payment.sessions ? (

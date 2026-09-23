@@ -8145,6 +8145,44 @@ export type Database = {
           },
         ]
       }
+      whatsapp_opt_outs: {
+        Row: {
+          center_id: string
+          created_at: string
+          id: string
+          opted_in_at: string | null
+          opted_out_at: string
+          phone: string
+          source: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          id?: string
+          opted_in_at?: string | null
+          opted_out_at?: string
+          phone: string
+          source: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          id?: string
+          opted_in_at?: string | null
+          opted_out_at?: string
+          phone?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_opt_outs_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_queue: {
         Row: {
           attempts: number | null
@@ -8473,6 +8511,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_sessions_safe: {
+        Row: {
+          center_id: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          last_connected_at: string | null
+          last_error: string | null
+          name: string | null
+          phone_number: string | null
+          professional_id: string | null
+          qr_code: string | null
+          qr_expires_at: string | null
+          status: string | null
+          updated_at: string | null
+          wasender_session_id: string | null
+        }
+        Insert: {
+          center_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_error?: string | null
+          name?: string | null
+          phone_number?: string | null
+          professional_id?: string | null
+          qr_code?: string | null
+          qr_expires_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          wasender_session_id?: string | null
+        }
+        Update: {
+          center_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_error?: string | null
+          name?: string | null
+          phone_number?: string | null
+          professional_id?: string | null
+          qr_code?: string | null
+          qr_expires_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          wasender_session_id?: string | null
+        }
+        Relationships: []
       }
       patients_public: {
         Row: {

@@ -13,6 +13,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { CenterSetupWizard } from '@/components/setup/CenterSetupWizard';
+import { HeaderRecordButton } from '@/components/web-recorder/HeaderRecordButton';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -65,6 +66,9 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
+            <div className="ml-auto">
+              <HeaderRecordButton />
+            </div>
           </header>
           <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">{children}</main>
         </SidebarInset>

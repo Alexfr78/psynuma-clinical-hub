@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isWhatsAppOptedOut, normalizeWhatsAppPhone } from "../_shared/whatsapp-reply-intent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -163,6 +164,51 @@ serve(async (req) => {
     }
 
     const to = isJid ? normalized : `+${cleanPhone}`;
+
+    let optedOut = false;
+    if (patient_id) {
+      const { data: patient } = await supabase
+        .from("patients")
+        .select("phone")
+        .eq("id", patient_id)
+        .eq("center_id", profile.center_id)
+        .maybeSingle();
+      if (patient?.phone && normalizeWhatsAppPhone(patient.phone) === normalizeWhatsAppPhone(phone)) {
+        optedOut = await isWhatsAppOptedOut(supabase, profile.center_id, phone);
+      }
+    }
+
+    if (optedOut) {
+      const { data: blockedMessage, error: blockedInsertError } = await supabase
+        .from("whatsapp_messages")
+        .insert({
+          center_id: profile.center_id,
+          phone: to,
+          content: message,
+          type,
+          message_type: message_type || "manual",
+          patient_id,
+          session_id,
+          status: "failed",
+          error_message: "opt_out",
+          media_url: image_url,
+        })
+        .select("id")
+        .single();
+
+      if (blockedInsertError) {
+        console.error("Error recording opted-out WhatsApp message:", blockedInsertError);
+      }
+      return new Response(JSON.stringify({
+        success: false,
+        code: "OPTED_OUT",
+        error: "WhatsApp no enviado: el paciente ha solicitado la baja.",
+        message_id: blockedMessage?.id ?? null,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Create message record first
     const { data: messageRecord, error: insertError } = await supabase

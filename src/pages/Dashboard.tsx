@@ -11,7 +11,6 @@ import { useDebtStats, useDebts } from '@/hooks/useDebts';
 import type { SessionWithRelations } from '@/hooks/useSessions';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
-import { RecordSessionButton } from '@/components/web-recorder/RecordSessionButton';
 import { TranscriptionIssuesCard } from '@/components/web-recorder/TranscriptionIssuesCard';
 
 function useDashboardStats() {
@@ -326,14 +325,6 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                    {session.patient_id && !isPast && (
-                      <RecordSessionButton
-                        variant="compact"
-                        patientId={session.patient_id}
-                        sessionId={session.id}
-                        patientName={`${session.patient?.first_name ?? ''} ${session.patient?.last_name ?? ''}`.trim()}
-                      />
-                    )}
                     {isOnline && session.video_call_link ? (
                       <a
                         href={session.video_call_link}
