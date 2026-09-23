@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { OPENAI_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS } from '@/lib/ai-models';
+import { OPENAI_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, STT_MODEL_OPTIONS, DEFAULT_STT_MODEL } from '@/lib/ai-models';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +34,7 @@ export function AISettingsSection() {
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [geminiModel, setGeminiModel] = useState('gemini-2.5-pro');
   const [customGeminiModel, setCustomGeminiModel] = useState('');
+  const [sttModel, setSttModel] = useState(DEFAULT_STT_MODEL);
   const [retentionDays, setRetentionDays] = useState(7);
   const [aiTemperature, setAiTemperature] = useState(0.3);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,6 +67,7 @@ export function AISettingsSection() {
         setGeminiModel('custom');
         setCustomGeminiModel(gm);
       }
+      setSttModel((c as { stt_model?: string | null }).stt_model || DEFAULT_STT_MODEL);
       setRetentionDays(c.transcript_retention_days ?? 7);
       setAiTemperature(c.ai_temperature ?? 0.3);
     }
@@ -121,6 +123,9 @@ export function AISettingsSection() {
         ai_provider: aiProvider,
         openai_model: finalOpenaiModel || 'gpt-4.1',
         gemini_model: finalGeminiModel || 'gemini-2.5-pro',
+        // `stt_model` es una columna nueva; types.ts se regenera en Lovable, así que
+        // todavía no está en el tipo Center.
+        ...({ stt_model: sttModel } as Record<string, unknown>),
         transcript_retention_days: retentionDays,
         ai_temperature: aiTemperature,
         // Los prompts fijos (ai_prompt_system/layer1/2/3) ya no se editan desde aquí:
@@ -380,6 +385,36 @@ export function AISettingsSection() {
             />
             <span className="text-sm font-mono font-semibold w-10 text-right">{aiTemperature.toFixed(1)}</span>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Modelo de transcripción */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Icon name="graphic_eq" className="h-5 w-5" />
+            Modelo de transcripción
+          </CardTitle>
+          <CardDescription>
+            Convierte el audio de la sesión en texto. El modelo con diarización separa las
+            intervenciones de cada persona («Hablante 1», «Hablante 2»), lo que mejora los informes.
+            Nunca se suben muestras de voz para identificar a nadie por su nombre.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Label htmlFor="stt-model">Modelo</Label>
+          <Select value={sttModel} onValueChange={setSttModel}>
+            <SelectTrigger id="stt-model" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {STT_MODEL_OPTIONS.map((model) => (
+                <SelectItem key={model.value} value={model.value}>{model.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Si el modelo elegido falla, la transcripción se reintenta automáticamente sin hablantes
+            para no quedarte sin ella.
+          </p>
         </CardContent>
       </Card>
 

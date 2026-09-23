@@ -33,6 +33,21 @@ export const GEMINI_MODEL_OPTIONS: AiModelOption[] = [
   { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
 ];
 
+/**
+ * Modelos de transcripción de audio (speech-to-text) de OpenAI. Catálogo aparte del de
+ * redacción: se eligen por criterios distintos (diarización y coste por minuto, no
+ * capacidad de razonamiento). El valor por defecto vive también en
+ * `supabase/functions/_shared/openaiTranscriptionProvider.ts` (DEFAULT_STT_MODEL);
+ * si cambia uno, cambia el otro.
+ */
+export const STT_MODEL_OPTIONS: AiModelOption[] = [
+  { value: 'gpt-4o-transcribe-diarize', label: 'GPT-4o Transcribe Diarize — Distingue quién habla (recomendado)' },
+  { value: 'gpt-transcribe', label: 'GPT Transcribe — Mejor calidad, sin distinguir hablantes' },
+  { value: 'whisper-1', label: 'Whisper (antiguo) — Sin hablantes' },
+];
+
+export const DEFAULT_STT_MODEL = 'gpt-4o-transcribe-diarize';
+
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1';
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-pro';
 

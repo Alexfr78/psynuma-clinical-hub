@@ -6,7 +6,8 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { unauthorizedResponse } from "../_shared/authGuard.ts";
 import { createOpenAITranscriptionProvider, getAudioChunk, getAudioChunkCount } from "../_shared/openaiTranscriptionProvider.ts";
-import { TranscriptionProvider, TranscriptionProviderError } from "../_shared/transcriptionProvider.ts";
+import { TranscriptionProvider, TranscriptionProviderError, TranscriptionSegment } from "../_shared/transcriptionProvider.ts";
+import type { DiarizedTurn } from "../_shared/transcriptDiarization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +46,19 @@ async function generateAutomaticReports(
   supabase: ServiceClient,
   ingestion: IngestionRow,
   transcription: string,
+  segments?: TranscriptionSegment[] | null,
 ): Promise<void> {
+  // Con diarización se manda `segments`: analyze-session-transcription los pasa por
+  // buildTranscriptFromTurns, que anonimiza las etiquetas y avisa al modelo de que la
+  // atribución puede fallar. Sin ella, se manda el texto plano como hasta ahora.
+  const diarizedTurns: DiarizedTurn[] | null = segments?.length
+    ? segments.filter((segment) => segment.text.trim()).map((segment) => ({
+      speaker: segment.speaker ?? null,
+      content: segment.text,
+      startTime: segment.start,
+      endTime: segment.end,
+    }))
+    : null;
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
@@ -114,7 +127,7 @@ async function generateAutomaticReports(
           sessionId: ingestion.session_id,
           centerId: ingestion.center_id,
           documentTypeKey,
-          transcription,
+          ...(diarizedTurns ? { segments: diarizedTurns } : { transcription }),
           transcriptSource: "manual",
         }),
       });
@@ -223,6 +236,7 @@ async function finalizeCompletedJob(
   job: JobRow,
   ingestion: IngestionRow,
   transcriptChunks: string[],
+  segments?: TranscriptionSegment[] | null,
 ): Promise<void> {
   const normalizedText = transcriptChunks.join(" ").trim();
   if (!normalizedText) throw new Error("empty_transcription");
@@ -240,9 +254,9 @@ async function finalizeCompletedJob(
       audio_ingestion_id: ingestion.id,
       source: ingestion.source,
       normalized_text: normalizedText,
-      segments: null,
+      segments: segments?.length ? segments : null,
       language: "es",
-      diarization_available: false,
+      diarization_available: !!segments?.some((segment) => segment.speaker),
     });
     if (transcriptError) throw new Error("transcript_persist_failed");
   }
@@ -258,7 +272,7 @@ async function finalizeCompletedJob(
   await supabase.from("audio_ingestions").update({ status: "transcription_verified" }).eq("id", ingestion.id);
 
   if (ingestion.session_id && ingestion.patient_id) {
-    const reportsPromise = generateAutomaticReports(supabase, ingestion, normalizedText);
+    const reportsPromise = generateAutomaticReports(supabase, ingestion, normalizedText, segments);
     const edgeRuntime = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
     if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(reportsPromise);
     else reportsPromise.catch((error) => console.error("[process-transcription-job] generateAutomaticReports sin EdgeRuntime:", error));
@@ -286,7 +300,7 @@ async function processClaimedJob(supabase: ServiceClient, job: JobRow): Promise<
     }
     if (!row.storage_path) throw new Error("audio_storage_path_missing");
     const { data: center, error: centerError } = await supabase.from("centers")
-      .select("openai_api_key_encrypted").eq("id", row.center_id).maybeSingle();
+      .select("openai_api_key_encrypted, stt_model").eq("id", row.center_id).maybeSingle();
     if (centerError || !center || !(center as { openai_api_key_encrypted?: string }).openai_api_key_encrypted) {
       throw new Error("openai_key_not_configured");
     }
@@ -313,6 +327,7 @@ async function processClaimedJob(supabase: ServiceClient, job: JobRow): Promise<
     const chunk = await getAudioChunk(audio, job.completed_chunk_count, mimeType);
     const provider: TranscriptionProvider = createOpenAITranscriptionProvider(
       (center as { openai_api_key_encrypted: string }).openai_api_key_encrypted,
+      (center as { stt_model?: string | null }).stt_model ?? undefined,
     );
     const providerJob = await provider.startTranscription({
       data: chunk,
@@ -343,7 +358,10 @@ async function processClaimedJob(supabase: ServiceClient, job: JobRow): Promise<
       error_message_sanitized: null,
     }).eq("id", job.id);
     if (chunkProgressError) throw new Error("transcription_job_progress_persist_failed");
-    if (complete) await finalizeCompletedJob(supabase, job, row, transcriptChunks);
+    // Los turnos diarizados solo se guardan cuando el audio cabía en un único fragmento:
+    // con varios, los tiempos de cada fragmento arrancan de cero y las etiquetas de hablante
+    // no son comparables entre ellos. Las grabaciones de la grabadora web siempre son una.
+    if (complete) await finalizeCompletedJob(supabase, job, row, transcriptChunks, totalChunks === 1 ? result.segments : null);
   } catch (error) {
     console.error("[process-transcription-job] Job failed:", safeError(error));
     try {

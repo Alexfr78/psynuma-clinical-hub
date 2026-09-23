@@ -23,15 +23,34 @@ export function SessionTranscriptCard({ sessionId, onGenerateReports }: SessionT
   const [showText, setShowText] = useState(false);
   const transcriptId = availability?.available ? availability.transcriptId : undefined;
 
-  const { data: text, isLoading } = useQuery({
+  const { data: transcript, isLoading } = useQuery({
     queryKey: ['transcript-text', transcriptId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('transcripts').select('normalized_text').eq('id', transcriptId!).maybeSingle();
+      const { data, error } = await supabase
+        .from('transcripts')
+        .select('normalized_text, segments, diarization_available')
+        .eq('id', transcriptId!)
+        .maybeSingle();
       if (error) throw error;
-      return (data as { normalized_text: string | null } | null)?.normalized_text ?? '';
+      return (data ?? null) as { normalized_text: string | null; segments: unknown; diarization_available: boolean | null } | null;
     },
     enabled: showText && !!transcriptId,
   });
+
+  // Los turnos vienen del modelo con diarización. Las etiquetas crudas del proveedor no se
+  // muestran: se numeran por orden de aparición, igual que hace el servidor antes de
+  // mandárselas al modelo que redacta los informes.
+  const turns = (() => {
+    const raw = Array.isArray(transcript?.segments) ? (transcript.segments as { text?: string; speaker?: string }[]) : [];
+    const labels = new Map<string, string>();
+    return raw
+      .filter((segment) => segment?.text?.trim())
+      .map((segment) => {
+        const rawSpeaker = segment.speaker?.trim();
+        if (rawSpeaker && !labels.has(rawSpeaker)) labels.set(rawSpeaker, `Hablante ${labels.size + 1}`);
+        return { speaker: rawSpeaker ? labels.get(rawSpeaker)! : null, text: segment.text!.trim() };
+      });
+  })();
 
   if (!availability?.available) return null;
 
@@ -40,7 +59,10 @@ export function SessionTranscriptCard({ sessionId, onGenerateReports }: SessionT
       <div className="flex items-start gap-2">
         <Icon name="description" className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">Transcripción disponible</p>
+          <p className="text-sm font-medium">
+            Transcripción disponible
+            {transcript?.diarization_available && ' · con hablantes'}
+          </p>
           {availability.expiresAt && (
             <p className="text-xs text-muted-foreground">
               Se borra automáticamente el {format(new Date(availability.expiresAt), "d 'de' MMMM", { locale: es })}.
@@ -61,8 +83,24 @@ export function SessionTranscriptCard({ sessionId, onGenerateReports }: SessionT
         )}
       </div>
       {showText && (
-        <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-sm">
-          {isLoading ? 'Cargando...' : text || 'La transcripción está vacía.'}
+        <div className="max-h-64 space-y-2 overflow-y-auto rounded-md bg-muted p-3 text-sm">
+          {isLoading ? (
+            'Cargando...'
+          ) : turns.length ? (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Las etiquetas de hablante las asigna la IA y pueden equivocarse; no indican quién es el paciente.
+              </p>
+              {turns.map((turn, index) => (
+                <p key={index}>
+                  {turn.speaker && <span className="font-medium">{turn.speaker}: </span>}
+                  {turn.text}
+                </p>
+              ))}
+            </>
+          ) : (
+            <p className="whitespace-pre-wrap">{transcript?.normalized_text || 'La transcripción está vacía.'}</p>
+          )}
         </div>
       )}
     </div>
