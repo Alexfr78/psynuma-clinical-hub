@@ -5,6 +5,7 @@ export const TEMPLATE_VARIABLES = [
   { key: '{fecha_nacimiento}', label: 'Fecha de nacimiento', category: 'paciente' },
   { key: '{nombre_tutor}', label: 'Nombre del tutor (menores)', category: 'tutor' },
   { key: '{relacion_tutor}', label: 'Relación con el menor', category: 'tutor' },
+  { key: '{dni_tutor}', label: 'DNI del tutor (menores)', category: 'tutor' },
   { key: '{nombre_profesional}', label: 'Nombre del profesional', category: 'profesional' },
   { key: '{especialidad}', label: 'Especialidad', category: 'profesional' },
   { key: '{nombre_centro}', label: 'Nombre del centro', category: 'centro' },

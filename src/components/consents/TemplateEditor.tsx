@@ -239,6 +239,7 @@ export function TemplateEditor({ value, onChange }: TemplateEditorProps) {
       '{fecha_nacimiento}': '15/03/1990',
       '{nombre_tutor}': 'Juan García',
       '{relacion_tutor}': 'Padre',
+      '{dni_tutor}': '87654321X',
       '{nombre_profesional}': 'Dr. López',
       '{especialidad}': 'Psicología Clínica',
       '{nombre_centro}': 'Centro Psycma',

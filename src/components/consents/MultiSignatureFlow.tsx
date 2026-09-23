@@ -23,6 +23,13 @@ import {
   VerificationCheckboxItem,
 } from '@/lib/consent-checkboxes';
 import { applyConsentCascade, getCascadeParent, isCascadeUnlocked } from '@/lib/consent-cascade';
+import {
+  GUARDIAN_DNI_PLACEHOLDER,
+  getPendingIdentityFields,
+  normalizeIdentityDocument,
+  PATIENT_DNI_PLACEHOLDER,
+  validateIdentityDocument,
+} from '@/lib/consent-identity';
 import { Icon } from '@/components/ui/icon';
 
 interface MultiSignatureFlowProps {
@@ -208,8 +215,52 @@ function DocumentWithFields({
   );
 }
 
+// Muestra en el documento el DNI/NIE que se está escribiendo, o un hueco
+// resaltado mientras no sea válido.
+function previewIdentity(content: string, patientTaxId: string, guardianTaxId: string): string {
+  const show = (value: string) =>
+    validateIdentityDocument(value).valid
+      ? normalizeIdentityDocument(value)
+      : '<mark>__________</mark>';
+  return content
+    .split(PATIENT_DNI_PLACEHOLDER).join(show(patientTaxId))
+    .split(GUARDIAN_DNI_PLACEHOLDER).join(show(guardianTaxId));
+}
+
+interface IdentityFieldInputProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function IdentityFieldInput({ id, label, value, onChange }: IdentityFieldInputProps) {
+  const [touched, setTouched] = useState(false);
+  const validation = validateIdentityDocument(value);
+  const showError = touched && value.trim() !== '' && !validation.valid;
+
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      <Input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => setTouched(true)}
+        placeholder="12345678Z"
+        autoComplete="off"
+        aria-invalid={showError}
+        className={cn('uppercase', showError && 'border-destructive')}
+      />
+      {showError && <p className="text-xs text-destructive">{validation.message}</p>}
+    </div>
+  );
+}
+
 export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) {
-  const { addSignature, saveVerificationResponses, updateEmergencyContact } = usePublicConsent(token);
+  const { addSignature, saveVerificationResponses, updateEmergencyContact, updateIdentity } = usePublicConsent(token);
   const signatureRef = useRef<SignatureCanvasRef>(null);
 
   const [currentStep, setCurrentStep] = useState<'document' | 'guardian' | 'patient' | 'complete'>('document');
@@ -218,6 +269,8 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const [verificationResponses, setVerificationResponses] = useState<Record<string, VerificationResponse>>({});
   const [emergencyContactName, setEmergencyContactName] = useState(consent.emergency_contact_name || '');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState(consent.emergency_contact_phone || '');
+  const [patientTaxId, setPatientTaxId] = useState('');
+  const [guardianTaxId, setGuardianTaxId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -238,9 +291,17 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
   const emergencyContactComplete = !requiresEmergencyContact ||
     (emergencyContactName.trim() !== '' && emergencyContactPhone.trim() !== '');
 
+  // DNI/NIE que faltaba en la ficha al crear el documento (del tutor si es menor).
+  const pendingIdentityFields = getPendingIdentityFields(consent.content_snapshot);
+  const needsPatientTaxId = pendingIdentityFields.includes('patient');
+  const needsGuardianTaxId = pendingIdentityFields.includes('guardian');
+  const identityComplete = (!needsPatientTaxId || validateIdentityDocument(patientTaxId).valid)
+    && (!needsGuardianTaxId || validateIdentityDocument(guardianTaxId).valid);
+
   const canProceedFromDocument = allVerificationsAnswered
     && cancellationPolicyAccepted
-    && emergencyContactComplete;
+    && emergencyContactComplete
+    && identityComplete;
 
   const needsGuardian = consent.requires_guardian;
   const guardianSigned = consent.signatures?.some((s) => s.signer_role === 'guardian');
@@ -256,6 +317,21 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
 
   const handleProceedToSign = async () => {
     setIsSubmitting(true);
+
+    // Write the missing DNI/NIE into the document before anyone signs it
+    if (pendingIdentityFields.length > 0) {
+      try {
+        await updateIdentity.mutateAsync({
+          consentId: consent.id,
+          patientTaxId: needsPatientTaxId ? normalizeIdentityDocument(patientTaxId) : undefined,
+          guardianTaxId: needsGuardianTaxId ? normalizeIdentityDocument(guardianTaxId) : undefined,
+        });
+      } catch (error) {
+        console.error('Error saving identity document:', error);
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     // Save the verification responses, if any
     if (verificationCheckboxes.length > 0) {
@@ -417,7 +493,11 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
         <>
           <Card className="max-h-[400px] overflow-auto p-6">
             <DocumentWithFields
-              content={consent.content_snapshot}
+              content={
+                pendingIdentityFields.length > 0
+                  ? previewIdentity(consent.content_snapshot, patientTaxId, guardianTaxId)
+                  : consent.content_snapshot
+              }
               verificationCheckboxes={verificationCheckboxes}
               verificationResponses={verificationResponses}
               setVerificationResponses={setVerificationResponses}
@@ -428,6 +508,42 @@ export function MultiSignatureFlow({ consent, token }: MultiSignatureFlowProps) 
               setEmergencyContactPhone={setEmergencyContactPhone}
             />
           </Card>
+
+          {pendingIdentityFields.length > 0 && (
+            <div className="space-y-3 rounded-lg border-2 border-primary/30 bg-muted/30 p-4">
+              <div>
+                <p className="text-sm font-medium">Documento de identidad</p>
+                <p className="text-xs text-muted-foreground">
+                  Este documento necesita el DNI/NIE para ser válido. Se añadirá al documento y a la ficha.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {needsPatientTaxId && (
+                  <IdentityFieldInput
+                    id="identity-patient"
+                    label="Tu DNI/NIE"
+                    value={patientTaxId}
+                    onChange={setPatientTaxId}
+                  />
+                )}
+                {needsGuardianTaxId && (
+                  <IdentityFieldInput
+                    id="identity-guardian"
+                    label={`DNI/NIE del tutor/a${consent.patient?.guardian_name ? ` (${consent.patient.guardian_name})` : ''}`}
+                    value={guardianTaxId}
+                    onChange={setGuardianTaxId}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {pendingIdentityFields.length > 0 && !identityComplete && (
+            <div className="flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+              <Icon name="error" className="h-4 w-4 shrink-0" />
+              <span>Debes indicar un DNI/NIE válido antes de continuar.</span>
+            </div>
+          )}
 
           {/* Warning if not all answered */}
           {verificationCheckboxes.length > 0 && !allVerificationsAnswered && (

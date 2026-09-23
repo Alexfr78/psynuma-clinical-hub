@@ -192,6 +192,42 @@ export function usePublicConsent(token: string | undefined) {
     },
   });
 
+  const updateIdentity = useMutation({
+    mutationFn: async ({
+      consentId,
+      patientTaxId,
+      guardianTaxId,
+    }: {
+      consentId: string;
+      patientTaxId?: string;
+      guardianTaxId?: string;
+    }) => {
+      if (!token) throw new Error('No token');
+
+      const { data, error } = await supabase.functions.invoke('update-consent-identity', {
+        body: {
+          consent_id: consentId,
+          patient_tax_id: patientTaxId,
+          guardian_tax_id: guardianTaxId,
+        },
+        headers: {
+          'x-consent-token': token,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+    },
+    onError: (error) => {
+      toast.error('Error al guardar el DNI/NIE');
+      console.error(error);
+    },
+  });
+
   const isExpired = consent ? new Date(consent.expires_at) < new Date() : false;
 
   return {
@@ -202,5 +238,6 @@ export function usePublicConsent(token: string | undefined) {
     addSignature,
     saveVerificationResponses,
     updateEmergencyContact,
+    updateIdentity,
   };
 }

@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { fillIdentityPlaceholders } from '@/lib/consent-identity';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuditLog } from '@/hooks/useAuditLog';
@@ -195,7 +196,11 @@ export function ConsentDetailDialog({
   // Render content with verification responses and emergency contact
   const renderedContent = renderContentWithEmergencyContact(
     renderContentWithVerifications(
-      consent.content_snapshot,
+      // DNI/NIE que el firmante aún no ha indicado (se pide al firmar).
+      fillIdentityPlaceholders(consent.content_snapshot, {
+        patient: '<mark>pendiente</mark>',
+        guardian: '<mark>pendiente</mark>',
+      }),
       verificationCheckboxes,
       verificationResponses
     ),

@@ -55,6 +55,7 @@ const MERGE_FIELDS = [
   { key: 'guardian_phone', label: 'Teléfono del tutor' },
   { key: 'guardian_email', label: 'Email del tutor' },
   { key: 'guardian_relationship', label: 'Relación del tutor' },
+  { key: 'guardian_tax_id', label: 'DNI/NIE del tutor' },
   { key: 'emergency_contact_name', label: 'Contacto de emergencia' },
   { key: 'emergency_contact_phone', label: 'Tel. emergencia' },
   { key: 'assigned_professional_id', label: 'Profesional asignado' },

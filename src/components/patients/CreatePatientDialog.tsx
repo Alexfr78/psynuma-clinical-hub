@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { validateSpanishTaxId } from '@/lib/nif-validation';
+import { normalizeIdentityDocument, validateIdentityDocument } from '@/lib/consent-identity';
 import { Button } from '@/components/ui/button';
 import {
   ResponsiveDialog,
@@ -53,6 +54,10 @@ const patientSchema = z.object({
   guardian_phone: z.string().max(20).optional().or(z.literal('')),
   guardian_email: z.string().email('Email inválido').max(255).optional().or(z.literal('')),
   guardian_relationship: z.string().max(50).optional().or(z.literal('')),
+  guardian_tax_id: z.string().max(20).optional().or(z.literal('')).refine(
+    (val) => !val || validateIdentityDocument(val).valid,
+    (val) => ({ message: validateIdentityDocument(val || '').message || 'DNI/NIE inválido' })
+  ),
   emergency_contact_name: z.string().max(200).optional().or(z.literal('')),
   emergency_contact_phone: z.string().max(20).optional().or(z.literal('')),
   assigned_professional_id: z.string().uuid().optional().nullable(),
@@ -86,6 +91,7 @@ export function CreatePatientDialog() {
       guardian_phone: '',
       guardian_email: '',
       guardian_relationship: '',
+      guardian_tax_id: '',
       emergency_contact_name: '',
       emergency_contact_phone: '',
       assigned_professional_id: null,
@@ -113,6 +119,7 @@ export function CreatePatientDialog() {
         guardian_phone: values.guardian_phone || null,
         guardian_email: values.guardian_email || null,
         guardian_relationship: values.guardian_relationship || null,
+        guardian_tax_id: values.guardian_tax_id ? normalizeIdentityDocument(values.guardian_tax_id) : null,
         emergency_contact_name: values.emergency_contact_name || null,
         emergency_contact_phone: values.emergency_contact_phone || null,
         notes: values.notes || null,
@@ -374,6 +381,19 @@ export function CreatePatientDialog() {
                     />
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="guardian_tax_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>DNI/NIE del tutor</FormLabel>
+                          <FormControl>
+                            <Input placeholder="12345678Z" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={form.control}
                       name="guardian_phone"

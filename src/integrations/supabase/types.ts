@@ -5408,6 +5408,7 @@ export type Database = {
           guardian_name: string | null
           guardian_phone: string | null
           guardian_relationship: string | null
+          guardian_tax_id: string | null
           id: string
           is_minor: boolean | null
           last_name: string
@@ -5442,6 +5443,7 @@ export type Database = {
           guardian_name?: string | null
           guardian_phone?: string | null
           guardian_relationship?: string | null
+          guardian_tax_id?: string | null
           id?: string
           is_minor?: boolean | null
           last_name: string
@@ -5476,6 +5478,7 @@ export type Database = {
           guardian_name?: string | null
           guardian_phone?: string | null
           guardian_relationship?: string | null
+          guardian_tax_id?: string | null
           id?: string
           is_minor?: boolean | null
           last_name?: string

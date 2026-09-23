@@ -204,6 +204,12 @@ export function PatientSummary({ patient, onNavigateToConsents }: PatientSummary
                   <p className="font-medium">{patient.guardian_phone}</p>
                 </div>
               )}
+              {patient.guardian_tax_id && (
+                <div>
+                  <p className="text-sm text-muted-foreground">DNI/NIE</p>
+                  <p className="font-medium">{patient.guardian_tax_id}</p>
+                </div>
+              )}
               {patient.guardian_email && (
                 <div>
                   <p className="text-sm text-muted-foreground">Email</p>

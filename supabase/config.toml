@@ -178,6 +178,8 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = false
   [functions.update-consent-emergency-contact]
     verify_jwt = false
+  [functions.update-consent-identity]
+    verify_jwt = false
   [functions.update-google-calendar-event]
     verify_jwt = true
   [functions.wasender-get-session]

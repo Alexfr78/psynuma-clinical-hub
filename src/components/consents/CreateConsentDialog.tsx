@@ -36,6 +36,11 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { sanitizeHtml } from '@/lib/sanitize';
+import {
+  getPendingIdentityFields,
+  guardianRelationshipLabel,
+  resolveIdentityPlaceholders,
+} from '@/lib/consent-identity';
 import { Icon } from '@/components/ui/icon';
 
 const schema = z.object({
@@ -75,6 +80,7 @@ export function CreateConsentDialog({
 
   const selectedTemplateId = form.watch('template_id');
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+  const pendingIdentityFields = getPendingIdentityFields(preview);
 
   // Generate preview when template changes
   useEffect(() => {
@@ -83,17 +89,17 @@ export function CreateConsentDialog({
       return;
     }
 
-    let content = selectedTemplate.content_html;
+    // El DNI que falte en la ficha queda como variable y se pide al firmar.
+    let content = resolveIdentityPlaceholders(selectedTemplate.content_html, patient);
 
     const replacements: Record<string, string> = {
       '{nombre_paciente}': patient.first_name,
       '{apellidos_paciente}': patient.last_name,
-      '{dni_paciente}': patient.tax_id || '',
       '{fecha_nacimiento}': patient.date_of_birth
         ? format(new Date(patient.date_of_birth), 'd/MM/yyyy')
         : '',
       '{nombre_tutor}': patient.guardian_name || '',
-      '{relacion_tutor}': patient.guardian_relationship || '',
+      '{relacion_tutor}': guardianRelationshipLabel(patient.guardian_relationship),
       '{nombre_profesional}': profile?.first_name
         ? `${profile.first_name} ${profile.last_name || ''}`
         : '',
@@ -161,6 +167,19 @@ export function CreateConsentDialog({
               <span className="text-xs text-muted-foreground">
                 Se precargará: {patient.emergency_contact_name || 'No configurado'}
                 {patient.emergency_contact_phone ? ` · ${patient.emergency_contact_phone}` : ''}
+              </span>
+            </div>
+          )}
+          {pendingIdentityFields.length > 0 && (
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant="outline" className="gap-1">
+                <Icon name="badge" className="h-3 w-3" />
+                DNI/NIE
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {pendingIdentityFields.includes('guardian')
+                  ? 'La ficha no tiene el DNI/NIE del tutor: se le pedirá al firmar'
+                  : 'La ficha no tiene el DNI/NIE: se le pedirá al firmar'}
               </span>
             </div>
           )}
