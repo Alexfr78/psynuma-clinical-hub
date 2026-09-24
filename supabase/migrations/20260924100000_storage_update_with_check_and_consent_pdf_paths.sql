@@ -81,6 +81,9 @@ CREATE POLICY "Update invoice docs in own center" ON storage.objects
 --    que no sigan circulando desde la base. (Las URLs ya enviadas por WhatsApp
 --    o abiertas antes siguen valiendo hasta que caduquen.)
 -- ---------------------------------------------------------------------------
+-- Se guarda la ruta real contenida en cada URL (no se reconstruye como
+-- center_id/id.pdf): 5 consentimientos antiguos se guardaron como .html.
+-- Aplicado en producción el 2026-09-24 con este mismo SQL.
 UPDATE public.consents
-SET signed_pdf_url = center_id::text || '/' || id::text || '.pdf'
-WHERE signed_pdf_url LIKE 'http%';
+SET signed_pdf_url = regexp_replace(signed_pdf_url, '^https?://[^/]+/storage/v1/object/sign/consent-documents/([^?]+).*$', '\1')
+WHERE signed_pdf_url LIKE 'http%/storage/v1/object/sign/consent-documents/%';
