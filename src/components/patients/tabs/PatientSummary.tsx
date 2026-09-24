@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Icon } from '@/components/ui/icon';
 import { usePatientConsentPurposes } from '@/hooks/usePatientConsentPurposes';
 import { countGrantedConsentPurposes } from '@/lib/consent-block-messages';
+import { ConsentPurposesPanel } from '@/components/patients/ConsentPurposesPanel';
+import { CancellationPolicyStatusCard } from '@/components/patients/CancellationPolicyStatusCard';
 
 interface PatientSummaryProps {
   patient: Patient & {
@@ -176,6 +178,10 @@ export function PatientSummary({ patient, onNavigateToConsents }: PatientSummary
           </CardContent>
         </Card>
       </div>
+
+      <ConsentPurposesPanel patientId={patient.id} />
+
+      <CancellationPolicyStatusCard patient={patient} />
 
       {/* Guardian Info (if minor) */}
       {patient.is_minor && patient.guardian_name && (
