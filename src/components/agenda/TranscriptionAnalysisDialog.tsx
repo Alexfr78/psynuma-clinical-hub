@@ -869,7 +869,7 @@ function CombinedDocumentEditor({
 }: {
   doc: AiGeneratedDocumentWithType;
   template: AiDocumentType | undefined;
-  onSave: (sections: Record<string, string>) => void;
+  onSave: (sections: Record<string, string>) => Promise<unknown>;
   isSaving: boolean;
   allowFormatting: boolean;
 }) {
@@ -885,7 +885,20 @@ function CombinedDocumentEditor({
   const [text, setText] = useState(initialText);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  useEffect(() => setText(initialText), [initialText, doc.id, doc.edited_sections, doc.content_sections]);
+  // Solo se resetea cuando cambia el TEXTO guardado, no la referencia del objeto: cada
+  // refetch de React Query (p. ej. al volver a la pestaña tras copiar un resumen de otra
+  // app) trae objetos nuevos con el mismo contenido y borraba lo que el profesional había
+  // pegado sin guardar, devolviendo el texto de la IA.
+  useEffect(() => setText(initialText), [initialText, doc.id]);
+
+  const handleSave = async () => {
+    try {
+      await onSave(splitCombinedEditableText(templateSections, text));
+      toast.success("Cambios guardados");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudieron guardar los cambios");
+    }
+  };
 
   const hasKnownContent = templateSections.some((section) => (initialValues[section.key] ?? "").trim());
   if (templateSections.length === 0 || !hasKnownContent) {
@@ -931,7 +944,7 @@ function CombinedDocumentEditor({
         </div>
       )}
       {text !== initialText && (
-        <Button size="sm" onClick={() => onSave(splitCombinedEditableText(templateSections, text))} disabled={isSaving}>
+        <Button size="sm" onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="save" className="h-4 w-4 mr-1" />}
           Guardar cambios
         </Button>
