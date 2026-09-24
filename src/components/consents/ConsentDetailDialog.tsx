@@ -161,10 +161,6 @@ export function ConsentDetailDialog({
   }, [open, consent, logView]);
 
   const handleDownloadPdf = async () => {
-    if (consent.signed_pdf_url) {
-      window.open(consent.signed_pdf_url, '_blank');
-      return;
-    }
     setGeneratingPdf(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-consent-pdf', {

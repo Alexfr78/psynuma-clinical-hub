@@ -6,6 +6,10 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { sanitizeForPdf, wrapText, drawTextRightAligned, embedImageFromUrl } from "../_shared/pdfHelpers.ts";
 
+// Every caller downloads or opens the PDF right away, so the link only needs
+// to live long enough for that. A leaked link must not stay usable for months.
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
 interface InvoiceSeries {
   id: string;
   name: string;
@@ -528,7 +532,7 @@ serve(async (req) => {
     if (invoiceData.pdf_generated_at) {
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from("invoice-documents")
-        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+        .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
 
       if (!signedUrlError && signedUrlData?.signedUrl) {
         // Best-effort backfill: if this invoice predates the Drive
@@ -633,7 +637,7 @@ serve(async (req) => {
 
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from("invoice-documents")
-      .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+      .createSignedUrl(filePath, SIGNED_URL_TTL_SECONDS);
 
     if (signedUrlError || !signedUrlData) {
       console.error("Error creating signed URL:", signedUrlError);

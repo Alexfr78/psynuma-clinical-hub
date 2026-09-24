@@ -18,10 +18,6 @@ export default function ConsentSignature() {
 
   const handleDownloadPdf = async () => {
     if (!consent || !token) return;
-    if (consent.signed_pdf_url) {
-      window.open(consent.signed_pdf_url, '_blank');
-      return;
-    }
     setDownloadingPdf(true);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('generate-consent-pdf', {

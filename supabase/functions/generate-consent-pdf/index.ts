@@ -4,6 +4,11 @@ import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "https://esm.s
 import { getVerificationResponseValue, normalizeVerificationCheckboxes } from "../_shared/consent.ts";
 import { isWhatsAppOptedOut } from "../_shared/whatsapp-reply-intent.ts";
 
+// Links handed back to the browser are opened right away; the WhatsApp one is
+// fetched by WasenderAPI when the message goes out. Neither should outlive that.
+const VIEW_URL_TTL_SECONDS = 60 * 60;
+const WHATSAPP_URL_TTL_SECONDS = 60 * 60 * 24;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -542,6 +547,22 @@ serve(async (req) => {
     }
 
     const isFirstGeneration = !consent.signed_pdf_url;
+    const fileName = `${consent.center_id}/${consent_id}.pdf`;
+
+    // The signed document is already stored: hand out a fresh short-lived link
+    // instead of re-rendering it (and changing its timestamp) on every view.
+    // If the file is missing we fall through and generate it again.
+    if (!isFirstGeneration) {
+      const { data: existingUrl } = await supabase.storage
+        .from('consent-documents')
+        .createSignedUrl(fileName, VIEW_URL_TTL_SECONDS);
+      if (existingUrl?.signedUrl) {
+        return new Response(
+          JSON.stringify({ success: true, url: existingUrl.signedUrl }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Fetch signatures
     const { data: signatures, error: signaturesError } = await supabase
@@ -985,8 +1006,6 @@ serve(async (req) => {
     const pdfBytes = await pdfDoc.save();
     
     // Store PDF file
-    const fileName = `${consent.center_id}/${consent_id}.pdf`;
-    
     const { error: uploadError } = await supabase.storage
       .from('consent-documents')
       .upload(fileName, pdfBytes, {
@@ -1002,10 +1021,9 @@ serve(async (req) => {
       );
     }
 
-    // Generate signed URL for private bucket (valid for 1 year)
     const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from('consent-documents')
-      .createSignedUrl(fileName, 60 * 60 * 24 * 365);
+      .createSignedUrl(fileName, VIEW_URL_TTL_SECONDS);
 
     if (signedUrlError) {
       console.error('Error creating signed URL:', signedUrlError);
@@ -1015,10 +1033,12 @@ serve(async (req) => {
       );
     }
 
-    // Update consent with signed PDF URL
+    // Despite its name, signed_pdf_url now holds the storage path, not a URL:
+    // it marks the PDF as generated and every view asks this function for a
+    // fresh short-lived link.
     const { error: updateError } = await supabase
       .from('consents')
-      .update({ signed_pdf_url: signedUrlData.signedUrl })
+      .update({ signed_pdf_url: fileName })
       .eq('id', consent_id);
 
     if (updateError) {
@@ -1042,15 +1062,25 @@ serve(async (req) => {
         }));
       }
       if (typedConsent.patient?.phone) {
-        sends.push(sendConsentCopyWhatsApp(supabase, {
-          centerId: consent.center_id,
-          patientId: consent.patient_id,
-          patientPhone: typedConsent.patient.phone,
-          patientName,
-          templateName,
-          documentUrl: signedUrlData.signedUrl,
-          fileName: pdfFileName,
-        }));
+        const patientPhone = typedConsent.patient.phone;
+        sends.push((async () => {
+          const { data: whatsappUrl, error: whatsappUrlError } = await supabase.storage
+            .from('consent-documents')
+            .createSignedUrl(fileName, WHATSAPP_URL_TTL_SECONDS);
+          if (whatsappUrlError || !whatsappUrl?.signedUrl) {
+            console.error('[generate-consent-pdf] Error creating WhatsApp URL, skipping WhatsApp copy:', whatsappUrlError);
+            return;
+          }
+          await sendConsentCopyWhatsApp(supabase, {
+            centerId: consent.center_id,
+            patientId: consent.patient_id,
+            patientPhone,
+            patientName,
+            templateName,
+            documentUrl: whatsappUrl.signedUrl,
+            fileName: pdfFileName,
+          });
+        })());
       }
       await Promise.allSettled(sends);
     }

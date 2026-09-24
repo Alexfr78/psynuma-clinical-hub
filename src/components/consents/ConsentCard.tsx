@@ -58,10 +58,6 @@ export function ConsentCard({ consent, patientPhone }: ConsentCardProps) {
       await handleViewUploadedFile();
       return;
     }
-    if (consent.signed_pdf_url) {
-      window.open(consent.signed_pdf_url, '_blank');
-      return;
-    }
     setGeneratingPdf(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-consent-pdf', {
