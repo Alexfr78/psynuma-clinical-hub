@@ -29,13 +29,6 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [sendDialogConsent, setSendDialogConsent] = useState<typeof consents[0] | null>(null);
 
-  const handleConsentCreated = (consentId: string) => {
-    const newConsent = consents.find((c) => c.id === consentId);
-    if (newConsent) {
-      setSendDialogConsent(newConsent);
-    }
-  };
-
   const handleCreateCancellationPolicyConsent = async () => {
     const consent = await createCancellationPolicyConsent.mutateAsync();
     setSendDialogConsent(consent as Consent);
@@ -109,7 +102,6 @@ export function PatientConsents({ patientId, patient }: PatientConsentsProps) {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         patient={patient}
-        onSuccess={handleConsentCreated}
       />
 
       {profile?.center_id && profile?.id && (

@@ -102,10 +102,9 @@ import { EditRecurringScopeDialog } from './EditRecurringScopeDialog';
 import { useUpdateRecurringSession, useCancelRecurringSession } from '@/hooks/useRecurringSeries';
 import { EditScope } from '@/types/recurring';
 import { checkSessionConflicts, ConflictResult } from '@/lib/conflicts';
-import { useConsents, Consent } from '@/hooks/useConsents';
+import { useConsents } from '@/hooks/useConsents';
 import { useConsentTemplates } from '@/hooks/useConsentTemplates';
 import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
-import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 import { ConsentCard } from '@/components/consents/ConsentCard';
 import { PatientAssessments } from '@/components/patients/tabs/PatientAssessments';
 import { PatientSessionHistory } from './PatientSessionHistory';
@@ -249,7 +248,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   
   // Consent dialogs state
   const [showCreateConsentDialog, setShowCreateConsentDialog] = useState(false);
-  const [sendConsentDialogData, setSendConsentDialogData] = useState<Consent | null>(null);
   
   // Local state for immediate UI update
   const [localBonoId, setLocalBonoId] = useState<string | null>(null);
@@ -2804,35 +2802,6 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         open={showCreateConsentDialog}
         onOpenChange={setShowCreateConsentDialog}
         patient={session.patient as Patient}
-        onSuccess={async (consentId) => {
-          // Fetch the newly created consent to open send dialog
-          const { data } = await supabase
-            .from('consents')
-            .select(`
-              *,
-              template:consent_templates(name),
-              patient:patients(first_name, last_name),
-              professional:profiles(first_name, last_name)
-            `)
-            .eq('id', consentId)
-            .single();
-          
-          if (data) {
-            setSendConsentDialogData(data as Consent);
-          }
-          
-          // Invalidate to refresh the list
-          queryClient.invalidateQueries({ queryKey: ['consents'] });
-        }}
-      />
-    )}
-
-    {/* Send Consent Dialog */}
-    {sendConsentDialogData && (
-      <SendConsentDialog
-        consent={sendConsentDialogData}
-        open={!!sendConsentDialogData}
-        onOpenChange={(open) => !open && setSendConsentDialogData(null)}
       />
     )}
 

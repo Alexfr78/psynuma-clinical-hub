@@ -132,7 +132,6 @@ export default function Consents() {
           open={!!sendPatient}
           onOpenChange={(v) => !v && setSendPatient(null)}
           patient={sendPatient}
-          onSuccess={() => setSendPatient(null)}
         />
       )}
     </div>

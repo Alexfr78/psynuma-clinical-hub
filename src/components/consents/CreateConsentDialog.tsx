@@ -26,9 +26,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { SendConsentDialog } from '@/components/consents/SendConsentDialog';
 
 import { useConsentTemplates } from '@/hooks/useConsentTemplates';
-import { useConsents } from '@/hooks/useConsents';
+import { useConsents, type Consent } from '@/hooks/useConsents';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { Patient } from '@/hooks/usePatients';
@@ -67,6 +70,9 @@ export function CreateConsentDialog({
   const { center } = useCenter();
   const { profile, user } = useAuth();
   const [preview, setPreview] = useState<string>('');
+  const [sendNow, setSendNow] = useState(true);
+  // Consentimiento recién creado que se ofrece enviar por los canales habituales.
+  const [createdConsent, setCreatedConsent] = useState<Consent | null>(null);
 
   const activeTemplates = templates.filter((t) => t.is_active);
   const requiresGuardian = patient.is_minor || false;
@@ -132,12 +138,34 @@ export function CreateConsentDialog({
       emergency_contact_phone: patient.emergency_contact_phone,
     });
 
-    onOpenChange(false);
     onSuccess?.(result.id);
+
+    if (sendNow) {
+      // El insert no trae las relaciones: se completan con lo que ya tenemos
+      // para que el diálogo de envío muestre nombre y tipo de documento.
+      setCreatedConsent({
+        ...(result as Consent),
+        template: selectedTemplate ? { name: selectedTemplate.name } : undefined,
+        patient: {
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          phone: patient.phone,
+        },
+      });
+    } else {
+      onOpenChange(false);
+    }
+  };
+
+  const handleSendDialogChange = (next: boolean) => {
+    if (next) return;
+    setCreatedConsent(null);
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open && !createdConsent} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo consentimiento informado</DialogTitle>
@@ -238,6 +266,22 @@ export function CreateConsentDialog({
               </div>
             )}
 
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="consent-send-now"
+                checked={sendNow}
+                onCheckedChange={(v) => setSendNow(v === true)}
+              />
+              <div className="grid gap-0.5 leading-none">
+                <Label htmlFor="consent-send-now" className="cursor-pointer">
+                  Enviar ahora al contacto
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Al crearlo se abrirán las opciones de envío (WhatsApp o copiar enlace).
+                </p>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3 pt-4">
               <Button
                 type="button"
@@ -253,12 +297,22 @@ export function CreateConsentDialog({
                 {createConsent.isPending && (
                   <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Crear y generar enlace
+                {sendNow ? 'Crear y enviar' : 'Crear y generar enlace'}
               </Button>
             </div>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
+
+    {createdConsent && (
+      <SendConsentDialog
+        consent={createdConsent}
+        patientPhone={patient.phone}
+        open={!!createdConsent}
+        onOpenChange={handleSendDialogChange}
+      />
+    )}
+    </>
   );
 }
