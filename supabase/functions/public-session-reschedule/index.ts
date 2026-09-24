@@ -1,3 +1,4 @@
+import { getCoupleMembers, startCoupleCancellation } from "../_shared/coupleCancellation.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
@@ -56,6 +57,7 @@ Deno.serve(async (req) => {
       newEndTime,
       newLocationId,
       cancellation_reason,
+      cancelling_patient_id,
       acceptCancellationPolicy,
     } = await req.json();
 
@@ -302,7 +304,13 @@ Deno.serve(async (req) => {
     if (action === "get-cancellation-preview") {
       const { response } = await buildCancellationPolicyPreview();
       return new Response(
-        JSON.stringify(response),
+        JSON.stringify({
+          ...response,
+          ...((await getCoupleMembers(supabase, session)).length > 1 ? {
+            is_couple: true,
+            message: "Al ser una sesión de pareja, se preguntará al otro miembro si asiste solo o cancela también. Si al final se cancela, el posible cargo se aplica a quien cancela.",
+          } : {}),
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -932,6 +940,35 @@ Deno.serve(async (req) => {
     }
 
     if (action === "cancel") {
+      const members = await getCoupleMembers(supabase, session);
+      if (members.length > 1 && !members.includes(cancelling_patient_id)) {
+        return new Response(
+          JSON.stringify({ error: "Indica quién cancela la cita", code: "couple_canceller_required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const requesterPatientId = members.length > 1 ? cancelling_patient_id : session.patient_id;
+
+      try {
+        const result = await startCoupleCancellation(supabase, {
+          sessionId: session.id,
+          requesterPatientId,
+          reason: cancellation_reason,
+          via: "session_link",
+        });
+        if (result.kind !== "not_couple") {
+          return new Response(
+            JSON.stringify({ success: true, couple_cancellation: result }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: (error as { message: string }).message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const {
         signedCancellationPolicy,
         signedPolicyEvaluation,

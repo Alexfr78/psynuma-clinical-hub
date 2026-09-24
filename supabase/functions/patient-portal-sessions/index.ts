@@ -1,3 +1,4 @@
+import { getCoupleMembers, startCoupleCancellation } from "../_shared/coupleCancellation.ts";
 import { patientSessionFilter } from "../_shared/sessionRecipients.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -810,9 +811,15 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify(existingSession.patient_id === session.patientId ? response : {
-          hasSignedPolicy: false, applies: false, amount: 0, basePrice: 0, percentage: 0, concept: null,
-          message: "La política de cancelación y los posibles cargos corresponden al titular de la cita.",
+        JSON.stringify({
+          ...(existingSession.patient_id === session.patientId ? response : {
+            hasSignedPolicy: false, applies: false, amount: 0, basePrice: 0, percentage: 0, concept: null,
+            message: "La política de cancelación y los posibles cargos corresponden al titular de la cita.",
+          }),
+          ...((await getCoupleMembers(supabase, existingSession)).length > 1 ? {
+            is_couple: true,
+            message: "Al ser una sesión de pareja, se preguntará al otro miembro si asiste solo o cancela también. Si al final se cancela, el posible cargo se aplica a quien cancela.",
+          } : {}),
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -838,6 +845,26 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Cita no encontrada" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      try {
+        const result = await startCoupleCancellation(supabase, {
+          sessionId: existingSession.id,
+          requesterPatientId: session.patientId,
+          reason,
+          via: "portal",
+        });
+        if (result.kind !== "not_couple") {
+          return new Response(
+            JSON.stringify({ success: true, couple_cancellation: result }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: (error as { message: string }).message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 

@@ -1,3 +1,4 @@
+import { getCoupleMembers, startCoupleCancellation } from "../_shared/coupleCancellation.ts";
 import { patientSessionFilter } from "../_shared/sessionRecipients.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -2040,10 +2041,16 @@ serve(async (req) => {
         );
       }
 
+      const couplePreview = (await getCoupleMembers(supabase, previewSession)).length > 1 ? {
+        is_couple: true,
+        message: "Al ser una sesión de pareja, se preguntará al otro miembro si asiste solo o cancela también. Si al final se cancela, el posible cargo se aplica a quien cancela.",
+      } : {};
+
       if (previewSession.patient_id !== tokenData.patientId) {
         return new Response(JSON.stringify({ hasSignedPolicy: false, applies: false, amount: 0,
           basePrice: 0, percentage: 0, concept: null,
-          message: "La política de cancelación y los posibles cargos corresponden al titular de la cita." }),
+          message: "La política de cancelación y los posibles cargos corresponden al titular de la cita.",
+          ...couplePreview }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -2098,6 +2105,7 @@ serve(async (req) => {
             : previewSignedPolicy
               ? "Esta cita esta cubierta por la politica de cancelacion aceptada. No se estima cargo por cancelacion."
               : "El paciente no tiene politica de cancelacion firmada. No se estima cargo automatico.",
+          ...couplePreview,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -2136,6 +2144,26 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Cita no encontrada" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      try {
+        const result = await startCoupleCancellation(supabase, {
+          sessionId: tokenData.sessionId,
+          requesterPatientId: tokenData.patientId!,
+          reason,
+          via: "booking_manage",
+        });
+        if (result.kind !== "not_couple") {
+          return new Response(
+            JSON.stringify({ success: true, couple_cancellation: result }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: (error as { message: string }).message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 

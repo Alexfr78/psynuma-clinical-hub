@@ -403,16 +403,20 @@ export function usePublicSessionReschedule(token: string | undefined) {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: async ({ 
-      cancellation_reason 
-    }: { 
+    mutationFn: async ({
+      cancellation_reason,
+      cancelling_patient_id,
+    }: {
       cancellation_reason?: string;
+      /** Sesiones de pareja: quién cancela (el enlace es común a los dos). */
+      cancelling_patient_id?: string;
     }) => {
       const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
-        body: { 
-          action: 'cancel', 
-          token, 
-          cancellation_reason 
+        body: {
+          action: 'cancel',
+          token,
+          cancellation_reason,
+          cancelling_patient_id,
         }
       });
 
@@ -422,11 +426,18 @@ export function usePublicSessionReschedule(token: string | undefined) {
       return data;
     },
     onSuccess: (data) => {
+      const couple = data?.couple_cancellation as { kind: string; message?: string } | undefined;
+      queryClient.invalidateQueries({ queryKey: ['public-couple-members', token] });
+      // Sesión de pareja: si el otro miembro aún tiene que responder, la cita sigue en pie.
+      if (couple?.kind === 'pending') {
+        toast.success(couple.message || 'Hemos avisado a tu pareja para que confirme.');
+        return;
+      }
       queryClient.setQueryData<PublicSessionData | undefined>(['public-session', token], (current) => (
         current ? { ...current, status: 'cancelled' } : current
       ));
       queryClient.invalidateQueries({ queryKey: ['public-session', token] });
-      toast.success(data.message || 'Cita cancelada');
+      toast.success(couple?.message || data.message || 'Cita cancelada');
     },
     onError: (error: Error) => {
       console.error('Error cancelling session:', error);
@@ -456,4 +467,26 @@ export function usePublicSessionReschedule(token: string | undefined) {
     cancelSession: cancelMutation.mutate,
     isCancelling: cancelMutation.isPending,
   };
+}
+
+export interface PublicCoupleMembers {
+  is_couple: boolean;
+  members: { id: string; first_name: string }[];
+  pending_request: { requested_by_patient_id: string; deadline_at: string } | null;
+}
+
+/** Miembros de una sesión de pareja (para elegir quién cancela en /cita/:token). */
+export function usePublicCoupleMembers(token: string | undefined) {
+  return useQuery({
+    queryKey: ['public-couple-members', token],
+    queryFn: async (): Promise<PublicCoupleMembers> => {
+      const { data, error } = await supabase.functions.invoke('couple-cancellation', {
+        body: { action: 'members', session_access_token: token },
+      });
+      if (error || !data) return { is_couple: false, members: [], pending_request: null };
+      return data as PublicCoupleMembers;
+    },
+    enabled: !!token,
+    staleTime: 60_000,
+  });
 }

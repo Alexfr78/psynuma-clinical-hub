@@ -347,7 +347,7 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
-  const cancelSession = async (sessionId: string, reason?: string): Promise<{ success: boolean; error?: string }> => {
+  const cancelSession = async (sessionId: string, reason?: string): Promise<{ success: boolean; error?: string; message?: string }> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
     }
@@ -362,7 +362,7 @@ export function usePatientPortal(centerSlug?: string) {
       }
 
       await fetchSessions();
-      return { success: true };
+      return { success: true, message: (data.couple_cancellation?.message as string | undefined) };
     } catch (error) {
       console.error('Error cancelling session:', error);
       return { success: false, error: 'Error de conexión' };

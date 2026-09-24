@@ -28,7 +28,8 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule, usePublicBonoTemplatesForSession } from '@/hooks/usePublicSession';
+import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule, usePublicBonoTemplatesForSession, usePublicCoupleMembers } from '@/hooks/usePublicSession';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect, useRef } from 'react';
 import { Textarea } from '@/components/ui/textarea';
@@ -76,6 +77,12 @@ export default function SessionManagement() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [policyAccepted, setPolicyAccepted] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellingPatientId, setCancellingPatientId] = useState<string>('');
+  const { data: coupleMembers } = usePublicCoupleMembers(token);
+  const isCoupleSession = !!coupleMembers?.is_couple;
+  const pendingCoupleRequest = coupleMembers?.pending_request ?? null;
+  const memberName = (id?: string) => coupleMembers?.members.find((m) => m.id === id)?.first_name || 'Un miembro';
+  const otherMemberName = (id?: string) => coupleMembers?.members.find((m) => m.id !== id)?.first_name || 'tu pareja';
   const [paying, setPaying] = useState(false);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [payingBonoId, setPayingBonoId] = useState<string | null>(null);
@@ -208,8 +215,9 @@ export default function SessionManagement() {
   };
 
   const handleCancel = () => {
-    cancelSession({ 
-      cancellation_reason: cancellationReason || 'Cancelada por el paciente'
+    cancelSession({
+      cancellation_reason: cancellationReason || 'Cancelada por el paciente',
+      cancelling_patient_id: isCoupleSession ? cancellingPatientId : undefined,
     });
   };
 
@@ -888,6 +896,17 @@ export default function SessionManagement() {
                 </Button>
               )}
 
+              {pendingCoupleRequest && (
+                <Alert>
+                  <Icon name="favorite" className="h-4 w-4" />
+                  <AlertDescription>
+                    {memberName(pendingCoupleRequest.requested_by_patient_id)} ha cancelado su asistencia. Esperamos la
+                    respuesta de {otherMemberName(pendingCoupleRequest.requested_by_patient_id)} hasta el{' '}
+                    {format(new Date(pendingCoupleRequest.deadline_at), "d 'de' MMMM 'a las' HH:mm", { locale: es })}.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Cancel Button */}
               <AlertDialog open={cancelDialogOpen} onOpenChange={handleCancelDialogOpenChange}>
                 <AlertDialogTrigger asChild>
@@ -905,9 +924,24 @@ export default function SessionManagement() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>¿Cancelar esta cita?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta acción no se puede deshacer. Si necesitas reprogramar, usa la opción "Cambiar fecha".
+                      {isCoupleSession
+                        ? 'Es una sesión de pareja: avisaremos al otro miembro para que confirme si asiste solo/a o cancela también.'
+                        : 'Esta acción no se puede deshacer. Si necesitas reprogramar, usa la opción "Cambiar fecha".'}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
+                  {isCoupleSession && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">¿Quién cancela?</label>
+                      <RadioGroup value={cancellingPatientId} onValueChange={setCancellingPatientId}>
+                        {coupleMembers?.members.map((member) => (
+                          <div key={member.id} className="flex items-center gap-2">
+                            <RadioGroupItem value={member.id} id={`cancelling-${member.id}`} />
+                            <label htmlFor={`cancelling-${member.id}`} className="text-sm">{member.first_name}</label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    </div>
+                  )}
                   <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
                     <Icon name="error" className="h-4 w-4 text-amber-600" />
                     <AlertDescription>
@@ -944,7 +978,7 @@ export default function SessionManagement() {
                     <AlertDialogAction
                       onClick={handleCancel}
                       className="bg-destructive hover:bg-destructive/90"
-                      disabled={isCancelling}
+                      disabled={isCancelling || (isCoupleSession && !cancellingPatientId)}
                     >
                       {isCancelling ? (
                         <>

@@ -192,3 +192,5 @@ project_id = "zprkdxmluvirxfhswrzq"
     verify_jwt = false
   [functions.whatsapp-meta-webhook]
     verify_jwt = false
+  [functions.couple-cancellation]
+    verify_jwt = false

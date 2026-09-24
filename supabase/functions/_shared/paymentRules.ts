@@ -49,7 +49,7 @@ function resolveMode(input: ResolvePaymentRulesInput): Pick<ResolvedPaymentRules
   return { paymentMode: 'in_session', source: 'fallback' };
 }
 
-function buildSessionDateTime(sessionDate?: string | Date | null, startTime?: string | null): Date | null {
+export function buildSessionDateTime(sessionDate?: string | Date | null, startTime?: string | null): Date | null {
   if (!sessionDate || !startTime) return null;
 
   const datePart = sessionDate instanceof Date

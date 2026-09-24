@@ -179,3 +179,52 @@ export function useSetSessionPartner() {
     },
   });
 }
+
+export interface PendingCoupleCancellation {
+  id: string;
+  requested_by_patient_id: string;
+  other_patient_id: string;
+  deadline_at: string;
+  cancellation_reason: string | null;
+  charge_applies: boolean;
+  charge_amount: number | null;
+}
+
+/** Cancelación de pareja pendiente de que el otro miembro responda. */
+export function usePendingCoupleCancellation(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ['couple-cancellation-pending', sessionId],
+    queryFn: async (): Promise<PendingCoupleCancellation | null> => {
+      const { data, error } = await supabase
+        .from('couple_cancellation_requests')
+        .select('id, requested_by_patient_id, other_patient_id, deadline_at, cancellation_reason, charge_applies, charge_amount')
+        .eq('session_id', sessionId!)
+        .eq('status', 'pending')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sessionId,
+  });
+}
+
+/** El profesional resuelve la solicitud (tras hablar con la pareja, por ejemplo). */
+export function useResolveCoupleCancellation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ requestId, decision }: { requestId: string; decision: 'cancel_both' | 'attend_alone' }) => {
+      const { data, error } = await supabase.functions.invoke('couple-cancellation', {
+        body: { action: 'professional_resolve', request_id: requestId, decision },
+      });
+      if (error) throw error;
+      return data as { status: string; message: string };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['couple-cancellation-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['session-participants'] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-sessions'] });
+    },
+  });
+}

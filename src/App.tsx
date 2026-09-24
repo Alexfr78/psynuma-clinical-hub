@@ -26,6 +26,7 @@ import AuditLog from "./pages/AuditLog";
 import IntakeRequests from "./pages/IntakeRequests";
 import NotFound from "./pages/NotFound";
 import SessionManagement from "./pages/SessionManagement";
+import CoupleCancellationResponse from "./pages/CoupleCancellationResponse";
 import Install from "./pages/Install";
 import Consents from "./pages/Consents";
 import ConsentSignature from "./pages/ConsentSignature";
@@ -77,6 +78,7 @@ const App = () => (
             
             {/* Public Routes (No Auth Required) */}
             <Route path="/cita/:token" element={<SessionManagement />} />
+            <Route path="/pareja/cancelacion/:token" element={<CoupleCancellationResponse />} />
             <Route path="/consentimiento/:token" element={<ConsentSignature />} />
             <Route path="/evaluacion/:token" element={<AssessmentPublic />} />
             <Route path="/emo/:token" element={<EMOPublic />} />

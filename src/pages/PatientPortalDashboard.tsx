@@ -206,7 +206,7 @@ export default function PatientPortalDashboard() {
 
   const handleCancel = async (sessionId: string) => {
     const result = await cancelSession(sessionId);
-    if (result.success) toast.success('Cita cancelada');
+    if (result.success) toast.success(result.message || 'Cita cancelada');
     else toast.error(result.error || 'Error al cancelar');
   };
 

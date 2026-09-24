@@ -6,8 +6,12 @@ import { Icon } from '@/components/ui/icon';
 import { PatientSelector } from './PatientSelector';
 import { useToast } from '@/hooks/use-toast';
 import { useUpdateSession } from '@/hooks/useSessions';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import {
   usePatientPartner,
+  usePendingCoupleCancellation,
+  useResolveCoupleCancellation,
   useSessionParticipants,
   useSetSessionPartner,
 } from '@/hooks/usePatientRelationships';
@@ -32,6 +36,8 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
   const { data: link } = usePatientPartner(session.patient_id ?? undefined);
   const setPartner = useSetSessionPartner();
   const updateSession = useUpdateSession();
+  const { data: pendingCancellation } = usePendingCoupleCancellation(session.id);
+  const resolveCancellation = useResolveCoupleCancellation();
   const [choosing, setChoosing] = useState(false);
 
   if (!session.patient_id || participants === undefined) return null;
@@ -97,8 +103,42 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
     );
   }
 
+  const memberName = (id: string) =>
+    id === partner.id ? partner.first_name : session.patient?.first_name ?? 'El titular';
+
+  const resolve = (decision: 'cancel_both' | 'attend_alone') =>
+    pendingCancellation &&
+    resolveCancellation
+      .mutateAsync({ requestId: pendingCancellation.id, decision })
+      .then((result) => toast({ title: result.message }))
+      .catch(onError);
+
   return (
     <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+      {pendingCancellation && (
+        <div className="space-y-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+          <p>
+            <span className="font-medium">{memberName(pendingCancellation.requested_by_patient_id)}</span> ha
+            cancelado. Esperando a que {memberName(pendingCancellation.other_patient_id)} confirme si asiste
+            solo/a o cancela también (hasta el{' '}
+            {format(new Date(pendingCancellation.deadline_at), "d 'de' MMMM 'a las' HH:mm", { locale: es })}).
+          </p>
+          {pendingCancellation.charge_applies && (
+            <p className="text-xs text-muted-foreground">
+              Si se cancela, cargo estimado a {memberName(pendingCancellation.requested_by_patient_id)}:{' '}
+              {Number(pendingCancellation.charge_amount ?? 0).toFixed(2)} €
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" disabled={resolveCancellation.isPending} onClick={() => resolve('attend_alone')}>
+              Individual para {memberName(pendingCancellation.other_patient_id)}
+            </Button>
+            <Button size="sm" variant="ghost" className="text-destructive" disabled={resolveCancellation.isPending} onClick={() => resolve('cancel_both')}>
+              Cancelar para los dos
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2 text-sm">
         <Icon name="favorite" className="h-4 w-4 text-primary" />
         <span>

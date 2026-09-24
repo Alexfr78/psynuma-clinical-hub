@@ -220,7 +220,8 @@ export function SessionTypesSection() {
             original.exemption_code !== item.exemption_code ||
             original.non_subject_code !== item.non_subject_code ||
             Boolean(original.is_first_consultation) !== Boolean(item.is_first_consultation) ||
-            Boolean(original.is_couple) !== Boolean(item.is_couple);
+            Boolean(original.is_couple) !== Boolean(item.is_couple) ||
+            (original.individual_fallback_type_id ?? null) !== (item.individual_fallback_type_id ?? null);
 
           if (hasChanged) {
             promises.push(
@@ -238,6 +239,7 @@ export function SessionTypesSection() {
                 vat_regime_key: item.vat_regime_key || '01',
                 is_first_consultation: item.is_first_consultation ?? false,
                 is_couple: item.is_couple ?? false,
+                individual_fallback_type_id: item.is_couple ? item.individual_fallback_type_id ?? null : null,
               })
             );
           }
@@ -595,6 +597,28 @@ export function SessionTypesSection() {
                           (Al reservar se pide el otro miembro y el aviso llega a los dos)
                         </span>
                       </div>
+
+                      {item.is_couple && (
+                        <div className="flex flex-col gap-1.5 pl-6 sm:flex-row sm:items-center sm:gap-3">
+                          <Label className="text-sm text-muted-foreground">Si solo asiste uno, pasa a:</Label>
+                          <Select
+                            value={item.individual_fallback_type_id ?? '__auto__'}
+                            onValueChange={(value) => handleChange(index, 'individual_fallback_type_id', value === '__auto__' ? null : value)}
+                          >
+                            <SelectTrigger className="h-8 sm:w-64">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__auto__">El primer tipo individual de la lista</SelectItem>
+                              {editableTypes
+                                .filter((other) => other.id && !other.is_couple && other.id !== item.id)
+                                .map((other) => (
+                                  <SelectItem key={other.id} value={other.id!}>{other.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

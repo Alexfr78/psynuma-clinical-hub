@@ -27,6 +27,8 @@ export interface SessionType {
   is_first_consultation: boolean | null;
   // Sesión de pareja: pide el segundo miembro al reservar
   is_couple: boolean;
+  // Tipos de pareja: tipo individual al que pasa si solo asiste un miembro
+  individual_fallback_type_id: string | null;
 }
 
 export interface SessionTypeInsert {
@@ -45,6 +47,7 @@ export interface SessionTypeInsert {
   vat_regime_key?: string;
   is_first_consultation?: boolean;
   is_couple?: boolean;
+  individual_fallback_type_id?: string | null;
 }
 
 export interface SessionTypeUpdate {
@@ -65,6 +68,7 @@ export interface SessionTypeUpdate {
   vat_regime_key?: string;
   is_first_consultation?: boolean;
   is_couple?: boolean;
+  individual_fallback_type_id?: string | null;
 }
 
 export function useSessionTypes() {

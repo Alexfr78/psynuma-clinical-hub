@@ -87,6 +87,7 @@ export default defineConfig(({ mode }) => ({
           /^\/informe\//,
           /^\/pagar\//,
           /^\/cita\//,
+          /^\/pareja\//,
           /^\/consentimiento\//,
           /^\/evaluacion\//,
           /^\/emo\//,

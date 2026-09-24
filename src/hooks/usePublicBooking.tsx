@@ -336,7 +336,7 @@ export function usePublicBooking(centerSlug: string) {
     }
   }, []);
 
-  const cancelBooking = useCallback(async (bookingToken: string, reason?: string): Promise<boolean> => {
+  const cancelBooking = useCallback(async (bookingToken: string, reason?: string): Promise<{ success: boolean; message?: string }> => {
     setLoading(true);
     setError(null);
     try {
@@ -345,10 +345,10 @@ export function usePublicBooking(centerSlug: string) {
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
-      return data.success;
+      return { success: !!data.success, message: data.couple_cancellation?.message };
     } catch (err) {
       setError((err as Error).message);
-      return false;
+      return { success: false };
     } finally {
       setLoading(false);
     }

@@ -116,9 +116,9 @@ export default function PublicBookingManage() {
 
 
   const handleCancel = async () => {
-    const success = await cancelBooking(bookingToken);
+    const { success, message } = await cancelBooking(bookingToken);
     if (success) {
-      toast.success('Cita cancelada correctamente');
+      toast.success(message || 'Cita cancelada correctamente');
       loadBooking();
     } else {
       toast.error(error || 'Error al cancelar la cita');

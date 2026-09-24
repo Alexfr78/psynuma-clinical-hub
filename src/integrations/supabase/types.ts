@@ -3090,6 +3090,100 @@ export type Database = {
           },
         ]
       }
+      couple_cancellation_requests: {
+        Row: {
+          center_id: string
+          cancellation_reason: string | null
+          charge_amount: number | null
+          charge_applies: boolean
+          charge_base_price: number | null
+          charge_concept: string | null
+          charge_percentage: number | null
+          charge_policy_version_id: string | null
+          created_at: string
+          deadline_at: string
+          id: string
+          other_patient_id: string
+          requested_by_patient_id: string
+          requested_via: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          response_token: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          cancellation_reason?: string | null
+          charge_amount?: number | null
+          charge_applies?: boolean
+          charge_base_price?: number | null
+          charge_concept?: string | null
+          charge_percentage?: number | null
+          charge_policy_version_id?: string | null
+          created_at?: string
+          deadline_at: string
+          id?: string
+          other_patient_id: string
+          requested_by_patient_id: string
+          requested_via?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_token?: string
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          cancellation_reason?: string | null
+          charge_amount?: number | null
+          charge_applies?: boolean
+          charge_base_price?: number | null
+          charge_concept?: string | null
+          charge_percentage?: number | null
+          charge_policy_version_id?: string | null
+          created_at?: string
+          deadline_at?: string
+          id?: string
+          other_patient_id?: string
+          requested_by_patient_id?: string
+          requested_via?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          response_token?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "couple_cancellation_requests_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "couple_cancellation_requests_requested_by_patient_id_fkey"
+            columns: ["requested_by_patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "couple_cancellation_requests_other_patient_id_fkey"
+            columns: ["other_patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       debts: {
         Row: {
           access_token: string | null
@@ -6984,6 +7078,7 @@ export type Database = {
           vat_rate: number | null
           vat_regime_key: string | null
           is_couple: boolean
+          individual_fallback_type_id: string | null
         }
         Insert: {
           center_id: string
@@ -7005,6 +7100,7 @@ export type Database = {
           vat_rate?: number | null
           vat_regime_key?: string | null
           is_couple?: boolean
+          individual_fallback_type_id?: string | null
         }
         Update: {
           center_id?: string
@@ -7026,6 +7122,7 @@ export type Database = {
           vat_rate?: number | null
           vat_regime_key?: string | null
           is_couple?: boolean
+          individual_fallback_type_id?: string | null
         }
         Relationships: [
           {
