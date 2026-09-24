@@ -452,6 +452,26 @@ async function handleBonoPurchase(
 
   let bonoData = existingBono;
   if (!bonoData) {
+    // Bono compartido con la pareja: se vuelve a comprobar el vínculo porque pudo
+    // deshacerse entre el checkout y el pago. Si ya no existe, el bono queda
+    // individual en vez de fallar (el pago ya está hecho).
+    let sharedWithPatientId: string | null = metadata.bono_shared_with_patient_id || null;
+    if (sharedWithPatientId) {
+      const [a, b] = [patientId, sharedWithPatientId].sort();
+      const { data: link } = await supabase
+        .from('patient_relationships')
+        .select('id')
+        .eq('center_id', centerId)
+        .eq('relationship_type', 'couple')
+        .eq('patient_a_id', a)
+        .eq('patient_b_id', b)
+        .maybeSingle();
+      if (!link) {
+        console.warn('Bono purchase: couple link no longer exists, creating unshared bono', { patientId, sharedWithPatientId });
+        sharedWithPatientId = null;
+      }
+    }
+
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + validityDays);
 
@@ -469,6 +489,7 @@ async function handleBonoPurchase(
         status: 'active',
         expires_at: expiresAt.toISOString(),
         stripe_checkout_session_id: stripeSessionId,
+        shared_with_patient_id: sharedWithPatientId,
       })
       .select('id, expires_at')
       .single();

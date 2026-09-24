@@ -1,3 +1,5 @@
+import { isWhatsAppOptedOut } from "../_shared/whatsapp-reply-intent.ts";
+import { getSessionRecipients } from "../_shared/sessionRecipients.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -103,7 +105,7 @@ serve(async (req) => {
         continue;
       }
 
-      const sent = await sendReminder(supabase, wasenderToken, session, 'reminder_24h');
+      const sent = await sendSessionReminders(supabase, wasenderToken, session, 'reminder_24h');
       if (sent) sent24h++;
     }
 
@@ -115,7 +117,7 @@ serve(async (req) => {
         continue;
       }
 
-      const sent = await sendReminder(supabase, wasenderToken, session, 'reminder_2h');
+      const sent = await sendSessionReminders(supabase, wasenderToken, session, 'reminder_2h');
       if (sent) sent2h++;
     }
 
@@ -176,8 +178,7 @@ async function getSessions(supabase: SupabaseClient, targetTime: Date, reminderT
     .eq('session_date', targetDateStr)
     .gte('start_time', startTime)
     .lt('start_time', endTime)
-    .eq('status', 'scheduled')
-    .not('patient.phone', 'is', null);
+    .eq('status', 'scheduled');
 
   if (error) {
     console.error('Error fetching sessions:', error);
@@ -190,7 +191,7 @@ async function getSessions(supabase: SupabaseClient, targetTime: Date, reminderT
   // (single-object) runtime shape returned by PostgREST for these FK joins.
   const sessionsWithReminders: SessionWithPatient[] = [];
   for (const session of (data || []) as unknown as SessionWithPatient[]) {
-    if (!session.patient?.phone) continue;
+
 
     // Check if reminder was already sent
     const { data: existingReminder } = await supabase
@@ -198,6 +199,8 @@ async function getSessions(supabase: SupabaseClient, targetTime: Date, reminderT
       .select('id')
       .eq('session_id', session.id)
       .eq('message_type', reminderType)
+      .eq('patient_id', session.patient.id)
+      .limit(1)
       .maybeSingle();
 
     if (!existingReminder) {
@@ -208,6 +211,34 @@ async function getSessions(supabase: SupabaseClient, targetTime: Date, reminderT
   return sessionsWithReminders;
 }
 
+async function sendSessionReminders(supabase: SupabaseClient, token: string, session: SessionWithPatient, kind: string): Promise<boolean> {
+  let payerSent = false;
+  let recipients;
+  try {
+    recipients = await getSessionRecipients(supabase, session.id);
+  } catch (error) {
+    console.error('Could not load reminder participants', session.id, error);
+    return sendReminder(supabase, token, session, kind);
+  }
+  for (const recipient of recipients) {
+    if (!recipient.phone) continue;
+    if (!recipient.isPayer) {
+      const { data: existing, error } = await supabase.from('whatsapp_messages').select('id')
+        .eq('session_id', session.id).eq('patient_id', recipient.patientId).eq('message_type', kind)
+        .limit(1).maybeSingle();
+      if (error) { console.error('Could not check participant reminder', error); continue; }
+      if (existing) continue;
+    }
+    if (!recipient.isPayer) await new Promise(resolve => setTimeout(resolve, 6000));
+    const sent = await sendReminder(supabase, token, {
+      ...session, patient: { ...recipient, phone: recipient.phone },
+    }, kind);
+    if (recipient.isPayer) payerSent = sent;
+    else if (!sent) console.error('Participant reminder failed', session.id, recipient.patientId);
+  }
+  return payerSent;
+}
+
 async function sendReminder(
   supabase: SupabaseClient,
   wasenderToken: string,
@@ -215,6 +246,7 @@ async function sendReminder(
   reminderType: string
 ): Promise<boolean> {
   try {
+    if (!session.patient?.phone || await isWhatsAppOptedOut(supabase, session.center.id, session.patient.phone)) return false;
     // Get WhatsApp session for this center
     const { data: whatsappSession } = await supabase
       .from('whatsapp_sessions')

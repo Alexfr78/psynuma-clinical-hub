@@ -140,7 +140,7 @@ export function PortalAppointments({
         const canCancel = !isPast && !isCancelled && ['scheduled', 'confirmed', 'pending_approval', 'draft'].includes(session.status);
         const canConfirm = !isPast && !isCancelled && session.status === 'scheduled';
         const canReschedule = !isPast && !isCancelled && ['scheduled', 'confirmed'].includes(session.status);
-        const canSaveCard = !isPast && !isCancelled && session.status === 'draft' && !!onSaveCard;
+        const canSaveCard = session.is_payer !== false && !isPast && !isCancelled && session.status === 'draft' && !!onSaveCard;
         const canJoinVideo = !isPast
           && !isCancelled
           && ['scheduled', 'confirmed'].includes(session.status)
@@ -189,7 +189,8 @@ export function PortalAppointments({
 
             {/* Session Type and Location */}
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <Badge variant="outline">{session.session_type}</Badge>
+              <Badge variant="outline">{session.is_couple ? 'Sesión de pareja' : session.session_type}</Badge>
+              {session.is_couple && !!session.other_member_first_names?.length && <span>Con {session.other_member_first_names.join(', ')}</span>}
               {session.location && (
                 mapsUrl ? (
                   <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -204,7 +205,7 @@ export function PortalAppointments({
             </div>
 
             {/* Nota para borradores (falta guardar la tarjeta) */}
-            {!isPast && session.status === 'draft' && (
+            {session.is_payer !== false && !isPast && session.status === 'draft' && (
               <p className="text-xs text-muted-foreground">
                 Reserva pendiente: falta guardar tu tarjeta para completarla. No se te cobra nada ahora.
               </p>

@@ -16,10 +16,17 @@ export interface Bono {
   expires_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Pareja con la que se comparte (el comprador es patient_id). */
+  shared_with_patient_id?: string | null;
 }
 
 export interface BonoWithPatient extends Bono {
   patients: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
+  shared_with: {
     id: string;
     first_name: string;
     last_name: string;
@@ -46,6 +53,8 @@ export interface BonoInsert {
   price_per_session: number;
   total_price: number;
   expires_at?: string | null;
+  /** Compartir con la pareja vinculada del comprador. */
+  shared_with_patient_id?: string | null;
 }
 
 export interface BonoTemplateInsert {
@@ -89,12 +98,14 @@ export function useBonos(filters?: { patientId?: string; status?: string }) {
         .from('bonos')
         .select(`
           *,
-          patients (id, first_name, last_name)
+          patients:patients!bonos_patient_id_fkey (id, first_name, last_name),
+          shared_with:patients!bonos_shared_with_patient_id_fkey (id, first_name, last_name)
         `)
         .order('created_at', { ascending: false });
 
       if (filters?.patientId) {
-        query = query.eq('patient_id', filters.patientId);
+        // Bonos propios y los que su pareja comparte con él.
+        query = query.or(`patient_id.eq.${filters.patientId},shared_with_patient_id.eq.${filters.patientId}`);
       }
       if (filters?.status) {
         query = query.eq('status', filters.status as 'active' | 'exhausted' | 'expired' | 'cancelled');
@@ -115,7 +126,8 @@ export function usePatientActiveBonos(patientId: string | undefined) {
       const { data, error } = await supabase
         .from('bonos')
         .select('*')
-        .eq('patient_id', patientId!)
+        // Propios y compartidos por la pareja: cualquiera de los dos gasta del bono.
+        .or(`patient_id.eq.${patientId},shared_with_patient_id.eq.${patientId}`)
         .eq('status', 'active' as const)
         .order('expires_at', { ascending: true, nullsFirst: false });
 
@@ -191,6 +203,19 @@ export function useCreateBonoWithDebt() {
 
       if (error) throw error;
       const result = data as unknown as CreateBonoWithDebtResult;
+
+      // Se comparte antes de la aplicación automática para que también cubra las
+      // sesiones pendientes de la pareja. El trigger exige que estén vinculados.
+      if (bono.shared_with_patient_id) {
+        const { error: shareError } = await supabase
+          .from('bonos')
+          .update({ shared_with_patient_id: bono.shared_with_patient_id })
+          .eq('id', result.bono_id);
+        if (shareError) {
+          toast.error('El bono se ha creado, pero no se pudo compartir: ' + shareError.message);
+        }
+      }
+
       const { error: autoApplyError } = await supabase.rpc('auto_apply_bono_to_pending_sessions', {
         p_bono_id: result.bono_id,
       });

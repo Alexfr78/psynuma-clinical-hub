@@ -55,6 +55,9 @@ interface Center {
 }
 
 export interface PortalSession {
+  is_payer: boolean;
+  is_couple: boolean;
+  other_member_first_names: string[];
   id: string;
   session_date: string;
   start_time: string;
@@ -112,17 +115,7 @@ export function usePatientPortal(centerSlug?: string) {
   });
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
-  // Check for stored session on mount
-  useEffect(() => {
-    const storedToken = localStorage.getItem(`portal_session_${centerSlug}`);
-    if (storedToken) {
-      validateSession(storedToken);
-    } else {
-      setState(prev => ({ ...prev, isLoading: false }));
-    }
-  }, [centerSlug]);
-
-  const validateSession = async (token: string) => {
+  const validateSession = useCallback(async (token: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('patient-portal-auth', {
         body: { action: 'validate-session', sessionToken: token },
@@ -158,7 +151,17 @@ export function usePatientPortal(centerSlug?: string) {
         sessionToken: null,
       });
     }
-  };
+  }, [centerSlug]);
+
+  // Check for stored session on mount
+  useEffect(() => {
+    const storedToken = localStorage.getItem(`portal_session_${centerSlug}`);
+    if (storedToken) {
+      validateSession(storedToken);
+    } else {
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, [centerSlug, validateSession]);
 
   const verifyMagicLink = async (token: string): Promise<{ success: boolean; error?: string }> => {
     try {

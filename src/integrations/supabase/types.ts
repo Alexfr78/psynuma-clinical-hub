@@ -1730,6 +1730,7 @@ export type Database = {
           total_sessions: number
           updated_at: string
           used_sessions: number | null
+          shared_with_patient_id: string | null
         }
         Insert: {
           base_price_snapshot?: number | null
@@ -1751,6 +1752,7 @@ export type Database = {
           total_sessions: number
           updated_at?: string
           used_sessions?: number | null
+          shared_with_patient_id?: string | null
         }
         Update: {
           base_price_snapshot?: number | null
@@ -1772,6 +1774,7 @@ export type Database = {
           total_sessions?: number
           updated_at?: string
           used_sessions?: number | null
+          shared_with_patient_id?: string | null
         }
         Relationships: [
           {
@@ -1814,6 +1817,13 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bonos_shared_with_patient_id_fkey"
+            columns: ["shared_with_patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
           {
@@ -5201,6 +5211,71 @@ export type Database = {
           },
         ]
       }
+      patient_relationships: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string | null
+          default_payer_patient_id: string | null
+          id: string
+          patient_a_id: string
+          patient_b_id: string
+          relationship_type: string
+          updated_at: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          default_payer_patient_id?: string | null
+          id?: string
+          patient_a_id: string
+          patient_b_id: string
+          relationship_type?: string
+          updated_at?: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          default_payer_patient_id?: string | null
+          id?: string
+          patient_a_id?: string
+          patient_b_id?: string
+          relationship_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_relationships_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_relationships_default_payer_patient_id_fkey"
+            columns: ["default_payer_patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_relationships_patient_a_id_fkey"
+            columns: ["patient_a_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_relationships_patient_b_id_fkey"
+            columns: ["patient_b_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_report_links: {
         Row: {
           access_token: string
@@ -5408,6 +5483,7 @@ export type Database = {
           guardian_name: string | null
           guardian_phone: string | null
           guardian_relationship: string | null
+          guardian_tax_id: string | null
           id: string
           is_minor: boolean | null
           last_name: string
@@ -5442,6 +5518,7 @@ export type Database = {
           guardian_name?: string | null
           guardian_phone?: string | null
           guardian_relationship?: string | null
+          guardian_tax_id?: string | null
           id?: string
           is_minor?: boolean | null
           last_name: string
@@ -5476,6 +5553,7 @@ export type Database = {
           guardian_name?: string | null
           guardian_phone?: string | null
           guardian_relationship?: string | null
+          guardian_tax_id?: string | null
           id?: string
           is_minor?: boolean | null
           last_name?: string
@@ -6374,6 +6452,7 @@ export type Database = {
           session_type: string | null
           timezone: string
           updated_at: string | null
+          partner_patient_id: string | null
         }
         Insert: {
           base_start_datetime: string
@@ -6397,6 +6476,7 @@ export type Database = {
           session_type?: string | null
           timezone?: string
           updated_at?: string | null
+          partner_patient_id?: string | null
         }
         Update: {
           base_start_datetime?: string
@@ -6420,6 +6500,7 @@ export type Database = {
           session_type?: string | null
           timezone?: string
           updated_at?: string | null
+          partner_patient_id?: string | null
         }
         Relationships: [
           {
@@ -6839,6 +6920,49 @@ export type Database = {
           },
         ]
       }
+      session_participants: {
+        Row: {
+          center_id: string
+          created_at: string
+          patient_id: string
+          session_id: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          patient_id: string
+          session_id: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          patient_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_participants_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_participants_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_types: {
         Row: {
           center_id: string
@@ -6859,6 +6983,7 @@ export type Database = {
           updated_at: string | null
           vat_rate: number | null
           vat_regime_key: string | null
+          is_couple: boolean
         }
         Insert: {
           center_id: string
@@ -6879,6 +7004,7 @@ export type Database = {
           updated_at?: string | null
           vat_rate?: number | null
           vat_regime_key?: string | null
+          is_couple?: boolean
         }
         Update: {
           center_id?: string
@@ -6899,6 +7025,7 @@ export type Database = {
           updated_at?: string | null
           vat_rate?: number | null
           vat_regime_key?: string | null
+          is_couple?: boolean
         }
         Relationships: [
           {
@@ -8145,6 +8272,44 @@ export type Database = {
           },
         ]
       }
+      whatsapp_opt_outs: {
+        Row: {
+          center_id: string
+          created_at: string
+          id: string
+          opted_in_at: string | null
+          opted_out_at: string
+          phone: string
+          source: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          id?: string
+          opted_in_at?: string | null
+          opted_out_at?: string
+          phone: string
+          source: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          id?: string
+          opted_in_at?: string | null
+          opted_out_at?: string
+          phone?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_opt_outs_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_queue: {
         Row: {
           attempts: number | null
@@ -8473,6 +8638,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_sessions_safe: {
+        Row: {
+          center_id: string | null
+          created_at: string | null
+          id: string | null
+          is_active: boolean | null
+          last_connected_at: string | null
+          last_error: string | null
+          name: string | null
+          phone_number: string | null
+          professional_id: string | null
+          qr_code: string | null
+          qr_expires_at: string | null
+          status: string | null
+          updated_at: string | null
+          wasender_session_id: string | null
+        }
+        Insert: {
+          center_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_error?: string | null
+          name?: string | null
+          phone_number?: string | null
+          professional_id?: string | null
+          qr_code?: string | null
+          qr_expires_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          wasender_session_id?: string | null
+        }
+        Update: {
+          center_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          last_error?: string | null
+          name?: string | null
+          phone_number?: string | null
+          professional_id?: string | null
+          qr_code?: string | null
+          qr_expires_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          wasender_session_id?: string | null
+        }
+        Relationships: []
       }
       patients_public: {
         Row: {
@@ -9033,6 +9249,17 @@ export type Database = {
         }[]
       }
       get_safe_center: { Args: { p_center_id: string }; Returns: Json }
+      get_public_couple_partner_first_name: {
+        Args: { p_debt_token?: string; p_session_token?: string }
+        Returns: string
+      }
+      get_session_patient_ids: {
+        Args: { p_session_id: string }
+        Returns: {
+          is_payer: boolean
+          patient_id: string
+        }[]
+      }
       get_session_token: { Args: never; Returns: string }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
       handle_google_webhook_debounce: {

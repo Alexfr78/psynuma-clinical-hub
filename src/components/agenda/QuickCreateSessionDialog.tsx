@@ -494,9 +494,6 @@ export function QuickCreateSessionDialog({
       isCoupleType: !!selectedSessionType?.is_couple,
     });
     const titularPatient = patients?.find((p) => p.id === roles.titularId);
-    const participantPatient = roles.participantId
-      ? patients?.find((p) => p.id === roles.participantId)
-      : undefined;
     const basePrice = selectedSessionType?.default_price ?? 0;
     const useResolved = !!resolvedPrice && !usesBono;
     const sessionPrice = useResolved ? resolvedPrice!.applied_price : basePrice;
@@ -757,26 +754,7 @@ export function QuickCreateSessionDialog({
           },
         }, profile!.center_id, center);
 
-        // En sesiones de pareja el aviso de la cita también llega al otro miembro.
-        if (participantPatient) {
-          await sendSessionNotificationDirect({
-            patientId: participantPatient.id,
-            patientName: `${participantPatient.first_name} ${participantPatient.last_name}`,
-            patientPhone: participantPatient.phone,
-            patientEmail: participantPatient.email,
-            sessionId: newSession.id,
-            sessionDate: format(values.session_date, 'dd/MM/yyyy'),
-            sessionTime: values.start_time,
-            professionalName: selectedProfessional ? `${selectedProfessional.first_name} ${selectedProfessional.last_name}` : undefined,
-            sessionType: selectedSessionType?.name || values.session_type,
-            type: 'notification',
-            channels: {
-              whatsapp: values.notify_whatsapp,
-              email: values.notify_email,
-              sms: values.notify_sms,
-            },
-          }, profile!.center_id, center).catch((err) => console.error('Partner notification failed:', err));
-        }
+        // En sesiones de pareja, sendSessionNotificationDirect ya avisa también al otro miembro.
 
         // Invalidate notification queries manually
         queryClient.invalidateQueries({ queryKey: ['notifications'] });

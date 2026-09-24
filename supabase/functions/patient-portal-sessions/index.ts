@@ -1,3 +1,4 @@
+import { patientSessionFilter } from "../_shared/sessionRecipients.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
@@ -209,12 +210,17 @@ serve(async (req) => {
       );
     }
 
+    const membershipFilter = await patientSessionFilter(supabase, session.patientId, session.centerId!);
+
     if (action === "list") {
       // Get ALL patient sessions (including cancelled for history)
       const { data: sessions, error } = await supabase
         .from("sessions")
         .select(`
           id,
+          patient_id,
+          payer:patients!sessions_patient_id_fkey(first_name),
+          participants:session_participants(patient_id, patient:patients!session_participants_patient_id_fkey(first_name)),
           session_date,
           start_time,
           end_time,
@@ -231,7 +237,8 @@ serve(async (req) => {
             id, name, street, city, location_type
           )
         `)
-        .eq("patient_id", session.patientId)
+        .eq("center_id", session.centerId)
+        .or(membershipFilter)
         .order("session_date", { ascending: false })
         .order("start_time", { ascending: false });
 
@@ -243,12 +250,25 @@ serve(async (req) => {
         );
       }
 
+      const visibleSessions = (sessions || []).map(({ patient_id, payer, participants, ...row }) => {
+        const isPayer = patient_id === session.patientId;
+        const payerName = Array.isArray(payer) ? payer[0]?.first_name : (payer as { first_name: string } | null)?.first_name;
+        const otherNames = (participants || []).filter(p => p.patient_id !== session.patientId).map(p => {
+          const patient = Array.isArray(p.patient) ? p.patient[0] : p.patient as { first_name: string } | null;
+          return patient?.first_name;
+        });
+        if (!isPayer) otherNames.unshift(payerName);
+        return { ...row, is_payer: isPayer, is_couple: (participants || []).length > 0,
+          other_member_first_names: otherNames.filter(Boolean),
+          payment_status: isPayer ? row.payment_status : null };
+      });
+
       // Separate into upcoming and past
       // Upcoming: future sessions that are NOT cancelled
       // Past: all past sessions (including cancelled ones for history)
       const today = new Date().toISOString().split("T")[0];
-      const upcoming = sessions?.filter(s => s.session_date >= today && s.status !== 'cancelled') || [];
-      const past = sessions?.filter(s => s.session_date < today || s.status === 'cancelled') || [];
+      const upcoming = visibleSessions.filter(s => s.session_date >= today && s.status !== 'cancelled') || [];
+      const past = visibleSessions.filter(s => s.session_date < today || s.status === 'cancelled') || [];
 
       // Audit: patient viewed their sessions
       logAuditEvent({
@@ -690,7 +710,8 @@ serve(async (req) => {
         .from("sessions")
         .select("id, center_id, patient_id, session_date, start_time, session_type, session_type_id, cancellation_policy, cancellation_policy_version_id, professional_id, price")
         .eq("id", sessionId)
-        .eq("patient_id", session.patientId)
+        .eq("center_id", session.centerId)
+        .or(membershipFilter)
         .single();
 
       if (!existingSession) {
@@ -700,7 +721,7 @@ serve(async (req) => {
       // Master switch / per-patient override OFF → no cargo por cancelación.
       if (!(await isCancellationPolicyEnabled(supabase, {
         centerId: existingSession.center_id,
-        patientId: session.patientId,
+        patientId: existingSession.patient_id,
       }))) {
         return {
           existingSession,
@@ -720,7 +741,7 @@ serve(async (req) => {
 
       const signedCancellationPolicy = await resolveSignedCancellationPolicyVersionForSession(supabase, {
         centerId: existingSession.center_id,
-        patientId: session.patientId,
+        patientId: existingSession.patient_id,
         policyVersionId: existingSession.cancellation_policy_version_id,
         versionSelect: "id, rules, penalty_invoice_concept",
       });
@@ -789,7 +810,10 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify(response),
+        JSON.stringify(existingSession.patient_id === session.patientId ? response : {
+          hasSignedPolicy: false, applies: false, amount: 0, basePrice: 0, percentage: 0, concept: null,
+          message: "La política de cancelación y los posibles cargos corresponden al titular de la cita.",
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -852,7 +876,7 @@ serve(async (req) => {
           .from("cancellation_charges")
           .insert({
             center_id: existingSession.center_id,
-            patient_id: session.patientId!,
+            patient_id: existingSession.patient_id,
             session_id: sessionId,
             policy_version_id: signedCancellationPolicy.id,
             status: "pending_review",
@@ -969,7 +993,8 @@ serve(async (req) => {
         .from("sessions")
         .select("id, patient_id, status, professional_id, google_calendar_event_id")
         .eq("id", sessionId)
-        .eq("patient_id", session.patientId)
+        .eq("center_id", session.centerId)
+        .or(membershipFilter)
         .single();
 
       if (!existingSession) {
@@ -1043,7 +1068,8 @@ serve(async (req) => {
         .from("sessions")
         .select("id, patient_id, session_date, start_time, end_time, status, session_type, session_modality, location_id, professional_id, center_id, cancellation_policy, google_calendar_event_id, zoom_meeting_id")
         .eq("id", sessionId)
-        .eq("patient_id", session.patientId)
+        .eq("center_id", session.centerId)
+        .or(membershipFilter)
         .single();
 
       if (!existingSession) {
@@ -1194,7 +1220,7 @@ serve(async (req) => {
           if (!existingCharge) {
             await supabase.from("cancellation_charges").insert({
               center_id: existingSession.center_id,
-              patient_id: session.patientId!,
+              patient_id: existingSession.patient_id,
               session_id: sessionId,
               policy_version_id: signedCancellationPolicy.id,
               status: "pending_review",

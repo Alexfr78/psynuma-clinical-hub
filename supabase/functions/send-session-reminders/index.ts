@@ -1,3 +1,4 @@
+import { getSessionRecipients } from "../_shared/sessionRecipients.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
@@ -633,283 +634,300 @@ serve(async (req) => {
 
       for (const sessionData of sessions || []) {
         // Extract single objects from arrays (Supabase returns arrays for joins)
-        const session = {
+        const originalSession = {
           ...sessionData,
           patient: Array.isArray(sessionData.patient) ? sessionData.patient[0] : sessionData.patient,
           professional: Array.isArray(sessionData.professional) ? sessionData.professional[0] : sessionData.professional,
           location: Array.isArray(sessionData.location) ? sessionData.location[0] : sessionData.location,
         } as SessionToRemind;
-        const patient = session.patient;
-        if (!patient) {
-          console.log(`Skipping session ${session.id}: no patient data`);
-          continue;
+        let recipients;
+        try {
+          recipients = await getSessionRecipients(supabase, originalSession.id);
+        } catch (error) {
+          console.error('Could not load reminder participants', originalSession.id, error);
+          recipients = [{ ...originalSession.patient, isPayer: true }];
         }
-
-        const shouldIncludeAdvancePayment = Number(session.price ?? 0) > 0
-          && !!session.advance_payment_due_at
-          && !session.advance_payment_notification_sent_at
-          && !["paid", "bono", "refunded"].includes((session.payment_status || "").toLowerCase());
-
-        const shortSessionPath = session.access_token
-          ? await getOrCreatePublicShortLink({
-              supabase,
-              centerId: center.id,
-              targetType: "session",
-              targetToken: session.access_token,
-              expiresAt: null,
-            })
-          : null;
-        const sessionLink = shortSessionPath ? `${baseUrl}${shortSessionPath}` : undefined;
-        let whatsappMessage = buildReminderMessage(session, center, templateMessage, baseUrl, sessionLink);
-        let emailMessage = buildReminderMessage(session, center, emailTemplateMessage || templateMessage, baseUrl, sessionLink);
-        let advancePaymentBlockIncluded = false;
-        let advancePaymentBlockError: string | null = null;
-
-        if (shouldIncludeAdvancePayment) {
-          const paymentChannel: "whatsapp" | "email" | null =
-            channels.whatsapp && patient.phone
-              ? "whatsapp"
-              : (channels.email && patient.email ? "email" : null);
-
-          if (paymentChannel) {
-            const paymentBlock = await buildAdvancePaymentBlock({
-              supabase,
-              centerId: center.id,
-              sessionId: session.id,
-              channel: paymentChannel,
-              baseUrl,
-            });
-
-            if (paymentBlock.hasPaymentInstructions && paymentBlock.block) {
-              if (channels.whatsapp && patient.phone) {
-                whatsappMessage = [whatsappMessage, paymentBlock.block].filter(Boolean).join("\n\n");
-              }
-              if (channels.email && patient.email) {
-                emailMessage = [emailMessage, paymentBlock.block].filter(Boolean).join("\n\n");
-              }
-              advancePaymentBlockIncluded = true;
-            } else {
-              advancePaymentBlockError = paymentBlock.stripeError || advancePaymentBlockError;
+        for (const recipient of recipients) {
+          try {
+            // El enlace de la cita es el mismo para los dos miembros; lo que es de
+            // pago (bloque de pago anticipado) solo va al titular.
+            const session = { ...originalSession, patient: recipient };
+            const patient = session.patient;
+            if (!patient) {
+              console.log(`Skipping session ${session.id}: no patient data`);
+              continue;
             }
-          }
 
-          if (!advancePaymentBlockIncluded) {
-            await markAdvancePaymentNotificationFailed(
-              supabase,
-              session.id,
-              advancePaymentBlockError || "No hay metodos de pago configurados para enviar al paciente",
-            );
-          }
-        }
+            const shouldIncludeAdvancePayment = recipient.isPayer && Number(session.price ?? 0) > 0
+              && !!session.advance_payment_due_at
+              && !session.advance_payment_notification_sent_at
+              && !["paid", "bono", "refunded"].includes((session.payment_status || "").toLowerCase());
 
-        const logoUrl = center.invoice_logo_url || center.logo_url;
-        let reminderSent = false;
+            const shortSessionPath = session.access_token
+              ? await getOrCreatePublicShortLink({
+                  supabase,
+                  centerId: center.id,
+                  targetType: "session",
+                  targetToken: session.access_token,
+                  expiresAt: null,
+                })
+              : null;
+            const sessionLink = shortSessionPath ? `${baseUrl}${shortSessionPath}` : undefined;
+            let whatsappMessage = buildReminderMessage(session, center, templateMessage, baseUrl, sessionLink);
+            let emailMessage = buildReminderMessage(session, center, emailTemplateMessage || templateMessage, baseUrl, sessionLink);
+            let advancePaymentBlockIncluded = false;
+            let advancePaymentBlockError: string | null = null;
 
-        // Send email reminder
-        if (channels.email && patient.email) {
-          const emailSubject = emailTemplateSubject 
-            ? emailTemplateSubject
-                .replace(/\{nombre_paciente\}/g, patient.first_name)
-                .replace(/\{fecha\}/g, formatDate(session.session_date))
-            : `Recordatorio de cita - ${formatDate(session.session_date)}`;
-          console.log(`Sending email reminder to patient ${patient.id} for session ${session.id}`);
-          const emailResult = await sendEmailViaResend(
-            patient.email,
-            emailSubject,
-            emailMessage,
-            center.name,
-            logoUrl
-          );
-          
-          if (emailResult.success) {
-            reminderSent = true;
-            console.log(`Email sent successfully for patient ${patient.id}`);
-          } else {
-            console.error(`Email failed for patient ${patient.id}:`, emailResult.error);
-            errors++;
-          }
+            if (shouldIncludeAdvancePayment) {
+              const paymentChannel: "whatsapp" | "email" | null =
+                channels.whatsapp && patient.phone
+                  ? "whatsapp"
+                  : (channels.email && patient.email ? "email" : null);
 
-          // Create notification record for email
-          await supabase.from("notifications").insert({
-            center_id: center.id,
-            patient_id: patient.id,
-            session_id: session.id,
-            type: 'email',
-            recipient: patient.email,
-            subject: emailSubject,
-            message: emailMessage,
-            status: emailResult.success ? 'sent' : 'failed',
-            sent_at: emailResult.success ? new Date().toISOString() : null,
-            error_message: emailResult.error || null
-          });
-        }
+              if (paymentChannel) {
+                const paymentBlock = await buildAdvancePaymentBlock({
+                  supabase,
+                  centerId: center.id,
+                  sessionId: session.id,
+                  channel: paymentChannel,
+                  baseUrl,
+                });
 
-        // Send WhatsApp reminder (skipped if the patient replied STOP to this center)
-        const whatsappOptedOut = channels.whatsapp && patient.phone
-          ? await isWhatsAppOptedOut(supabase, center.id, patient.phone)
-          : false;
-        if (whatsappOptedOut) {
-          console.log(`Skipping WhatsApp reminder for patient ${patient.id}: opted out`);
-        }
-        if (channels.whatsapp && patient.phone && !whatsappOptedOut) {
-          let whatsappSentVia: string | null = null;
-          let whatsappError: string | null = null;
-          let metaMessageId: string | undefined;
+                if (paymentBlock.hasPaymentInstructions && paymentBlock.block) {
+                  if (channels.whatsapp && patient.phone) {
+                    whatsappMessage = [whatsappMessage, paymentBlock.block].filter(Boolean).join("\n\n");
+                  }
+                  if (channels.email && patient.email) {
+                    emailMessage = [emailMessage, paymentBlock.block].filter(Boolean).join("\n\n");
+                  }
+                  advancePaymentBlockIncluded = true;
+                } else {
+                  advancePaymentBlockError = paymentBlock.stripeError || advancePaymentBlockError;
+                }
+              }
 
-          // Priority 1: WasenderAPI (automatic via personal number)
-          if (!whatsappSentVia && center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
-            const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
-            
-            if (wasenderToken) {
-              const { data: whatsappSession } = await supabase
-                .from("whatsapp_sessions")
-                .select("wasender_session_id, status, api_key")
-                .eq("center_id", center.id)
-                .single();
+              if (!advancePaymentBlockIncluded) {
+                await markAdvancePaymentNotificationFailed(
+                  supabase,
+                  session.id,
+                  advancePaymentBlockError || "No hay metodos de pago configurados para enviar al paciente",
+                );
+              }
+            }
 
-              if (whatsappSession?.wasender_session_id && whatsappSession.status === 'connected') {
-                // Rate limit: wait 6s between WasenderAPI calls (account protection = 1 msg / 5s)
-                if (lastWasenderSendAt > 0) {
-                  const elapsed = Date.now() - lastWasenderSendAt;
-                  if (elapsed < 6000) {
-                    await new Promise(r => setTimeout(r, 6000 - elapsed));
+            const logoUrl = center.invoice_logo_url || center.logo_url;
+            let reminderSent = false;
+
+            // Send email reminder
+            if (channels.email && patient.email) {
+              const emailSubject = emailTemplateSubject
+                ? emailTemplateSubject
+                    .replace(/\{nombre_paciente\}/g, patient.first_name)
+                    .replace(/\{fecha\}/g, formatDate(session.session_date))
+                : `Recordatorio de cita - ${formatDate(session.session_date)}`;
+              console.log(`Sending email reminder to patient ${patient.id} for session ${session.id}`);
+              const emailResult = await sendEmailViaResend(
+                patient.email,
+                emailSubject,
+                emailMessage,
+                center.name,
+                logoUrl
+              );
+
+              if (emailResult.success) {
+                reminderSent = true;
+                console.log(`Email sent successfully for patient ${patient.id}`);
+              } else {
+                console.error(`Email failed for patient ${patient.id}:`, emailResult.error);
+                errors++;
+              }
+
+              // Create notification record for email
+              await supabase.from("notifications").insert({
+                center_id: center.id,
+                patient_id: patient.id,
+                session_id: session.id,
+                type: 'email',
+                recipient: patient.email,
+                subject: emailSubject,
+                message: emailMessage,
+                status: emailResult.success ? 'sent' : 'failed',
+                sent_at: emailResult.success ? new Date().toISOString() : null,
+                error_message: emailResult.error || null
+              });
+            }
+
+            // Send WhatsApp reminder (skipped if the patient replied STOP to this center)
+            const whatsappOptedOut = channels.whatsapp && patient.phone
+              ? await isWhatsAppOptedOut(supabase, center.id, patient.phone)
+              : false;
+            if (whatsappOptedOut) {
+              console.log(`Skipping WhatsApp reminder for patient ${patient.id}: opted out`);
+            }
+            if (channels.whatsapp && patient.phone && !whatsappOptedOut) {
+              let whatsappSentVia: string | null = null;
+              let whatsappError: string | null = null;
+              let metaMessageId: string | undefined;
+
+              // Priority 1: WasenderAPI (automatic via personal number)
+              if (!whatsappSentVia && center.wasender_enabled && center.wasender_auto_reminders && !center.wasender_emergency_stop) {
+                const wasenderToken = Deno.env.get("WASENDER_PERSONAL_ACCESS_TOKEN");
+
+                if (wasenderToken) {
+                  const { data: whatsappSession } = await supabase
+                    .from("whatsapp_sessions")
+                    .select("wasender_session_id, status, api_key")
+                    .eq("center_id", center.id)
+                    .single();
+
+                  if (whatsappSession?.wasender_session_id && whatsappSession.status === 'connected') {
+                    // Rate limit: wait 6s between WasenderAPI calls (account protection = 1 msg / 5s)
+                    if (lastWasenderSendAt > 0) {
+                      const elapsed = Date.now() - lastWasenderSendAt;
+                      if (elapsed < 6000) {
+                        await new Promise(r => setTimeout(r, 6000 - elapsed));
+                      }
+                    }
+
+                    console.log(`Sending WhatsApp reminder via WasenderAPI to patient ${patient.id} for session ${session.id}`);
+                    let wasenderResult = await sendWhatsAppViaWasender(
+                      patient.phone,
+                      whatsappMessage,
+                      wasenderToken,
+                      whatsappSession.wasender_session_id,
+                      whatsappSession.api_key || undefined
+                    );
+                    lastWasenderSendAt = Date.now();
+
+                    // Retry once after 3 seconds if first attempt fails
+                    if (!wasenderResult.success) {
+                      console.warn(`WasenderAPI attempt 1 failed for patient ${patient.id}: ${wasenderResult.error}. Retrying in 3s...`);
+                      await new Promise(r => setTimeout(r, 3000));
+                      wasenderResult = await sendWhatsAppViaWasender(
+                        patient.phone,
+                        whatsappMessage,
+                        wasenderToken,
+                        whatsappSession.wasender_session_id,
+                        whatsappSession.api_key || undefined
+                      );
+                      lastWasenderSendAt = Date.now();
+                    }
+
+                    if (wasenderResult.success) {
+                      whatsappSentVia = 'wasender';
+                      reminderSent = true;
+                      console.log(`WhatsApp sent via WasenderAPI for patient ${patient.id}`);
+                    } else {
+                      console.error(`WasenderAPI failed definitively for patient ${patient.id}: ${wasenderResult.error}`);
+                      whatsappError = `WasenderAPI: ${wasenderResult.error}`;
+                      // Mark as failed - do NOT fall through to web mode
+                      whatsappSentVia = 'wasender_failed';
+                    }
+                  } else {
+                    console.log(`WasenderAPI session not connected for center ${center.id}, falling back`);
                   }
                 }
+              }
 
-                console.log(`Sending WhatsApp reminder via WasenderAPI to patient ${patient.id} for session ${session.id}`);
-                let wasenderResult = await sendWhatsAppViaWasender(
-                  patient.phone,
-                  whatsappMessage,
-                  wasenderToken,
-                  whatsappSession.wasender_session_id,
-                  whatsappSession.api_key || undefined
-                );
-                lastWasenderSendAt = Date.now();
+              // Priority 2: Meta Business API
+              if (!whatsappSentVia) {
+                const sendMethod = center.whatsapp_send_method || 'web';
 
-                // Retry once after 3 seconds if first attempt fails
-                if (!wasenderResult.success) {
-                  console.warn(`WasenderAPI attempt 1 failed for patient ${patient.id}: ${wasenderResult.error}. Retrying in 3s...`);
-                  await new Promise(r => setTimeout(r, 3000));
-                  wasenderResult = await sendWhatsAppViaWasender(
+                if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
+                  console.log(`Sending WhatsApp reminder via Meta API (template) to patient ${patient.id} for session ${session.id}`);
+                  const decryptedToken = await decryptSecret(center.whatsapp_access_token);
+                  // Reminders are business-initiated and usually happen outside any open
+                  // 24h conversation window, so they must go through an approved template
+                  // rather than free-form text (see sendWhatsAppReminderTemplateViaMetaAPI).
+                  const metaResult = await sendWhatsAppReminderTemplateViaMetaAPI(
                     patient.phone,
-                    whatsappMessage,
-                    wasenderToken,
-                    whatsappSession.wasender_session_id,
-                    whatsappSession.api_key || undefined
+                    patient.first_name,
+                    center.name,
+                    formatDateForMetaTemplate(session.session_date),
+                    formatTime(session.start_time),
+                    decryptedToken,
+                    center.whatsapp_phone_number_id,
+                    // The template's button URL is "https://psycma.psicologosexual.com/cita/{{1}}",
+                    // which is the session's own access_token route — not the /enlace/ short-link.
+                    session.access_token || undefined
                   );
-                  lastWasenderSendAt = Date.now();
-                }
 
-                if (wasenderResult.success) {
-                  whatsappSentVia = 'wasender';
-                  reminderSent = true;
-                  console.log(`WhatsApp sent via WasenderAPI for patient ${patient.id}`);
-                } else {
-                  console.error(`WasenderAPI failed definitively for patient ${patient.id}: ${wasenderResult.error}`);
-                  whatsappError = `WasenderAPI: ${wasenderResult.error}`;
-                  // Mark as failed - do NOT fall through to web mode
-                  whatsappSentVia = 'wasender_failed';
+                  if (metaResult.success) {
+                    whatsappSentVia = 'meta_api';
+                    reminderSent = true;
+                    metaMessageId = metaResult.messageId;
+                    console.log(`WhatsApp sent via Meta API for patient ${patient.id}`);
+                  } else {
+                    console.error(`Meta API failed for patient ${patient.id}: ${metaResult.error}, falling back to web`);
+                    whatsappError = metaResult.error || null;
+                  }
                 }
-              } else {
-                console.log(`WasenderAPI session not connected for center ${center.id}, falling back`);
               }
-            }
-          }
-          
-          // Priority 2: Meta Business API
-          if (!whatsappSentVia) {
-            const sendMethod = center.whatsapp_send_method || 'web';
-            
-            if (sendMethod === 'api' && center.whatsapp_access_token && center.whatsapp_phone_number_id) {
-              console.log(`Sending WhatsApp reminder via Meta API (template) to patient ${patient.id} for session ${session.id}`);
-              const decryptedToken = await decryptSecret(center.whatsapp_access_token);
-              // Reminders are business-initiated and usually happen outside any open
-              // 24h conversation window, so they must go through an approved template
-              // rather than free-form text (see sendWhatsAppReminderTemplateViaMetaAPI).
-              const metaResult = await sendWhatsAppReminderTemplateViaMetaAPI(
-                patient.phone,
-                patient.first_name,
-                center.name,
-                formatDateForMetaTemplate(session.session_date),
-                formatTime(session.start_time),
-                decryptedToken,
-                center.whatsapp_phone_number_id,
-                // The template's button URL is "https://psycma.psicologosexual.com/cita/{{1}}",
-                // which is the session's own access_token route — not the /enlace/ short-link.
-                session.access_token || undefined
-              );
-              
-              if (metaResult.success) {
-                whatsappSentVia = 'meta_api';
+
+              // Priority 3: Web mode (manual fallback) - only if no API method was attempted
+              if (!whatsappSentVia) {
+                whatsappSentVia = 'web';
                 reminderSent = true;
-                metaMessageId = metaResult.messageId;
-                console.log(`WhatsApp sent via Meta API for patient ${patient.id}`);
-              } else {
-                console.error(`Meta API failed for patient ${patient.id}: ${metaResult.error}, falling back to web`);
-                whatsappError = metaResult.error || null;
+                console.log(`Creating pending WhatsApp reminder for patient ${patient.id} (web mode) for session ${session.id}`);
+              }
+
+              // Create ONE notification record based on the final result
+              const isFailed = whatsappSentVia === 'wasender_failed';
+              const finalStatus = isFailed ? 'failed' : (whatsappSentVia === 'web' ? 'pending' : (whatsappSentVia ? 'sent' : 'failed'));
+
+              if (isFailed) {
+                errors++;
+              }
+
+              await supabase.from("notifications").insert({
+                center_id: center.id,
+                patient_id: patient.id,
+                session_id: session.id,
+                type: 'whatsapp',
+                recipient: patient.phone,
+                message: whatsappMessage,
+                status: finalStatus,
+                sent_at: finalStatus === 'sent' ? new Date().toISOString() : null,
+                scheduled_for: finalStatus === 'pending' ? new Date().toISOString() : null,
+                error_message: whatsappError || null,
+                meta_message_id: metaMessageId || null,
+              });
+
+              // Also record in whatsapp_messages for tracking (only if actually sent via API)
+              if (whatsappSentVia === 'wasender' || whatsappSentVia === 'meta_api') {
+                await supabase.from("whatsapp_messages").insert({
+                  center_id: center.id,
+                  phone: patient.phone.replace(/\D/g, ''),
+                  content: whatsappMessage,
+                  type: 'text',
+                  message_type: 'reminder',
+                  patient_id: patient.id,
+                  session_id: session.id,
+                  status: 'sent',
+                  sent_at: new Date().toISOString(),
+                  meta_message_id: metaMessageId || null,
+                });
               }
             }
-          }
 
-          // Priority 3: Web mode (manual fallback) - only if no API method was attempted
-          if (!whatsappSentVia) {
-            whatsappSentVia = 'web';
-            reminderSent = true;
-            console.log(`Creating pending WhatsApp reminder for patient ${patient.id} (web mode) for session ${session.id}`);
-          }
+            // Mark session as reminded if at least one channel succeeded
+            if (reminderSent && recipient.isPayer) {
+              const updatePayload: Record<string, string | null> = { reminder_sent_at: new Date().toISOString() };
+              await supabase
+                .from("sessions")
+                .update(updatePayload)
+                .eq("id", session.id);
 
-          // Create ONE notification record based on the final result
-          const isFailed = whatsappSentVia === 'wasender_failed';
-          const finalStatus = isFailed ? 'failed' : (whatsappSentVia === 'web' ? 'pending' : (whatsappSentVia ? 'sent' : 'failed'));
-          
-          if (isFailed) {
+              if (advancePaymentBlockIncluded) {
+                await markAdvancePaymentNotificationSent(supabase, session.id);
+              }
+
+              sent++;
+            }
+          } catch (error) {
+            console.error('Session recipient reminder failed', originalSession.id, recipient.id, error);
             errors++;
           }
-
-          await supabase.from("notifications").insert({
-            center_id: center.id,
-            patient_id: patient.id,
-            session_id: session.id,
-            type: 'whatsapp',
-            recipient: patient.phone,
-            message: whatsappMessage,
-            status: finalStatus,
-            sent_at: finalStatus === 'sent' ? new Date().toISOString() : null,
-            scheduled_for: finalStatus === 'pending' ? new Date().toISOString() : null,
-            error_message: whatsappError || null,
-            meta_message_id: metaMessageId || null,
-          });
-
-          // Also record in whatsapp_messages for tracking (only if actually sent via API)
-          if (whatsappSentVia === 'wasender' || whatsappSentVia === 'meta_api') {
-            await supabase.from("whatsapp_messages").insert({
-              center_id: center.id,
-              phone: patient.phone.replace(/\D/g, ''),
-              content: whatsappMessage,
-              type: 'text',
-              message_type: 'reminder',
-              patient_id: patient.id,
-              session_id: session.id,
-              status: 'sent',
-              sent_at: new Date().toISOString(),
-              meta_message_id: metaMessageId || null,
-            });
-          }
-        }
-
-        // Mark session as reminded if at least one channel succeeded
-        if (reminderSent) {
-          const updatePayload: Record<string, string | null> = { reminder_sent_at: new Date().toISOString() };
-          await supabase
-            .from("sessions")
-            .update(updatePayload)
-            .eq("id", session.id);
-
-          if (advancePaymentBlockIncluded) {
-            await markAdvancePaymentNotificationSent(supabase, session.id);
-          }
-          
-          sent++;
         }
       }
 

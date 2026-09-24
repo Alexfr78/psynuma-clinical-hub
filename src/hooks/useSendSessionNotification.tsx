@@ -12,7 +12,7 @@ async function checkDuplicateNotification(
   centerId: string,
   sessionId: string,
   type: 'whatsapp' | 'email' | 'sms',
-  templateType: string
+  patientId: string
 ): Promise<boolean> {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   
@@ -21,6 +21,7 @@ async function checkDuplicateNotification(
     .select('id')
     .eq('center_id', centerId)
     .eq('session_id', sessionId)
+    .eq('patient_id', patientId)
     .eq('type', type)
     .in('status', ['sent', 'pending'])
     .gte('created_at', oneHourAgo)
@@ -111,6 +112,47 @@ export async function sendSessionNotificationDirect(
   centerId: string,
   center: Center
 ): Promise<NotificationMutationResult> {
+  const payerResult = await sendSingleSessionNotification(params, centerId, center);
+
+  // Sesiones de pareja: el aviso de la cita (mismo enlace) también llega al otro
+  // miembro. Un fallo con la pareja no invalida el envío al titular.
+  const { data: participants, error } = await supabase
+    .from('session_participants')
+    .select('patient:patients!session_participants_patient_id_fkey(id, first_name, last_name, email, phone)')
+    .eq('session_id', params.sessionId);
+  if (error) {
+    console.error('[Notification] Error loading session participants:', error);
+    return payerResult;
+  }
+
+  for (const row of participants ?? []) {
+    const patient = row.patient;
+    if (!patient || patient.id === params.patientId) continue;
+    try {
+      const result = await sendSingleSessionNotification({
+        ...params,
+        patientId: patient.id,
+        patientName: `${patient.first_name} ${patient.last_name}`,
+        patientPhone: patient.phone,
+        patientEmail: patient.email,
+      }, centerId, center);
+      payerResult.results.push(...result.results);
+      if (result.whatsappData) {
+        toast.info(`El WhatsApp para ${patient.first_name} queda pendiente de envío manual en Notificaciones`);
+      }
+    } catch (err) {
+      console.error('[Notification] Error sending participant notice:', patient.id, err);
+      toast.error(`No se pudo enviar el aviso a ${patient.first_name}`);
+    }
+  }
+  return payerResult;
+}
+
+async function sendSingleSessionNotification(
+  params: SendNotificationParams & { sessionAccessToken?: string },
+  centerId: string,
+  center: Center
+): Promise<NotificationMutationResult> {
   const results: { channel: string; success: boolean }[] = [];
   let whatsappData: WhatsAppDialogData | undefined;
   let whatsappAutoSent = false;
@@ -190,7 +232,7 @@ export async function sendSessionNotificationDirect(
       centerId,
       params.sessionId,
       'whatsapp',
-      params.type
+      params.patientId
     );
 
     if (isDuplicate) {

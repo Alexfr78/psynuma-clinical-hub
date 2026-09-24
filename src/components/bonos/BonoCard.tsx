@@ -51,6 +51,14 @@ export function BonoCard({ bono, onClick }: BonoCardProps) {
                 </span>
               </div>
             )}
+            {bono.shared_with && (
+              <div className="flex items-center gap-1.5 text-xs text-primary">
+                <Icon name="favorite" className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="truncate">
+                  Compartido con {bono.shared_with.first_name} {bono.shared_with.last_name}
+                </span>
+              </div>
+            )}
           </div>
           <Badge variant={status.variant} className="flex-shrink-0">
             {status.label}

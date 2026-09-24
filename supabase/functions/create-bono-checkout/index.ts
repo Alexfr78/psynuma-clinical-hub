@@ -18,6 +18,8 @@ interface CheckoutRequest {
   debt_id?: string;
   session_access_token?: string;
   bono_template_id: string;
+  /** Compartir el bono con la pareja vinculada del titular (solo si lo está). */
+  share_with_partner?: boolean;
 }
 
 serve(async (req) => {
@@ -26,7 +28,7 @@ serve(async (req) => {
   }
 
   try {
-    const { debt_id, session_access_token, bono_template_id } = await req.json() as CheckoutRequest;
+    const { debt_id, session_access_token, bono_template_id, share_with_partner } = await req.json() as CheckoutRequest;
 
     if ((!debt_id && !session_access_token) || !bono_template_id) {
       return new Response(
@@ -127,6 +129,22 @@ serve(async (req) => {
       sessionId = session.id;
       sessionProfessionalId = session.professional_id;
       assignedProfessionalId = sessionPatient?.assigned_professional_id || null;
+    }
+
+    // Bono compartido: solo con la pareja vinculada en la ficha (la crea el
+    // profesional). Si no hay vínculo, se ignora la petición y el bono es individual.
+    let sharedWithPatientId: string | null = null;
+    if (share_with_partner) {
+      const { data: link } = await supabase
+        .from('patient_relationships')
+        .select('patient_a_id, patient_b_id')
+        .eq('center_id', centerId)
+        .eq('relationship_type', 'couple')
+        .or(`patient_a_id.eq.${patientId},patient_b_id.eq.${patientId}`)
+        .maybeSingle();
+      if (link) {
+        sharedWithPatientId = link.patient_a_id === patientId ? link.patient_b_id : link.patient_a_id;
+      }
     }
 
     // Get bono template
@@ -248,12 +266,13 @@ serve(async (req) => {
         bono_price_per_session: (effectivePrice / bonoTemplate.total_sessions).toString(),
         bono_total_price: effectivePrice.toString(),
         bono_validity_days: (bonoTemplate.validity_days || 365).toString(),
+        bono_shared_with_patient_id: sharedWithPatientId ?? '',
       },
       successUrl: defaultSuccessUrl,
       cancelUrl: defaultCancelUrl,
       applicationFeeBpsRaw: feeBpsRaw,
       idempotencyKey: buildConnectedCheckoutIdempotencyKey(
-        'bono', `${debtId || sessionId}-${bonoTemplate.id}`, amountInCents, feeBpsRaw,
+        'bono', `${debtId || sessionId}-${bonoTemplate.id}${sharedWithPatientId ? '-shared' : ''}`, amountInCents, feeBpsRaw,
       ),
     });
 

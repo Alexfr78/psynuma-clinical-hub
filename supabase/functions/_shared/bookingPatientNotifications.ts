@@ -1,7 +1,7 @@
+import { getSessionRecipients, recipientsFor } from "./sessionRecipients.ts";
 // Shared helper for sending patient booking confirmation notifications
 // Used by: public-booking, patient-portal-sessions, public-session-reschedule
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { renderBookingTemplate } from "./bookingTemplates.ts";
 import {
   buildAdvancePaymentBlock,
@@ -67,6 +67,30 @@ function translateModality(modality: string | null | undefined): string {
 }
 
 export async function queueAndSendPatientBookingNotification(args: BookingNotificationArgs): Promise<boolean> {
+  try {
+    const recipients = recipientsFor('appointment', await getSessionRecipients(args.supabase, args.sessionId));
+    let payerQueued = false;
+    for (const recipient of recipients) {
+      if (recipient.center_id !== args.centerId) continue;
+      if (!recipient.isPayer) await new Promise(resolve => setTimeout(resolve, 6000));
+      const queued = await queuePatientBookingNotification({
+        ...args,
+        patientId: recipient.patientId,
+        includeAdvancePaymentBlock: recipient.isPayer && args.includeAdvancePaymentBlock,
+        extraMessage: recipient.isPayer ? args.extraMessage : undefined,
+        manageUrl: recipient.isPayer ? args.manageUrl : undefined,
+      }, recipient.isPayer);
+      if (recipient.isPayer) payerQueued = queued;
+      else if (!queued) console.error('[patient-confirmation] Participant notification failed', args.sessionId, recipient.patientId);
+    }
+    return payerQueued;
+  } catch (error) {
+    console.error('[patient-confirmation] Could not resolve session recipients', error);
+    return false;
+  }
+}
+
+async function queuePatientBookingNotification(args: BookingNotificationArgs, isPayer: boolean): Promise<boolean> {
   const { supabase, centerId, patientId, sessionId, eventType } = args;
 
   try {
@@ -203,7 +227,9 @@ export async function queueAndSendPatientBookingNotification(args: BookingNotifi
     // below), even though only the created/rescheduled body text also renders
     // {link_sesion} inline (bookingTemplates.ts has no {link_sesion} in the
     // 'cancelled' body).
-    let managePath = args.manageUrl;
+    // `manageUrl` es el enlace personal de gestión del titular; la pareja recibe el
+    // enlace de la cita, común a los dos miembros.
+    let managePath = isPayer ? args.manageUrl : undefined;
     if (!managePath) {
       const { data: publicSession } = await supabase
         .from("sessions")

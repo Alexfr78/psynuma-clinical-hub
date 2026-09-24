@@ -36,6 +36,8 @@ import { formatLocationLine, summarizeLocationChange, isOnlineLocation, type Res
 import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-status';
 import { useToast } from '@/hooks/use-toast';
 import { Icon } from '@/components/ui/icon';
+import { ShareBonoWithPartnerOption } from '@/components/bonos/ShareBonoWithPartnerOption';
+import { usePublicCouplePartnerName } from '@/hooks/usePublicCouplePartnerName';
 
 function extractZoomInfo(videoCallLink: string | null | undefined) {
   if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
@@ -77,10 +79,12 @@ export default function SessionManagement() {
   const [paying, setPaying] = useState(false);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
   const [payingBonoId, setPayingBonoId] = useState<string | null>(null);
+  const [shareBonoWithPartner, setShareBonoWithPartner] = useState(false);
   const timeSlotsRef = useRef<HTMLDivElement>(null);
   const confirmActionsRef = useRef<HTMLDivElement>(null);
 
   const { data: bonoTemplates = [] } = usePublicBonoTemplatesForSession(token);
+  const { data: couplePartnerName } = usePublicCouplePartnerName({ sessionToken: token });
 
   const {
     slots,
@@ -237,7 +241,11 @@ export default function SessionManagement() {
     setPayingBonoId(bonoTemplateId);
     try {
       const { data, error } = await supabase.functions.invoke('create-bono-checkout', {
-        body: { session_access_token: token, bono_template_id: bonoTemplateId },
+        body: {
+          session_access_token: token,
+          bono_template_id: bonoTemplateId,
+          share_with_partner: !!couplePartnerName && shareBonoWithPartner,
+        },
       });
       if (error) throw error;
       if (!data?.url) throw new Error(data?.error || 'No se pudo iniciar el pago');
@@ -757,6 +765,14 @@ export default function SessionManagement() {
                       Puedes pagar solo esta sesión o comprar un bono de sesiones.
                     </DialogDescription>
                   </DialogHeader>
+                  {couplePartnerName && bonoTemplates.length > 0 && (
+                    <ShareBonoWithPartnerOption
+                      partnerName={couplePartnerName}
+                      checked={shareBonoWithPartner}
+                      onCheckedChange={setShareBonoWithPartner}
+                      disabled={payingBonoId !== null}
+                    />
+                  )}
                   <div className="grid grid-cols-2 gap-2 sm:gap-4">
                     {/* Sesión única */}
                     <div className="flex flex-col items-center rounded-xl border p-3 text-center sm:rounded-2xl sm:p-6">

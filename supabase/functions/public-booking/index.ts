@@ -1,3 +1,4 @@
+import { patientSessionFilter } from "../_shared/sessionRecipients.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
@@ -1960,7 +1961,8 @@ serve(async (req) => {
           location:center_locations(id, name, location_type, street, city)
         `)
         .eq("id", tokenData.sessionId)
-        .eq("patient_id", tokenData.patientId)
+        .eq("center_id", tokenData.centerId)
+        .or(await patientSessionFilter(supabase, tokenData.patientId!, tokenData.centerId!))
         .single();
 
 
@@ -2027,7 +2029,8 @@ serve(async (req) => {
         .from("sessions")
         .select("id, patient_id, center_id, session_date, start_time, session_type, session_type_id, cancellation_policy_version_id, price")
         .eq("id", tokenData.sessionId)
-        .eq("patient_id", tokenData.patientId)
+        .eq("center_id", tokenData.centerId)
+        .or(await patientSessionFilter(supabase, tokenData.patientId!, tokenData.centerId!))
         .single();
 
       if (!previewSession) {
@@ -2035,6 +2038,13 @@ serve(async (req) => {
           JSON.stringify({ error: "Cita no encontrada" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      if (previewSession.patient_id !== tokenData.patientId) {
+        return new Response(JSON.stringify({ hasSignedPolicy: false, applies: false, amount: 0,
+          basePrice: 0, percentage: 0, concept: null,
+          message: "La política de cancelación y los posibles cargos corresponden al titular de la cita." }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const previewSessionDateTime = new Date(`${previewSession.session_date}T${previewSession.start_time}`);
@@ -2117,7 +2127,8 @@ serve(async (req) => {
         .from("sessions")
         .select("id, patient_id, professional_id, center_id, session_date, start_time, session_type, session_type_id, status, cancellation_policy, cancellation_policy_version_id, google_calendar_event_id, price")
         .eq("id", tokenData.sessionId)
-        .eq("patient_id", tokenData.patientId)
+        .eq("center_id", tokenData.centerId)
+        .or(await patientSessionFilter(supabase, tokenData.patientId!, tokenData.centerId!))
         .single();
 
 
@@ -2347,7 +2358,8 @@ serve(async (req) => {
         .from("sessions")
         .select("id, patient_id, professional_id, center_id, location_id, session_date, start_time, end_time, status, cancellation_policy, cancellation_policy_version_id, session_type, session_type_id, price, google_calendar_event_id, notes, zoom_meeting_id")
         .eq("id", tokenData.sessionId)
-        .eq("patient_id", tokenData.patientId)
+        .eq("center_id", tokenData.centerId)
+        .or(await patientSessionFilter(supabase, tokenData.patientId!, tokenData.centerId!))
         .single();
 
 

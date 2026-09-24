@@ -13,6 +13,7 @@ interface BonoRow {
   id: string;
   total_sessions: number | null;
   used_sessions: number | null;
+  expires_at: string | null;
 }
 
 export async function autoApplyAvailableBonoToSession(
@@ -30,21 +31,24 @@ export async function autoApplyAvailableBonoToSession(
 
   const { data: bonos, error: bonoError } = await supabase
     .from("bonos")
-    .select("id, total_sessions, used_sessions")
+    .select("id, total_sessions, used_sessions, expires_at")
     .eq("center_id", args.centerId)
-    .eq("patient_id", args.patientId)
+    // Bonos propios y los que la pareja comparte con este contacto.
+    .or(`patient_id.eq.${args.patientId},shared_with_patient_id.eq.${args.patientId}`)
     .eq("status", "active")
-    .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
     .order("expires_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true })
-    .limit(5);
+    .limit(20);
 
   if (bonoError) {
     console.error("[bono-automation] Error loading bonos:", bonoError);
     return { applied: false, bonoId: null, remainingSessions: null, error: bonoError.message };
   }
 
+  // La caducidad se filtra aquí para no combinar dos `or` en la misma consulta.
+  const now = Date.now();
   const bono = ((bonos || []) as BonoRow[]).find((item) => {
+    if (item.expires_at && new Date(item.expires_at).getTime() < now) return false;
     const total = Number(item.total_sessions || 0);
     const used = Number(item.used_sessions || 0);
     return total > used;

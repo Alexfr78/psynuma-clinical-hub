@@ -28,10 +28,15 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
   const { data: bonos, isLoading } = useQuery({
     queryKey: ['patient-bonos', patientId],
     queryFn: async () => {
+      // Propios y los que su pareja comparte con este contacto.
       const { data, error } = await supabase
         .from('bonos')
-        .select('*')
-        .eq('patient_id', patientId)
+        .select(`
+          *,
+          buyer:patients!bonos_patient_id_fkey (id, first_name, last_name),
+          shared_with:patients!bonos_shared_with_patient_id_fkey (id, first_name, last_name)
+        `)
+        .or(`patient_id.eq.${patientId},shared_with_patient_id.eq.${patientId}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -91,6 +96,14 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
                     <Icon name="confirmation_number" className="h-5 w-5 text-primary shrink-0" />
                     <span className="font-semibold truncate max-w-[200px] sm:max-w-none">{bono.name}</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
+                    {bono.shared_with && (
+                      <Badge variant="outline" className="border-primary/40 text-primary">
+                        <Icon name="favorite" className="mr-1 h-3 w-3" />
+                        {bono.patient_id === patientId
+                          ? `Compartido con ${bono.shared_with.first_name}`
+                          : `Compartido por ${bono.buyer?.first_name ?? 'su pareja'}`}
+                      </Badge>
+                    )}
                     {isExpiringSoon && bono.status === 'active' && (
                       <Badge variant="outline" className="border-warning text-warning">
                         <Icon name="error" className="mr-1 h-3 w-3" />

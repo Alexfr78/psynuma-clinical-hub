@@ -64,6 +64,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { Icon } from '@/components/ui/icon';
+import { usePatientPartner } from '@/hooks/usePatientRelationships';
 
 const formSchema = z.object({
   patient_id: z.string().min(1, 'Selecciona un contacto'),
@@ -73,6 +74,8 @@ const formSchema = z.object({
   price_per_session: z.coerce.number().min(0, 'El precio no puede ser negativo'),
   total_price: z.coerce.number().min(0, 'El precio no puede ser negativo'),
   expires_at: z.date().optional(),
+  // Compartir con la pareja vinculada del contacto
+  share_with_partner: z.boolean().default(false),
   // Payment fields
   pay_now: z.boolean().default(false),
   payment_amount: z.coerce.number().optional(),
@@ -126,10 +129,12 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, pre
       total_price: 500,
       pay_now: false,
       payment_method: 'cash',
+      share_with_partner: false,
     },
   });
 
   const watchPatientId = form.watch('patient_id');
+  const { data: coupleLink } = usePatientPartner(watchPatientId || undefined);
 
   // Resolver precio personalizado cuando hay paciente + plantilla seleccionados
   const { data: resolvedPrice } = useResolvedPrice(
@@ -219,6 +224,7 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, pre
         price_per_session: values.price_per_session,
         total_price: values.total_price,
         expires_at: values.expires_at?.toISOString() || null,
+        shared_with_patient_id: values.share_with_partner && coupleLink ? coupleLink.partner.id : null,
       });
 
       // 1b. Guardar snapshots de tarifa (post-creation)
@@ -566,6 +572,28 @@ export function CreateBonoDialog({ open, onOpenChange, preselectedPatientId, pre
             </FormItem>
           )}
         />
+
+        {coupleLink && (
+          <FormField
+            control={form.control}
+            name="share_with_partner"
+            render={({ field }) => (
+              <FormItem className="flex items-start gap-3 space-y-0 rounded-lg border p-3">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <div className="space-y-1">
+                  <FormLabel className="font-normal">
+                    Compartir con {coupleLink.partner.first_name} {coupleLink.partner.last_name}
+                  </FormLabel>
+                  <p className="text-xs text-muted-foreground">
+                    Cada sesión de cualquiera de los dos, individual o de pareja, descuenta una del bono.
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+        )}
 
         <Separator className="my-4" />
 
