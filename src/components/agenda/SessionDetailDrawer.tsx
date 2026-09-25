@@ -2049,7 +2049,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     variant="outline" 
                     size="sm" 
                     className="text-green-600 border-green-200 hover:bg-green-50"
-                    disabled={!session.patient?.phone || isSendingWhatsAppNow}
+                    disabled={!session.patient?.phone || isSendingWhatsAppNow || editingDateTime}
                     onClick={async () => {
                       if (!session.patient?.phone || !center?.id) return;
 
@@ -2061,8 +2061,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                         ? `${session.professional.first_name} ${session.professional.last_name}` 
                         : '';
 
-                      const sessionDate = format(new Date(session.session_date), "d 'de' MMMM", { locale: es });
-                      const sessionTime = session.start_time?.slice(0, 5) || '';
+                      // localDateTime holds a just-saved date/time; the session prop is stale until the parent refetches.
+                      const sessionDate = format(new Date(localDateTime?.date || session.session_date), "d 'de' MMMM", { locale: es });
+                      const sessionTime = (localDateTime?.startTime || session.start_time)?.slice(0, 5) || '';
 
                       let appointmentLink = getPublicBaseUrl();
                       if (session.access_token) {
@@ -2149,7 +2150,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   <Button 
                     variant="outline" 
                     size="sm"
-                    disabled={!session.patient?.email || sendEmailNotification.isPending}
+                    disabled={!session.patient?.email || sendEmailNotification.isPending || editingDateTime}
                     onClick={() => {
                       if (!session.patient?.email) return;
                       
@@ -2157,8 +2158,8 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                       const professionalName = session.professional 
                         ? `${session.professional.first_name || ''} ${session.professional.last_name || ''}`.trim()
                         : '';
-                      const sessionDate = format(new Date(session.session_date), "dd/MM/yyyy", { locale: es });
-                      const sessionTime = session.start_time?.slice(0, 5) || '';
+                      const sessionDate = format(new Date(localDateTime?.date || session.session_date), "dd/MM/yyyy", { locale: es });
+                      const sessionTime = (localDateTime?.startTime || session.start_time)?.slice(0, 5) || '';
                       
                       sendEmailNotification.mutate({
                         patientId: session.patient.id,
@@ -2190,6 +2191,11 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                 {!session.patient?.phone && (
                   <p className="text-xs text-muted-foreground">
                     El paciente no tiene teléfono registrado
+                  </p>
+                )}
+                {editingDateTime && (
+                  <p className="text-xs text-muted-foreground">
+                    Guarda la nueva fecha y hora antes de enviar
                   </p>
                 )}
               </div>
