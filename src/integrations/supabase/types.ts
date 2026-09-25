@@ -204,7 +204,7 @@ export type Database = {
         Row: {
           center_id: string
           content_markdown: string
-          content_sections: Json
+          content_sections: Json | null
           document_type_id: string
           edited_markdown: string | null
           edited_sections: Json | null
@@ -227,7 +227,7 @@ export type Database = {
         Insert: {
           center_id: string
           content_markdown: string
-          content_sections: Json
+          content_sections?: Json | null
           document_type_id: string
           edited_markdown?: string | null
           edited_sections?: Json | null
@@ -250,7 +250,7 @@ export type Database = {
         Update: {
           center_id?: string
           content_markdown?: string
-          content_sections?: Json
+          content_sections?: Json | null
           document_type_id?: string
           edited_markdown?: string | null
           edited_sections?: Json | null
