@@ -552,6 +552,7 @@ export async function resolveCoupleCancellation(
       concept: request.charge_concept,
       review_note: `Sesión de pareja cancelada por ${fullName(requester)} (primera cancelación)` +
         (request.cancellation_reason ? `: ${request.cancellation_reason}` : ""),
+      origin: "cancel",
     });
     if (chargeError) console.error("[couple-cancellation] Could not create cancellation charge", chargeError);
   }

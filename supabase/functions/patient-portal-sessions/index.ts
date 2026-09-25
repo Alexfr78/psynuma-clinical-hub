@@ -6,7 +6,8 @@ import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
-import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { buildSessionDateTime, evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { describeLateChange, LATE_RESCHEDULE_STAFF_NOTE, lateChangeAckRequiredBody, SESSION_STARTED_CODE, SESSION_STARTED_MESSAGE } from "../_shared/lateChange.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import { isCancellationPolicyEnabled, resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import { getPublicCancellationPolicy, hasAcceptedCancellationPolicy, recordPortalCancellationPolicyClickwrap } from "../_shared/cancellationPolicyClickwrap.ts";
@@ -734,14 +735,14 @@ serve(async (req) => {
     async function buildCancellationPreview(sessionId: string) {
       const { data: existingSession } = await supabase
         .from("sessions")
-        .select("id, center_id, patient_id, session_date, start_time, session_type, session_type_id, cancellation_policy, cancellation_policy_version_id, professional_id, price")
+        .select("id, center_id, patient_id, session_date, start_time, status, session_type, session_type_id, cancellation_policy, cancellation_policy_version_id, professional_id, price")
         .eq("id", sessionId)
         .eq("center_id", session.centerId)
         .or(membershipFilter)
         .single();
 
       if (!existingSession) {
-        return { existingSession: null, signedCancellationPolicy: null, signedPolicyEvaluation: null, response: null };
+        return { existingSession: null, signedCancellationPolicy: null, signedPolicyEvaluation: null, lateChange: null, response: null };
       }
 
       // Master switch / per-patient override OFF → no cargo por cancelación.
@@ -749,11 +750,17 @@ serve(async (req) => {
         centerId: existingSession.center_id,
         patientId: existingSession.patient_id,
       }))) {
+        const lateChange = describeLateChange({
+          sessionDate: existingSession.session_date,
+          startTime: existingSession.start_time,
+        });
         return {
           existingSession,
           signedCancellationPolicy: null,
           signedPolicyEvaluation: null,
+          lateChange,
           response: {
+            lateChange,
             hasSignedPolicy: false,
             applies: false,
             amount: 0,
@@ -772,7 +779,7 @@ serve(async (req) => {
         versionSelect: "id, rules, penalty_invoice_concept",
       });
 
-      const sessionDateTime = new Date(`${existingSession.session_date}T${existingSession.start_time}`);
+      const sessionDateTime = buildSessionDateTime(existingSession.session_date, existingSession.start_time)!;
       const now = new Date();
 
       const signedPolicyEvaluation = signedCancellationPolicy
@@ -795,19 +802,31 @@ serve(async (req) => {
       const amount = signedPolicyEvaluation?.amount || 0;
       const basePrice = signedPolicyEvaluation?.basePrice || 0;
       const percentage = signedPolicyEvaluation?.percentage || 0;
+      const lateChange = describeLateChange({
+        sessionDate: existingSession.session_date,
+        startTime: existingSession.start_time,
+        sessionTypeName: existingSession.session_type,
+        rules: signedCancellationPolicy?.rules,
+        evaluation: signedPolicyEvaluation,
+        now,
+      });
 
       return {
         existingSession,
         signedCancellationPolicy,
         signedPolicyEvaluation,
+        lateChange,
         response: {
+          lateChange,
           hasSignedPolicy: Boolean(signedCancellationPolicy),
           applies,
           amount,
           basePrice,
           percentage,
           concept: signedCancellationPolicy?.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada",
-          message: applies
+          message: lateChange.cancelMessage
+            ? lateChange.cancelMessage
+            : applies
             ? `Esta cita esta sujeta a la politica de cancelacion aceptada. Importe estimado sujeto a revision: ${amount.toFixed(2)} EUR.`
             : signedCancellationPolicy
               ? "Esta cita esta cubierta por la politica de cancelacion aceptada. No se estima cargo por cancelacion."
@@ -851,7 +870,7 @@ serve(async (req) => {
     }
 
     if (action === "cancel") {
-      const { sessionId, reason } = params;
+      const { sessionId, reason, acceptLateChange } = params;
 
       if (!sessionId) {
         return new Response(
@@ -864,12 +883,35 @@ serve(async (req) => {
         existingSession,
         signedCancellationPolicy,
         signedPolicyEvaluation,
+        lateChange,
       } = await buildCancellationPreview(sessionId);
 
       if (!existingSession) {
         return new Response(
           JSON.stringify({ error: "Cita no encontrada" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (existingSession.status === "cancelled") {
+        return new Response(
+          JSON.stringify({ error: "La cita ya está cancelada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Una vez empezada, es una inasistencia: la gestiona el centro.
+      if (lateChange?.started) {
+        return new Response(
+          JSON.stringify({ error: SESSION_STARTED_MESSAGE, code: SESSION_STARTED_CODE }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (lateChange?.isLate && acceptLateChange !== true) {
+        return new Response(
+          JSON.stringify(lateChangeAckRequiredBody(lateChange, "cancel")),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -899,7 +941,7 @@ serve(async (req) => {
           ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
           : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
       const patientCancellationPolicyMessage = signedPolicyEvaluation?.applies
-        ? `Tu cancelacion queda pendiente de revision segun la politica aceptada. Importe estimado sujeto a revision: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        ? lateChange?.cancelMessage ?? undefined
         : undefined;
       const professionalCancellationPolicyMessage = signedPolicyEvaluation?.applies
         ? `Se ha creado una cancelacion pendiente de revision segun la politica aceptada. Importe estimado: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
@@ -936,8 +978,9 @@ serve(async (req) => {
             original_amount: signedPolicyEvaluation.amount,
             percentage: signedPolicyEvaluation.percentage,
             base_session_price: signedPolicyEvaluation.basePrice,
-            concept: signedCancellationPolicy.penalty_invoice_concept || "CancelaciÃ³n fuera de plazo segÃºn polÃ­tica aceptada",
-            review_note: reason || "CancelaciÃ³n solicitada por el paciente desde el portal",
+            concept: signedCancellationPolicy.penalty_invoice_concept || "Cancelación fuera de plazo según política aceptada",
+            review_note: reason || "Cancelación tardía solicitada por el paciente desde el portal",
+            origin: "cancel",
           });
 
         if (chargeError) {
@@ -1106,7 +1149,7 @@ serve(async (req) => {
     }
 
     if (action === "reschedule") {
-      const { sessionId, newDate, newStartTime, newEndTime, newLocationId } = params;
+      const { sessionId, newDate, newStartTime, newEndTime, newLocationId, acceptLateChange } = params;
 
       if (!sessionId || !newDate || !newStartTime || !newEndTime) {
         return new Response(
@@ -1139,10 +1182,10 @@ serve(async (req) => {
         );
       }
 
-      const sessionDateTime = new Date(`${existingSession.session_date}T${existingSession.start_time}`);
-      if (sessionDateTime < new Date()) {
+      const sessionDateTime = buildSessionDateTime(existingSession.session_date, existingSession.start_time)!;
+      if (sessionDateTime.getTime() <= Date.now()) {
         return new Response(
-          JSON.stringify({ error: "No se pueden reprogramar citas pasadas" }),
+          JSON.stringify({ error: SESSION_STARTED_MESSAGE, code: SESSION_STARTED_CODE }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -1160,6 +1203,13 @@ serve(async (req) => {
       // Evalúa el cargo por reprogramación tardía ANTES de mover la cita (sobre
       // la fecha ORIGINAL); se crea tras confirmar el cambio si aplica.
       const reschedulePreview = await buildCancellationPreview(sessionId);
+      const rescheduleLateChange = reschedulePreview.lateChange;
+      if (rescheduleLateChange?.isLate && acceptLateChange !== true) {
+        return new Response(
+          JSON.stringify(lateChangeAckRequiredBody(rescheduleLateChange, "reschedule")),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       // Resolve target location (defaults to existing). Validate same center + active + public.
       const targetLocationId = newLocationId || existingSession.location_id;
@@ -1281,7 +1331,8 @@ serve(async (req) => {
               percentage: signedPolicyEvaluation.percentage,
               base_session_price: signedPolicyEvaluation.basePrice,
               concept: signedCancellationPolicy.penalty_invoice_concept || "Cargo por reprogramación fuera de plazo",
-              review_note: "Reprogramación dentro de la ventana de la política (equivalente a cancelación tardía)",
+              review_note: "Reprogramación tardía: la sesión original se considera consumida. Revisa la nueva cita (tipo y precio).",
+              origin: "reschedule",
             });
           }
         }
@@ -1393,9 +1444,12 @@ serve(async (req) => {
           oldTime,
           newDate,
           newTime: newStartTime,
-          details: locationChanged
-            ? `Ubicación anterior: ${oldLocationName || 'N/D'}. Nueva ubicación: ${locationName || 'N/D'}.`
-            : undefined,
+          details: [
+            locationChanged
+              ? `Ubicación anterior: ${oldLocationName || 'N/D'}. Nueva ubicación: ${locationName || 'N/D'}.`
+              : null,
+            rescheduleLateChange?.isLate ? LATE_RESCHEDULE_STAFF_NOTE : null,
+          ].filter(Boolean).join(' ') || undefined,
         });
 
         await sendAdminAlert({
@@ -1425,6 +1479,7 @@ serve(async (req) => {
             locationName,
             oldDate,
             oldTime,
+            extraMessage: rescheduleLateChange?.isLate ? LATE_RESCHEDULE_STAFF_NOTE : undefined,
           });
         }
       }
@@ -1446,6 +1501,7 @@ serve(async (req) => {
         locationName,
         oldDate,
         oldTime,
+        extraMessage: rescheduleLateChange?.rescheduleMessage ?? undefined,
       });
 
       return new Response(

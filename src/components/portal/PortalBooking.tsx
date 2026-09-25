@@ -1,3 +1,5 @@
+import { LateChangeConfirmDialog } from '@/components/LateChangeConfirmDialog';
+import { isLateChangeRequiredError } from '@/lib/late-change';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { format, addDays, startOfDay, isBefore, startOfMonth, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -63,7 +65,7 @@ interface PortalBookingProps {
     sessionTypeId: string;
     locationId: string;
   }) => Promise<Record<string, number>>;
-  rescheduleSession?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string, newLocationId?: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  rescheduleSession?: (sessionId: string, newDate: string, newStartTime: string, newEndTime: string, newLocationId?: string, acceptLateChange?: boolean) => Promise<{ success: boolean; error?: string; changeError?: Error; message?: string }>;
   rescheduleTarget?: RescheduleTarget | null;
   getCancellationPreview?: (sessionId: string) => Promise<CancellationPolicyPreview | null>;
 }
@@ -111,6 +113,18 @@ export function PortalBooking({
   rescheduleTarget,
   getCancellationPreview,
 }: PortalBookingProps) {
+  const [lateChange, setLateChange] = useState<{ message: string; kind: 'cancel' | 'reschedule'; retry: () => Promise<void> } | null>(null);
+  const [lateChangeLoading, setLateChangeLoading] = useState(false);
+  const confirmLateChange = async () => {
+    if (!lateChange || lateChangeLoading) return;
+    setLateChangeLoading(true);
+    try {
+      await lateChange.retry();
+    } finally {
+      setLateChangeLoading(false);
+      setLateChange(null);
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -390,13 +404,26 @@ export function PortalBooking({
 
     if (isRescheduleMode && rescheduleSession && rescheduleTarget) {
       const locationChanged = selectedLocation && selectedLocation !== rescheduleTarget.locationId;
-      result = await rescheduleSession(
-        rescheduleTarget.sessionId,
-        selectedSlot.date,
-        selectedSlot.time,
-        endTime,
-        locationChanged ? selectedLocation : undefined,
-      );
+      const args = [rescheduleTarget.sessionId, selectedSlot.date, selectedSlot.time, endTime, locationChanged ? selectedLocation : undefined] as const;
+      const run = async (acceptLateChange = false) => {
+        setSubmitting(true);
+        try {
+          const changeResult = await rescheduleSession(...args, acceptLateChange);
+          if (changeResult.success) {
+            setSuccess(true);
+            setSuccessMessage(changeResult.message || 'Cita reprogramada correctamente');
+            toast.success(changeResult.message || 'Cita reprogramada');
+          } else if (isLateChangeRequiredError(changeResult.changeError) && !acceptLateChange) {
+            setLateChange({ message: changeResult.changeError.message, kind: 'reschedule', retry: () => run(true) });
+          } else {
+            toast.error(changeResult.error || 'Error al reprogramar');
+          }
+        } finally {
+          setSubmitting(false);
+        }
+      };
+      await run();
+      return;
     } else {
       result = await createSession({
         professionalId: selectedProfessional || undefined,
@@ -495,6 +522,13 @@ export function PortalBooking({
 
   return (
     <Card>
+      <LateChangeConfirmDialog
+        message={lateChange?.message ?? null}
+        kind={lateChange?.kind ?? 'cancel'}
+        loading={lateChangeLoading}
+        onConfirm={confirmLateChange}
+        onCancel={() => setLateChange(null)}
+      />
       <CardHeader>
         <CardTitle className="text-lg">{isRescheduleMode ? 'Reprogramar cita' : 'Solicitar cita'}</CardTitle>
         <CardDescription>

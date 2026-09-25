@@ -1,3 +1,4 @@
+import { toPatientChangeError } from '@/lib/late-change';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { describeEdgeFunctionError } from '@/lib/edge-function-error';
@@ -354,25 +355,27 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
-  const cancelSession = async (sessionId: string, reason?: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+  const cancelSession = async (sessionId: string, reason?: string, acceptLateChange?: boolean): Promise<{ success: boolean; error?: string; changeError?: Error; message?: string }> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
     }
 
     try {
       const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
-        body: { action: 'cancel', sessionToken: state.sessionToken, sessionId, reason },
+        body: { action: 'cancel', sessionToken: state.sessionToken, sessionId, reason, acceptLateChange },
       });
 
       if (error || !data?.success) {
-        return { success: false, error: data?.error || 'Error al cancelar la cita' };
+        const changeError = await toPatientChangeError(error, data, 'Error al cancelar la cita');
+        return { success: false, error: changeError.message, changeError };
       }
 
       await fetchSessions();
       return { success: true, message: (data.couple_cancellation?.message as string | undefined) };
     } catch (error) {
       console.error('Error cancelling session:', error);
-      return { success: false, error: 'Error de conexión' };
+      const changeError = await toPatientChangeError(error, null, 'No se pudo cambiar la cita');
+      return { success: false, error: changeError.message, changeError };
     }
   };
 
@@ -424,25 +427,28 @@ export function usePatientPortal(centerSlug?: string) {
     newStartTime: string,
     newEndTime: string,
     newLocationId?: string,
-  ): Promise<{ success: boolean; error?: string; message?: string }> => {
+    acceptLateChange?: boolean,
+  ): Promise<{ success: boolean; error?: string; changeError?: Error; message?: string }> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
     }
 
     try {
       const { data, error } = await supabase.functions.invoke('patient-portal-sessions', {
-        body: { action: 'reschedule', sessionToken: state.sessionToken, sessionId, newDate, newStartTime, newEndTime, newLocationId },
+        body: { action: 'reschedule', sessionToken: state.sessionToken, sessionId, newDate, newStartTime, newEndTime, newLocationId, acceptLateChange },
       });
 
       if (error || !data?.success) {
-        return { success: false, error: data?.error || 'Error al reprogramar la cita' };
+        const changeError = await toPatientChangeError(error, data, 'Error al reprogramar la cita');
+        return { success: false, error: changeError.message, changeError };
       }
 
       await fetchSessions();
       return { success: true, message: data.message };
     } catch (error) {
       console.error('Error rescheduling session:', error);
-      return { success: false, error: 'Error de conexión' };
+      const changeError = await toPatientChangeError(error, null, 'No se pudo cambiar la cita');
+      return { success: false, error: changeError.message, changeError };
     }
   };
 

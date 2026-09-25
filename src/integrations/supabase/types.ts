@@ -1947,6 +1947,7 @@ export type Database = {
           id: string
           invoice_id: string | null
           off_session_error: string | null
+          origin: string | null
           original_amount: number
           patient_id: string
           percentage: number
@@ -1969,6 +1970,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           off_session_error?: string | null
+          origin?: string | null
           original_amount?: number
           patient_id: string
           percentage?: number
@@ -1991,6 +1993,7 @@ export type Database = {
           id?: string
           invoice_id?: string | null
           off_session_error?: string | null
+          origin?: string | null
           original_amount?: number
           patient_id?: string
           percentage?: number

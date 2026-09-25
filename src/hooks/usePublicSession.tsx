@@ -1,3 +1,4 @@
+import { isLateChangeRequiredError, toPatientChangeError } from '@/lib/late-change';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Enums, TablesUpdate } from '@/integrations/supabase/types';
@@ -364,12 +365,14 @@ export function usePublicSessionReschedule(token: string | undefined) {
       newEndTime,
       newLocationId,
       acceptCancellationPolicy,
+      acceptLateChange,
     }: { 
       newDate: string; 
       newStartTime: string; 
       newEndTime: string;
       newLocationId?: string;
       acceptCancellationPolicy?: boolean;
+      acceptLateChange?: boolean;
     }) => {
       const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
         body: { 
@@ -380,11 +383,11 @@ export function usePublicSessionReschedule(token: string | undefined) {
           newEndTime,
           newLocationId,
           acceptCancellationPolicy,
+          acceptLateChange,
         }
       });
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      if (error || data?.error) throw await toPatientChangeError(error, data, 'No se pudo cambiar la cita');
       
       return data;
     },
@@ -393,12 +396,9 @@ export function usePublicSessionReschedule(token: string | undefined) {
       toast.success(data.message || '¡Cita reprogramada!');
     },
     onError: (error: Error) => {
+      if (isLateChangeRequiredError(error)) return;
       console.error('Error rescheduling session:', error);
-      if (error.message.includes('no longer available')) {
-        toast.error('El horario seleccionado ya no está disponible');
-      } else {
-        toast.error('Error al reprogramar la cita');
-      }
+      toast.error(error.message);
     },
   });
 
@@ -406,10 +406,12 @@ export function usePublicSessionReschedule(token: string | undefined) {
     mutationFn: async ({
       cancellation_reason,
       cancelling_patient_id,
+      acceptLateChange,
     }: {
       cancellation_reason?: string;
       /** Sesiones de pareja: quién cancela (el enlace es común a los dos). */
       cancelling_patient_id?: string;
+      acceptLateChange?: boolean;
     }) => {
       const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
         body: {
@@ -417,11 +419,11 @@ export function usePublicSessionReschedule(token: string | undefined) {
           token,
           cancellation_reason,
           cancelling_patient_id,
+          acceptLateChange,
         }
       });
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      if (error || data?.error) throw await toPatientChangeError(error, data, 'No se pudo cambiar la cita');
       
       return data;
     },
@@ -440,8 +442,9 @@ export function usePublicSessionReschedule(token: string | undefined) {
       toast.success(couple?.message || data.message || 'Cita cancelada');
     },
     onError: (error: Error) => {
+      if (isLateChangeRequiredError(error)) return;
       console.error('Error cancelling session:', error);
-      toast.error(error.message || 'Error al cancelar la cita');
+      toast.error(error.message);
     },
   });
 

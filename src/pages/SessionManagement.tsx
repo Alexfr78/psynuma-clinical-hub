@@ -1,3 +1,5 @@
+import { LateChangeConfirmDialog } from '@/components/LateChangeConfirmDialog';
+import { isLateChangeRequiredError } from '@/lib/late-change';
 import { useParams } from 'react-router-dom';
 import { format, parseISO, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -65,6 +67,18 @@ const modalityLabels: Record<string, string> = {
 };
 
 export default function SessionManagement() {
+  const [lateChange, setLateChange] = useState<{ message: string; kind: 'cancel' | 'reschedule'; retry: () => Promise<void> } | null>(null);
+  const [lateChangeLoading, setLateChangeLoading] = useState(false);
+  const confirmLateChange = async () => {
+    if (!lateChange || lateChangeLoading) return;
+    setLateChangeLoading(true);
+    try {
+      await lateChange.retry();
+    } finally {
+      setLateChangeLoading(false);
+      setLateChange(null);
+    }
+  };
   const { toast } = useToast();
   const { token } = useParams<{ token: string }>();
   const { data: session, isLoading, error } = usePublicSession(token);
@@ -215,10 +229,22 @@ export default function SessionManagement() {
   };
 
   const handleCancel = () => {
-    cancelSession({
+    const args = {
       cancellation_reason: cancellationReason || 'Cancelada por el paciente',
       cancelling_patient_id: isCoupleSession ? cancellingPatientId : undefined,
+    };
+    const run = (acceptLateChange = false): Promise<void> => new Promise((resolve) => {
+      cancelSession({ ...args, acceptLateChange }, {
+        onError: (err) => {
+          if (isLateChangeRequiredError(err) && !acceptLateChange) {
+            setCancelDialogOpen(false);
+            setLateChange({ message: err.message, kind: 'cancel', retry: () => run(true) });
+          }
+        },
+        onSettled: () => resolve(),
+      });
     });
+    void run();
   };
 
   const handlePay = async () => {
@@ -283,22 +309,33 @@ export default function SessionManagement() {
     if (policyRequiresAcceptance && !policyAccepted) return;
 
     const locationChanged = !!selectedLocationId && selectedLocationId !== originalLocationId;
-    reschedule({
+    const args = {
       newDate: format(selectedDate, 'yyyy-MM-dd'),
       newStartTime: selectedSlot.startTime,
       newEndTime: selectedSlot.endTime,
       newLocationId: locationChanged ? selectedLocationId : undefined,
       acceptCancellationPolicy: policyRequiresAcceptance ? policyAccepted : undefined,
-    }, {
-      onSuccess: () => {
-        setConfirmOpen(false);
-        setMode('view');
-        setSelectedDate(undefined);
-        setSelectedSlot(null);
-        setSelectedLocationId('');
-        setPolicyAccepted(false);
-      }
+    };
+    const run = (acceptLateChange = false): Promise<void> => new Promise((resolve) => {
+      reschedule({ ...args, acceptLateChange }, {
+        onError: (err) => {
+          if (isLateChangeRequiredError(err) && !acceptLateChange) {
+            setConfirmOpen(false);
+            setLateChange({ message: err.message, kind: 'reschedule', retry: () => run(true) });
+          }
+        },
+        onSettled: () => resolve(),
+        onSuccess: () => {
+          setConfirmOpen(false);
+          setMode('view');
+          setSelectedDate(undefined);
+          setSelectedSlot(null);
+          setSelectedLocationId('');
+          setPolicyAccepted(false);
+        }
+      });
     });
+    void run();
   };
 
 
@@ -343,6 +380,13 @@ export default function SessionManagement() {
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+        <LateChangeConfirmDialog
+          message={lateChange?.message ?? null}
+          kind={lateChange?.kind ?? 'cancel'}
+          loading={lateChangeLoading}
+          onConfirm={confirmLateChange}
+          onCancel={() => setLateChange(null)}
+        />
         <Card className="w-full max-w-lg shadow-lg">
           <CardHeader className="pb-2">
             <Button
@@ -635,6 +679,13 @@ export default function SessionManagement() {
   // Normal view mode
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+      <LateChangeConfirmDialog
+        message={lateChange?.message ?? null}
+        kind={lateChange?.kind ?? 'cancel'}
+        loading={lateChangeLoading}
+        onConfirm={confirmLateChange}
+        onCancel={() => setLateChange(null)}
+      />
       <Card className="w-full max-w-lg shadow-lg">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-2 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">

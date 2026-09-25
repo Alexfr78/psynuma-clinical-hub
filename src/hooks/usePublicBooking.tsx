@@ -1,3 +1,4 @@
+import { isLateChangeRequiredError, toPatientChangeError } from '@/lib/late-change';
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { describeEdgeFunctionError } from '@/lib/edge-function-error';
@@ -341,19 +342,19 @@ export function usePublicBooking(centerSlug: string) {
     }
   }, []);
 
-  const cancelBooking = useCallback(async (bookingToken: string, reason?: string): Promise<{ success: boolean; message?: string }> => {
+  const cancelBooking = useCallback(async (bookingToken: string, reason?: string, acceptLateChange?: boolean): Promise<{ success: boolean; message?: string }> => {
     setLoading(true);
     setError(null);
     try {
       const { data, error } = await supabase.functions.invoke('public-booking', {
-        body: { action: 'cancel-booking', bookingToken, reason }
+        body: { action: 'cancel-booking', bookingToken, reason, acceptLateChange }
       });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error || !data?.success) throw await toPatientChangeError(error, data, 'No se pudo cambiar la cita');
       return { success: !!data.success, message: data.couple_cancellation?.message };
     } catch (err) {
-      setError((err as Error).message);
-      return { success: false };
+      const changeError = await toPatientChangeError(err, null, 'Error al cancelar la cita');
+      if (!isLateChangeRequiredError(changeError)) setError(changeError.message);
+      throw changeError;
     } finally {
       setLoading(false);
     }
@@ -377,20 +378,21 @@ export function usePublicBooking(centerSlug: string) {
     bookingToken: string, 
     newDate: string, 
     newStartTime: string, 
-    newEndTime: string
+    newEndTime: string,
+    acceptLateChange?: boolean
   ): Promise<boolean> => {
     setLoading(true);
     setError(null);
     try {
       const { data, error } = await supabase.functions.invoke('public-booking', {
-        body: { action: 'reschedule-booking', bookingToken, newDate, newStartTime, newEndTime }
+        body: { action: 'reschedule-booking', bookingToken, newDate, newStartTime, newEndTime, acceptLateChange }
       });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error || !data?.success) throw await toPatientChangeError(error, data, 'No se pudo cambiar la cita');
       return data.success;
     } catch (err) {
-      setError((err as Error).message);
-      return false;
+      const changeError = await toPatientChangeError(err, null, 'Error al reprogramar la cita');
+      if (!isLateChangeRequiredError(changeError)) setError(changeError.message);
+      throw changeError;
     } finally {
     setLoading(false);
     }

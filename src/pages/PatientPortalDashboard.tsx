@@ -1,3 +1,5 @@
+import { LateChangeConfirmDialog } from '@/components/LateChangeConfirmDialog';
+import { isLateChangeRequiredError } from '@/lib/late-change';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -35,6 +37,18 @@ function parseSection(value: string | null): PortalSection {
 }
 
 export default function PatientPortalDashboard() {
+  const [lateChange, setLateChange] = useState<{ message: string; kind: 'cancel' | 'reschedule'; retry: () => Promise<void> } | null>(null);
+  const [lateChangeLoading, setLateChangeLoading] = useState(false);
+  const confirmLateChange = async () => {
+    if (!lateChange || lateChangeLoading) return;
+    setLateChangeLoading(true);
+    try {
+      await lateChange.retry();
+    } finally {
+      setLateChangeLoading(false);
+      setLateChange(null);
+    }
+  };
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -205,9 +219,14 @@ export default function PatientPortalDashboard() {
   };
 
   const handleCancel = async (sessionId: string) => {
-    const result = await cancelSession(sessionId);
-    if (result.success) toast.success(result.message || 'Cita cancelada');
-    else toast.error(result.error || 'Error al cancelar');
+    const run = async (acceptLateChange = false) => {
+      const result = await cancelSession(sessionId, undefined, acceptLateChange);
+      if (result.success) toast.success(result.message || 'Cita cancelada');
+      else if (isLateChangeRequiredError(result.changeError) && !acceptLateChange) {
+        setLateChange({ message: result.changeError.message, kind: 'cancel', retry: () => run(true) });
+      } else toast.error(result.error || 'Error al cancelar');
+    };
+    await run();
   };
 
   const handleConfirm = async (sessionId: string) => {
@@ -269,6 +288,13 @@ export default function PatientPortalDashboard() {
 
   return (
     <div className="min-h-dvh bg-gradient-to-br from-background via-background to-muted/40">
+      <LateChangeConfirmDialog
+        message={lateChange?.message ?? null}
+        kind={lateChange?.kind ?? 'cancel'}
+        loading={lateChangeLoading}
+        onConfirm={confirmLateChange}
+        onCancel={() => setLateChange(null)}
+      />
       <a href="#portal-content" className="sr-only z-50 rounded-md bg-background px-4 py-2 focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:ring-2 focus:ring-ring">
         Saltar al contenido
       </a>

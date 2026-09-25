@@ -3,7 +3,8 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
-import { evaluateCancellationCharge, resolveCancellationBasePrice } from "../_shared/paymentRules.ts";
+import { buildSessionDateTime, evaluateCancellationCharge, resolveCancellationBasePrice } from "../_shared/paymentRules.ts";
+import { describeLateChange, LATE_RESCHEDULE_STAFF_NOTE, lateChangeAckRequiredBody, SESSION_STARTED_CODE, SESSION_STARTED_MESSAGE } from "../_shared/lateChange.ts";
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
 import {
   buildDayScheduleInput,
@@ -59,6 +60,7 @@ Deno.serve(async (req) => {
       cancellation_reason,
       cancelling_patient_id,
       acceptCancellationPolicy,
+      acceptLateChange,
     } = await req.json();
 
     if (!token) {
@@ -160,10 +162,12 @@ Deno.serve(async (req) => {
     }
 
     // Check if session can be rescheduled (not in the past, not cancelled)
-    const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
-    if (sessionDateTime < new Date()) {
+    // Hora local de Madrid (new Date("YYYY-MM-DDTHH:mm") la tomaría como UTC y
+    // daría dos horas de margen de más).
+    const sessionDateTime = buildSessionDateTime(session.session_date, session.start_time)!;
+    if (sessionDateTime.getTime() <= Date.now()) {
       return new Response(
-        JSON.stringify({ error: "Cannot modify past sessions" }),
+        JSON.stringify({ error: SESSION_STARTED_MESSAGE, code: SESSION_STARTED_CODE }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -224,17 +228,29 @@ Deno.serve(async (req) => {
       const percentage = signedPolicyEvaluation?.percentage || 0;
       const concept = signedCancellationPolicy?.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada";
 
+      const lateChange = describeLateChange({
+        sessionDate: sessionRow.session_date,
+        startTime: sessionRow.start_time,
+        sessionTypeName: sessionRow.session_type,
+        rules: signedCancellationPolicy?.rules,
+        evaluation: signedPolicyEvaluation,
+      });
+
       return {
         signedCancellationPolicy,
         signedPolicyEvaluation,
+        lateChange,
         response: {
+          lateChange,
           hasSignedPolicy: Boolean(signedCancellationPolicy),
           applies,
           amount,
           basePrice,
           percentage,
           concept,
-          message: applies
+          message: lateChange.cancelMessage
+            ? lateChange.cancelMessage
+            : applies
             ? `Esta cita esta sujeta a la politica de cancelacion aceptada. Importe estimado sujeto a revision: ${amount.toFixed(2)} EUR.`
             : signedCancellationPolicy
               ? "Esta cita esta cubierta por la politica de cancelacion aceptada. No se estima cargo por cancelacion."
@@ -557,6 +573,16 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Cambio tardío: se permite, pero el paciente debe aceptar que la sesión
+      // original se considera consumida.
+      const { lateChange: rescheduleLateChange } = await buildCancellationPolicyPreview();
+      if (rescheduleLateChange.isLate && acceptLateChange !== true) {
+        return new Response(
+          JSON.stringify(lateChangeAckRequiredBody(rescheduleLateChange, "reschedule")),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Verify the slot is still available (anti-race-condition) USING THE TARGET LOCATION
       const slots = await getAvailability(
         supabase,
@@ -669,7 +695,8 @@ Deno.serve(async (req) => {
               percentage: signedPolicyEvaluation.percentage,
               base_session_price: signedPolicyEvaluation.basePrice,
               concept: signedCancellationPolicy.penalty_invoice_concept || "Cargo por reprogramación fuera de plazo",
-              review_note: "Reprogramación dentro de la ventana de la política (equivalente a cancelación tardía)",
+              review_note: "Reprogramación tardía: la sesión original se considera consumida. Revisa la nueva cita (tipo y precio).",
+              origin: "reschedule",
             });
           }
         }
@@ -871,9 +898,12 @@ Deno.serve(async (req) => {
           oldTime: session.start_time,
           newDate,
           newTime: newStartTime,
-          details: locationChanged
-            ? `Ubicación anterior: ${locationName || 'N/D'}. Nueva ubicación: ${newLocationName || 'N/D'}.`
-            : undefined,
+          details: [
+            locationChanged
+              ? `Ubicación anterior: ${locationName || 'N/D'}. Nueva ubicación: ${newLocationName || 'N/D'}.`
+              : null,
+            rescheduleLateChange.isLate ? LATE_RESCHEDULE_STAFF_NOTE : null,
+          ].filter(Boolean).join(' ') || undefined,
         });
 
         await sendAdminAlert({
@@ -906,6 +936,7 @@ Deno.serve(async (req) => {
         locationName: newLocationName || undefined,
         oldDate: session.session_date,
         oldTime: session.start_time,
+        extraMessage: rescheduleLateChange.isLate ? LATE_RESCHEDULE_STAFF_NOTE : undefined,
       });
 
       // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
@@ -925,6 +956,7 @@ Deno.serve(async (req) => {
         locationName: newLocationName || undefined,
         oldDate: session.session_date,
         oldTime: session.start_time,
+        extraMessage: rescheduleLateChange.rescheduleMessage ?? undefined,
       });
 
       return new Response(
@@ -940,6 +972,14 @@ Deno.serve(async (req) => {
     }
 
     if (action === "cancel") {
+      const { lateChange: cancelLateChange } = await buildCancellationPolicyPreview();
+      if (cancelLateChange.isLate && acceptLateChange !== true) {
+        return new Response(
+          JSON.stringify(lateChangeAckRequiredBody(cancelLateChange, "cancel")),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       const members = await getCoupleMembers(supabase, session);
       if (members.length > 1 && !members.includes(cancelling_patient_id)) {
         return new Response(
@@ -980,7 +1020,7 @@ Deno.serve(async (req) => {
           ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
           : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
       const patientCancellationPolicyMessage = signedPolicyEvaluation?.applies
-        ? `Tu cancelacion queda pendiente de revision segun la politica aceptada. Importe estimado sujeto a revision: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        ? cancelLateChange.cancelMessage ?? undefined
         : undefined;
       const professionalCancellationPolicyMessage = signedPolicyEvaluation?.applies
         ? `Se ha creado una cancelacion pendiente de revision segun la politica aceptada. Importe estimado: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
@@ -1018,7 +1058,8 @@ Deno.serve(async (req) => {
             percentage: signedPolicyEvaluation.percentage,
             base_session_price: signedPolicyEvaluation.basePrice,
             concept: signedCancellationPolicy.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada",
-            review_note: cancellation_reason || "Cancelacion solicitada por el paciente desde el enlace publico",
+            review_note: cancellation_reason || "Cancelación tardía solicitada por el paciente desde el enlace público",
+            origin: "cancel",
           });
 
         if (chargeError) {

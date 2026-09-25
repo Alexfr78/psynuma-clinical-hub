@@ -223,6 +223,7 @@ export async function createCancellationChargeForSessionCancellation(
       base_session_price: evaluation.basePrice,
       concept: signedPolicy.penalty_invoice_concept || 'Cancelacion fuera de plazo segun politica aceptada',
       review_note: note || 'Cancelacion registrada por el profesional desde agenda',
+      origin: isNoShow ? 'no_show' : 'cancel',
     })
     .select()
     .single();

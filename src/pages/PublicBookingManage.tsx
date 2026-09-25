@@ -1,3 +1,5 @@
+import { LateChangeConfirmDialog } from '@/components/LateChangeConfirmDialog';
+import { isLateChangeRequiredError } from '@/lib/late-change';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePublicBooking } from '@/hooks/usePublicBooking';
@@ -25,6 +27,18 @@ import type { CancellationPolicyPreview, PublicBookingDetail } from '@/hooks/use
 import { Icon } from '@/components/ui/icon';
 
 export default function PublicBookingManage() {
+  const [lateChange, setLateChange] = useState<{ message: string; kind: 'cancel' | 'reschedule'; retry: () => Promise<void> } | null>(null);
+  const [lateChangeLoading, setLateChangeLoading] = useState(false);
+  const confirmLateChange = async () => {
+    if (!lateChange || lateChangeLoading) return;
+    setLateChangeLoading(true);
+    try {
+      await lateChange.retry();
+    } finally {
+      setLateChangeLoading(false);
+      setLateChange(null);
+    }
+  };
   const { centerSlug } = useParams<{ centerSlug: string }>();
   const [searchParams] = useSearchParams();
   const bookingToken = searchParams.get('token') || '';
@@ -116,13 +130,22 @@ export default function PublicBookingManage() {
 
 
   const handleCancel = async () => {
-    const { success, message } = await cancelBooking(bookingToken);
-    if (success) {
-      toast.success(message || 'Cita cancelada correctamente');
-      loadBooking();
-    } else {
-      toast.error(error || 'Error al cancelar la cita');
-    }
+    const run = async (acceptLateChange = false) => {
+      try {
+        const { success, message } = await cancelBooking(bookingToken, undefined, acceptLateChange);
+        if (success) {
+          toast.success(message || 'Cita cancelada correctamente');
+          await loadBooking();
+        }
+      } catch (err) {
+        if (isLateChangeRequiredError(err) && !acceptLateChange) {
+          setLateChange({ message: err.message, kind: 'cancel', retry: () => run(true) });
+        } else {
+          toast.error((err as Error).message);
+        }
+      }
+    };
+    await run();
   };
 
   const handleOpenConfirm = () => {
@@ -139,20 +162,24 @@ export default function PublicBookingManage() {
     if (!selectedDate || !selectedSlot) return;
 
     setConfirmOpen(false);
-    const success = await rescheduleBooking(
-      bookingToken,
-      format(selectedDate, 'yyyy-MM-dd'),
-      selectedSlot.startTime,
-      selectedSlot.endTime
-    );
-    
-    if (success) {
-      toast.success('Cita reprogramada correctamente');
-      setMode('view');
-      loadBooking();
-    } else {
-      toast.error(error || 'Error al reprogramar la cita');
-    }
+    const args = [bookingToken, format(selectedDate, 'yyyy-MM-dd'), selectedSlot.startTime, selectedSlot.endTime] as const;
+    const run = async (acceptLateChange = false) => {
+      try {
+        const success = await rescheduleBooking(...args, acceptLateChange);
+        if (success) {
+          toast.success('Cita reprogramada correctamente');
+          setMode('view');
+          await loadBooking();
+        }
+      } catch (err) {
+        if (isLateChangeRequiredError(err) && !acceptLateChange) {
+          setLateChange({ message: err.message, kind: 'reschedule', retry: () => run(true) });
+        } else {
+          toast.error((err as Error).message);
+        }
+      }
+    };
+    await run();
   };
 
   if (loading && !booking) {
@@ -183,6 +210,13 @@ export default function PublicBookingManage() {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
+      <LateChangeConfirmDialog
+        message={lateChange?.message ?? null}
+        kind={lateChange?.kind ?? 'cancel'}
+        loading={lateChangeLoading}
+        onConfirm={confirmLateChange}
+        onCancel={() => setLateChange(null)}
+      />
       <div className="max-w-lg mx-auto">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-foreground">{centerName}</h1>

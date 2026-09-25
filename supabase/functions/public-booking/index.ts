@@ -5,7 +5,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
 import { notifyProfessionalBooking } from "../_shared/professionalNotification.ts";
-import { evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
+import { buildSessionDateTime, evaluateCancellationCharge, resolveCancellationBasePrice, resolvePaymentRules } from "../_shared/paymentRules.ts";
 import { autoApplyAvailableBonoToSession } from "../_shared/bonoAutomation.ts";
 import { isCancellationPolicyEnabled, resolvePatientCancellationPolicyForSession, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
 import { isValidEmail, isValidDate, isValidTime, isValidName } from "../_shared/validation.ts";
@@ -24,6 +24,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 import { getSessionTypeLimit, sessionTypeLimitMessage } from "../_shared/sessionTypeLimit.ts";
+import { evaluateLateChangeForSession, LATE_RESCHEDULE_STAFF_NOTE, lateChangeAckRequiredBody, SESSION_STARTED_CODE, SESSION_STARTED_MESSAGE } from "../_shared/lateChange.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -2071,37 +2072,11 @@ serve(async (req) => {
           { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      const previewSessionDateTime = new Date(`${previewSession.session_date}T${previewSession.start_time}`);
-
-      const previewPolicyEnabled = await isCancellationPolicyEnabled(supabase, {
-        centerId: previewSession.center_id,
-        patientId: previewSession.patient_id,
-      });
-
-      const previewSignedPolicy = previewPolicyEnabled
-        ? await resolveSignedCancellationPolicyVersionForSession(supabase, {
-            centerId: previewSession.center_id,
-            patientId: previewSession.patient_id,
-            policyVersionId: previewSession.cancellation_policy_version_id,
-            versionSelect: "id, rules, penalty_invoice_concept",
-          })
-        : null;
-
-      const previewEvaluation = previewSignedPolicy
-        ? evaluateCancellationCharge({
-          rules: previewSignedPolicy.rules,
-          sessionStartsAt: previewSessionDateTime,
-          cancelledAt: new Date(),
-          basePrice: await resolveCancellationBasePrice(supabase, {
-            centerId: previewSession.center_id,
-            patientId: previewSession.patient_id,
-            sessionTypeId: previewSession.session_type_id,
-            sessionTypeName: previewSession.session_type,
-            sessionDate: previewSession.session_date,
-            sessionPrice: previewSession.price,
-          }),
-        })
-        : null;
+      const {
+        signedCancellationPolicy: previewSignedPolicy,
+        signedPolicyEvaluation: previewEvaluation,
+        lateChange: previewLateChange,
+      } = await evaluateLateChangeForSession(supabase, previewSession);
 
       const previewApplies = previewEvaluation?.applies || false;
       const previewAmount = previewEvaluation?.amount || 0;
@@ -2111,13 +2086,16 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({
+          lateChange: previewLateChange,
           hasSignedPolicy: Boolean(previewSignedPolicy),
           applies: previewApplies,
           amount: previewAmount,
           basePrice: previewBasePrice,
           percentage: previewPercentage,
           concept: previewConcept,
-          message: previewApplies
+          message: previewLateChange.cancelMessage
+            ? previewLateChange.cancelMessage
+            : previewApplies
             ? `Esta cita esta sujeta a la politica de cancelacion aceptada. Importe estimado sujeto a revision: ${previewAmount.toFixed(2)} EUR.`
             : previewSignedPolicy
               ? "Esta cita esta cubierta por la politica de cancelacion aceptada. No se estima cargo por cancelacion."
@@ -2130,7 +2108,7 @@ serve(async (req) => {
 
     // ===== CANCEL-BOOKING =====
     if (action === "cancel-booking") {
-      const { bookingToken, reason } = params;
+      const { bookingToken, reason, acceptLateChange } = params;
 
       if (!bookingToken) {
         return new Response(
@@ -2164,6 +2142,34 @@ serve(async (req) => {
         );
       }
 
+      if (session.status === 'cancelled') {
+        return new Response(
+          JSON.stringify({ error: "La cita ya está cancelada" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const {
+        signedCancellationPolicy,
+        signedPolicyEvaluation,
+        lateChange,
+      } = await evaluateLateChangeForSession(supabase, session);
+
+      // Una vez empezada, es una inasistencia: la gestiona el centro.
+      if (lateChange.started) {
+        return new Response(
+          JSON.stringify({ error: SESSION_STARTED_MESSAGE, code: SESSION_STARTED_CODE }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (lateChange.isLate && acceptLateChange !== true) {
+        return new Response(
+          JSON.stringify(lateChangeAckRequiredBody(lateChange, "cancel")),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       try {
         const result = await startCoupleCancellation(supabase, {
           sessionId: tokenData.sessionId,
@@ -2184,54 +2190,13 @@ serve(async (req) => {
         );
       }
 
-      if (session.status === 'cancelled') {
-        return new Response(
-          JSON.stringify({ error: "La cita ya está cancelada" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
-      const now = new Date();
-
-      // Master switch / per-patient override OFF → no cargo por cancelación.
-      const cancellationPolicyEnabled = await isCancellationPolicyEnabled(supabase, {
-        centerId: session.center_id,
-        patientId: session.patient_id,
-      });
-
-      const signedCancellationPolicy = cancellationPolicyEnabled
-        ? await resolveSignedCancellationPolicyVersionForSession(supabase, {
-            centerId: session.center_id,
-            patientId: session.patient_id,
-            policyVersionId: session.cancellation_policy_version_id,
-            versionSelect: "id, rules, penalty_invoice_concept",
-          })
-        : null;
-
-      const signedPolicyEvaluation = signedCancellationPolicy
-        ? evaluateCancellationCharge({
-          rules: signedCancellationPolicy.rules,
-          sessionStartsAt: sessionDateTime,
-          cancelledAt: now,
-          basePrice: await resolveCancellationBasePrice(supabase, {
-            centerId: session.center_id,
-            patientId: session.patient_id,
-            sessionTypeId: session.session_type_id,
-            sessionTypeName: session.session_type,
-            sessionDate: session.session_date,
-            sessionPrice: session.price,
-          }),
-        })
-        : null;
-
       const cancellationReviewMessage = signedPolicyEvaluation?.applies
         ? `Cancelacion fuera de plazo. Se ha creado un cargo pendiente de revision por ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
         : signedCancellationPolicy
           ? "Cancelacion dentro del plazo de la politica firmada. No se crea cargo."
           : "El paciente no tiene politica de cancelacion firmada. No se crea cargo.";
       const patientCancellationPolicyMessage = signedPolicyEvaluation?.applies
-        ? `Tu cancelacion queda pendiente de revision segun la politica aceptada. Importe estimado sujeto a revision: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
+        ? lateChange.cancelMessage ?? undefined
         : undefined;
       const professionalCancellationPolicyMessage = signedPolicyEvaluation?.applies
         ? `Se ha creado una cancelacion pendiente de revision segun la politica aceptada. Importe estimado: ${signedPolicyEvaluation.amount.toFixed(2)} EUR.`
@@ -2269,7 +2234,8 @@ serve(async (req) => {
             percentage: signedPolicyEvaluation.percentage,
             base_session_price: signedPolicyEvaluation.basePrice,
             concept: signedCancellationPolicy.penalty_invoice_concept || "Cancelacion fuera de plazo segun politica aceptada",
-            review_note: reason || "Cancelacion solicitada por el paciente desde reserva publica",
+            review_note: reason || "Cancelación tardía solicitada por el paciente desde la reserva pública",
+            origin: "cancel",
           });
 
         if (chargeError) {
@@ -2381,7 +2347,7 @@ serve(async (req) => {
 
     // ===== RESCHEDULE-BOOKING =====
     if (action === "reschedule-booking") {
-      const { bookingToken, newDate, newStartTime, newEndTime } = params;
+      const { bookingToken, newDate, newStartTime, newEndTime, acceptLateChange } = params;
 
       if (!bookingToken || !newDate || !newStartTime || !newEndTime) {
         return new Response(
@@ -2451,7 +2417,7 @@ serve(async (req) => {
       }
 
       // Check cancellation policy (applies to reschedule too)
-      const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
+      const sessionDateTime = buildSessionDateTime(session.session_date, session.start_time)!;
       const now = new Date();
       // Reprogramar dentro de la ventana SE PERMITE, pero genera el mismo cargo
       // que una cancelación tardía (se crea tras confirmar). Solo "not_allowed" bloquea.
@@ -2459,6 +2425,20 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Esta cita no se puede reprogramar" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { lateChange: rescheduleLateChange } = await evaluateLateChangeForSession(supabase, session, now);
+      if (rescheduleLateChange.started) {
+        return new Response(
+          JSON.stringify({ error: SESSION_STARTED_MESSAGE, code: SESSION_STARTED_CODE }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (rescheduleLateChange.isLate && acceptLateChange !== true) {
+        return new Response(
+          JSON.stringify(lateChangeAckRequiredBody(rescheduleLateChange, "reschedule")),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -2664,7 +2644,8 @@ serve(async (req) => {
               percentage: signedPolicyEvaluation.percentage,
               base_session_price: signedPolicyEvaluation.basePrice,
               concept: signedCancellationPolicy.penalty_invoice_concept || "Cargo por reprogramación fuera de plazo",
-              review_note: "Reprogramación dentro de la ventana de la política (equivalente a cancelación tardía)",
+              review_note: "Reprogramación tardía: la sesión original se considera consumida. Revisa la nueva cita (tipo y precio).",
+              origin: "reschedule",
             });
           }
         }
@@ -2713,6 +2694,7 @@ serve(async (req) => {
           oldTime: session.start_time,
           newDate: newDate,
           newTime: newStartTime,
+          details: rescheduleLateChange.isLate ? LATE_RESCHEDULE_STAFF_NOTE : undefined,
         });
 
         await sendAdminAlert({
@@ -2774,6 +2756,7 @@ serve(async (req) => {
         startTime: newStartTime,
         oldDate: session.session_date,
         oldTime: session.start_time,
+        extraMessage: rescheduleLateChange.rescheduleMessage ?? undefined,
       });
 
       // Wait 6s to respect WasenderAPI rate limit (1 msg per 5s)
@@ -2792,6 +2775,7 @@ serve(async (req) => {
           startTime: newStartTime,
           oldDate: session.session_date,
           oldTime: session.start_time,
+          extraMessage: rescheduleLateChange.isLate ? LATE_RESCHEDULE_STAFF_NOTE : undefined,
         });
       }
 
