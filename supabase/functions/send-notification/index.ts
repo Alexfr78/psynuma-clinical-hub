@@ -98,6 +98,7 @@ interface NotificationRow {
   patient_id?: string | null;
   message: string;
   center_id: string;
+  recipient?: string | null;
 }
 
 async function isClinicalReportNotification(
