@@ -40,6 +40,8 @@ export interface AiDocumentType {
   /** Prompt de usuario semilla de la plantilla. Fallback cuando no hay ninguna versión
    *  publicada aplicable en `ai_prompt_versions` (§4 regla 4 del contrato). */
   default_user_prompt: string | null;
+  /** Prompt de sistema semilla de la plantilla. NULL = se usa el prompt de sistema del centro. */
+  default_system_prompt: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;

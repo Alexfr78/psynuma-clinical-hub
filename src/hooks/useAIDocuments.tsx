@@ -457,8 +457,7 @@ export interface SaveAiDocumentEditInput {
 
 /**
  * Guarda la edición manual de un documento: nunca toca `content_markdown` (el original que
- * generó la IA), solo `edited_markdown`, con el texto exacto del editor. `edited_sections` se
- * vacía: es de la época de los apartados y ya no se lee.
+ * generó la IA), solo `edited_markdown`, con el texto exacto del editor.
  *
  * Además sincroniza la columna espejo de `sessions` cuando la plantilla declara una. Esto
  * NO es opcional: `send-notification` solo deja enviar al paciente un mensaje que coincida
@@ -474,7 +473,7 @@ export function useSaveAiDocumentEdit() {
     mutationFn: async ({ documentId, markdown }: SaveAiDocumentEditInput) => {
       const { data: updated, error } = await aiDb
         .from('ai_generated_documents')
-        .update({ edited_sections: null, edited_markdown: markdown })
+        .update({ edited_markdown: markdown })
         .eq('id', documentId)
         .select('session_id, document_type:ai_document_types(mirror_column)')
         .maybeSingle();

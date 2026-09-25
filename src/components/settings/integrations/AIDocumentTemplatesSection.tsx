@@ -842,13 +842,14 @@ function NewVersionForm({
   const [scopeProfessionalId, setScopeProfessionalId] = useState('');
   const [scopeSessionTypeId, setScopeSessionTypeId] = useState('');
 
-  // El prompt por defecto es el semilla de la propia plantilla (`default_user_prompt`), el
-  // mismo que publica el sistema. Las constantes de `defaultPrompts.ts` son del antiguo
-  // sistema de "3 capas" y ya no coinciden con los prompts vigentes.
+  // Los prompts por defecto son los semilla de la propia plantilla (`default_user_prompt` y
+  // `default_system_prompt`), los mismos que publica el sistema. Las constantes de
+  // `defaultPrompts.ts` son del antiguo sistema de "3 capas": solo se usa la de sistema como
+  // respaldo para las plantillas que no declaran uno propio.
   const hasDefault = !!documentType.default_user_prompt;
 
   const handleRestoreDefault = () => {
-    setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
+    setSystemPrompt(documentType.default_system_prompt ?? DEFAULT_SYSTEM_PROMPT);
     setUserPrompt(documentType.default_user_prompt ?? '');
   };
 
