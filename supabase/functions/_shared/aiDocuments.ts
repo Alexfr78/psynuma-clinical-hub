@@ -1,119 +1,24 @@
-// Deno twin of src/lib/ai-documents.ts — mirrors its section-rendering logic exactly.
-// Duplicated (not imported) because edge functions cannot import from src/.
+// Contrato con el modelo para los documentos clínicos generados con IA.
 //
-// `renderMarkdown` in particular MUST stay byte-for-byte identical to the client version:
-// `send-notification` compares the text it sends to the patient against the mirrored
-// `sessions.ai_summary_*` column as an anti-tampering check. If the client's render and this
-// server's render ever diverge, patient-facing sends get silently blocked. Keep both in sync.
-//
-// This file additionally covers the model-facing side that has no client equivalent: turning
-// a template's `sections` into a JSON-format instruction for the AI provider, and parsing /
-// validating whatever JSON comes back.
+// El documento es texto libre en markdown: la estructura (títulos, orden, qué se omite) la
+// decide únicamente el prompt de la plantilla. El sistema no conoce apartados: solo añade una
+// instrucción técnica de salida y comprueba que la respuesta sea un documento utilizable.
 
-export interface AiDocumentSection {
-  key: string;
-  label: string;
-  required: boolean;
-  shareable: boolean;
-}
-
-/** Normaliza el `sections` jsonb de una plantilla, descartando entradas malformadas. */
-export function parseSections(raw: unknown): AiDocumentSection[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((item) => {
-    if (!item || typeof item !== 'object') return [];
-    const { key, label, required, shareable } = item as Record<string, unknown>;
-    if (typeof key !== 'string' || !key.trim()) return [];
-    return [{
-      key: key.trim(),
-      label: typeof label === 'string' && label.trim() ? label.trim() : key.trim(),
-      required: required !== false,
-      shareable: shareable === true,
-    }];
-  });
+/**
+ * Instrucción técnica que se anexa al prompt de usuario. No impone estructura: solo pide que
+ * la respuesta sea el documento final, sin envoltorios ni comentarios del modelo.
+ */
+export function buildOutputInstruction(): string {
+  return `Devuelve únicamente el documento final en markdown, listo para que lo lea su destinatario: sin bloque de código que lo envuelva, sin comentarios antes ni después y sin explicar cómo lo has elaborado.`;
 }
 
 /**
- * Render canónico: un encabezado de nivel 2 por sección con contenido, en el orden que
- * declara la plantilla. Las secciones vacías se omiten por completo. Debe producir
- * EXACTAMENTE el mismo texto que `renderMarkdown` en src/lib/ai-documents.ts.
+ * Limpia la respuesta del modelo: quita un posible bloque ```markdown ... ``` que envuelva el
+ * documento entero y los espacios sobrantes. Nunca lanza; si no queda texto devuelve ''.
  */
-export function renderMarkdown(
-  sections: AiDocumentSection[],
-  content: Record<string, string>,
-): string {
-  return sections
-    .map((section) => {
-      const body = (content?.[section.key] ?? '').trim();
-      if (!body) return null;
-      return `## ${section.label}\n\n${body}`;
-    })
-    .filter((block): block is string => block !== null)
-    .join('\n\n');
-}
-
-/**
- * Construye la instrucción de formato JSON que se anexa al prompt de usuario, a partir de
- * las secciones declaradas por la plantilla. Ver §7 del contrato.
- */
-export function buildJsonFormatInstruction(sections: AiDocumentSection[]): string {
-  const keysBlock = sections
-    .map((section) => {
-      const tag = section.required ? 'obligatorio' : 'opcional';
-      return `  "${section.key}": "..."   // ${section.label} (${tag})`;
-    })
-    .join('\n');
-
-  return `Devuelve EXCLUSIVAMENTE un objeto JSON válido, sin texto antes ni después, sin bloque de código, con exactamente estas claves:
-
-{
-${keysBlock}
-}
-
-Cada valor es texto en markdown (puedes usar párrafos y listas, nunca encabezados). No añadas claves que no estén en la lista. No dejes vacía ninguna clave obligatoria.`;
-}
-
-/**
- * Parsea la respuesta del modelo como JSON, tolerando que venga envuelta en un bloque
- * ```json ... ``` o con texto sobrante antes/después de las llaves. Nunca lanza: si no se
- * puede extraer un objeto válido devuelve `{}`, dejando que `validateSections` señale las
- * claves obligatorias que faltan.
- */
-export function parseModelJson(raw: string): Record<string, string> {
-  if (typeof raw !== 'string' || !raw.trim()) return {};
-
-  let cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-  }
-
-  try {
-    const parsed = JSON.parse(cleaned);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-
-    const result: Record<string, string> = {};
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof value === 'string') {
-        result[key] = value;
-      } else if (value !== null && value !== undefined) {
-        result[key] = String(value);
-      }
-    }
-    return result;
-  } catch {
-    return {};
-  }
-}
-
-/** Keys `required` que faltan o llegan vacías en el JSON parseado. Vacío = respuesta válida. */
-export function validateSections(
-  sections: AiDocumentSection[],
-  content: Record<string, string>,
-): string[] {
-  return sections
-    .filter((section) => section.required && !(content?.[section.key] ?? '').trim())
-    .map((section) => section.key);
+export function cleanModelMarkdown(raw: string): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  const fenced = /^```(?:markdown|md)?[ \t]*\n([\s\S]*?)\n?```$/i.exec(trimmed);
+  return (fenced ? fenced[1] : trimmed).trim();
 }

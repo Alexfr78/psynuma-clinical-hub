@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Icon } from '@/components/ui/icon';
 import { supabase } from "@/integrations/supabase/client";
-import { buildCombinedEditableText, splitCombinedEditableText, parseSections, effectiveSections, effectiveMarkdown, renderEditableMarkdown } from "@/lib/ai-documents";
+import { effectiveMarkdown, renderEditableMarkdown } from "@/lib/ai-documents";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
 
@@ -797,12 +797,11 @@ export function TranscriptionAnalysisDialog({
                         </Button>
                       </div>
                     </div>
-                    <CombinedDocumentEditor
+                    <DocumentEditor
                       doc={doc}
-                      template={template}
                       isSaving={aiDocs.isSavingEdit}
                       allowFormatting={!isPatientReport}
-                      onSave={(sections) => aiDocs.saveEdit(doc.id, sections, template?.sections ?? doc.document_type.sections)}
+                      onSave={(markdown) => aiDocs.saveEdit(doc.id, markdown)}
                     />
                     {isPatientReport && (
                       <>
@@ -859,29 +858,19 @@ function StepBadge({ n, done, active, label }: { n: number; done: boolean; activ
   );
 }
 
-/** Editor combinado de la pestaña: mantiene los encabezados para poder reconstruir secciones. */
-function CombinedDocumentEditor({
+/** Editor del documento completo: se guarda exactamente el texto que deja el profesional. */
+function DocumentEditor({
   doc,
-  template,
   onSave,
   isSaving,
   allowFormatting,
 }: {
   doc: AiGeneratedDocumentWithType;
-  template: AiDocumentType | undefined;
-  onSave: (sections: Record<string, string>) => Promise<unknown>;
+  onSave: (markdown: string) => Promise<unknown>;
   isSaving: boolean;
   allowFormatting: boolean;
 }) {
-  const templateSections = useMemo(
-    () => parseSections(template?.sections ?? doc.document_type.sections),
-    [template, doc.document_type.sections],
-  );
-  const initialValues = useMemo(() => effectiveSections(doc), [doc]);
-  const initialText = useMemo(
-    () => buildCombinedEditableText(templateSections, initialValues),
-    [templateSections, initialValues],
-  );
+  const initialText = effectiveMarkdown(doc);
   const [text, setText] = useState(initialText);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -893,17 +882,12 @@ function CombinedDocumentEditor({
 
   const handleSave = async () => {
     try {
-      await onSave(splitCombinedEditableText(templateSections, text));
+      await onSave(text);
       toast.success("Cambios guardados");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudieron guardar los cambios");
     }
   };
-
-  const hasKnownContent = templateSections.some((section) => (initialValues[section.key] ?? "").trim());
-  if (templateSections.length === 0 || !hasKnownContent) {
-    return <div className="max-h-64 overflow-y-auto rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">{effectiveMarkdown(doc) || "Sin contenido."}</div>;
-  }
 
   const applyFormatting = (delimiter: "**" | "==") => {
     const textarea = textareaRef.current;

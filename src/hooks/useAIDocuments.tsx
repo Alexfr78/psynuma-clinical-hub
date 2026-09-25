@@ -28,7 +28,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { aiDb } from '@/lib/ai-documents-db';
 import { supabase } from '@/integrations/supabase/client';
-import { renderMarkdown, parseSections } from '@/lib/ai-documents';
 import { useCenter } from './useCenter';
 import { useAuth } from './useAuth';
 import type {
@@ -41,7 +40,7 @@ import type {
 const AI_DOCUMENTS_KEY = 'ai-documents';
 
 const DOCUMENT_WITH_TYPE_SELECT =
-  '*, document_type:ai_document_types(key, label, audience, sections, mirror_column)';
+  '*, document_type:ai_document_types(key, label, audience, mirror_column)';
 
 // ---------------------------------------------------------------------------
 // Plantillas disponibles
@@ -357,7 +356,6 @@ export interface GenerateAiDocumentDependency {
 export interface GenerateAiDocumentResult {
   documentId: string;
   documentTypeKey: string;
-  sections: Record<string, string>;
   markdown: string;
   promptVersionId: string | null;
   modelUsed: string | null;
@@ -428,7 +426,6 @@ export function useGenerateAiDocument() {
       return {
         documentId: payload.documentId as string,
         documentTypeKey: payload.documentTypeKey as string,
-        sections: (payload.sections ?? {}) as Record<string, string>,
         markdown: (payload.markdown ?? '') as string,
         promptVersionId: (payload.promptVersionId as string | null) ?? null,
         modelUsed: (payload.modelUsed as string | null) ?? null,
@@ -454,16 +451,14 @@ export function useGenerateAiDocument() {
 
 export interface SaveAiDocumentEditInput {
   documentId: string;
-  /** Contenido completo por sección tras la edición (no solo lo que cambió). */
-  sections: Record<string, string>;
-  /** `sections` (jsonb crudo) de la plantilla del documento, para re-renderizar el markdown. */
-  templateSections: unknown;
+  /** El documento completo tras la edición, tal cual lo ha dejado el profesional. */
+  markdown: string;
 }
 
 /**
- * Guarda la edición manual de un documento: nunca toca `content_sections` (el original que
- * generó la IA), solo `edited_sections` + `edited_markdown`, re-renderizado con la misma
- * función canónica que usa el servidor (`renderMarkdown`, ver `@/lib/ai-documents`).
+ * Guarda la edición manual de un documento: nunca toca `content_markdown` (el original que
+ * generó la IA), solo `edited_markdown`, con el texto exacto del editor. `edited_sections` se
+ * vacía: es de la época de los apartados y ya no se lee.
  *
  * Además sincroniza la columna espejo de `sessions` cuando la plantilla declara una. Esto
  * NO es opcional: `send-notification` solo deja enviar al paciente un mensaje que coincida
@@ -476,13 +471,10 @@ export function useSaveAiDocumentEdit() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ documentId, sections, templateSections }: SaveAiDocumentEditInput) => {
-      const parsedSections = parseSections(templateSections);
-      const markdown = renderMarkdown(parsedSections, sections);
-
+    mutationFn: async ({ documentId, markdown }: SaveAiDocumentEditInput) => {
       const { data: updated, error } = await aiDb
         .from('ai_generated_documents')
-        .update({ edited_sections: sections, edited_markdown: markdown })
+        .update({ edited_sections: null, edited_markdown: markdown })
         .eq('id', documentId)
         .select('session_id, document_type:ai_document_types(mirror_column)')
         .maybeSingle();
@@ -586,8 +578,8 @@ export function useAIDocuments(options: UseAIDocumentsOptions = {}) {
     });
   };
 
-  const saveEdit = (documentId: string, sections: Record<string, string>, templateSections: unknown) =>
-    saveEditMutation.mutateAsync({ documentId, sections, templateSections });
+  const saveEdit = (documentId: string, markdown: string) =>
+    saveEditMutation.mutateAsync({ documentId, markdown });
 
   return {
     centerId,

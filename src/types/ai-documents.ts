@@ -17,15 +17,6 @@ export type AiDocumentScope = 'session' | 'multi_session' | 'patient';
 /** Columna de `sessions` que refleja el markdown del documento, mientras dure la transición. */
 export type AiMirrorColumn = 'ai_summary_clinical' | 'ai_summary_patient';
 
-/** Una sección declarada por la plantilla. El modelo debe devolver una clave por sección. */
-export interface AiDocumentSection {
-  key: string;
-  label: string;
-  required: boolean;
-  /** Si la sección puede compartirse con el paciente. */
-  shareable: boolean;
-}
-
 export interface AiDocumentType {
   id: string;
   /** NULL en las plantillas de sistema, comunes a todos los centros. */
@@ -43,7 +34,6 @@ export interface AiDocumentType {
   scope: AiDocumentScope;
   /** Keys de otras plantillas que este documento consume como entrada. */
   requires: string[];
-  sections: AiDocumentSection[];
   input_schema: Record<string, unknown>;
   required_consent_purposes: string[];
   mirror_column: AiMirrorColumn | null;
@@ -83,9 +73,9 @@ export interface AiGeneratedDocument {
   /** NULL solo en las filas heredadas del backfill. */
   prompt_version_id: string | null;
   source_session_ids: string[];
-  content_sections: Record<string, string>;
+  /** El documento tal como lo generó la IA. La estructura la marca el prompt, no el sistema. */
   content_markdown: string;
-  edited_sections: Record<string, string> | null;
+  /** La edición del profesional, si existe. Tiene prioridad sobre `content_markdown`. */
   edited_markdown: string | null;
   transcript_source: string | null;
   plaud_recording_id: string | null;
@@ -98,7 +88,7 @@ export interface AiGeneratedDocument {
 
 /** Documento con su plantilla resuelta, tal y como lo consumen las vistas. */
 export interface AiGeneratedDocumentWithType extends AiGeneratedDocument {
-  document_type: Pick<AiDocumentType, 'key' | 'label' | 'audience' | 'sections' | 'mirror_column'>;
+  document_type: Pick<AiDocumentType, 'key' | 'label' | 'audience' | 'mirror_column'>;
 }
 
 /**

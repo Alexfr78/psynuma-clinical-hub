@@ -267,7 +267,7 @@ interface DocumentTypeUpsertInput {
    *  de origen. Si se omiten, la plantilla se crea desde cero (sin secciones). */
   duplicateFrom?: Pick<
     AiDocumentType,
-    'requires' | 'sections' | 'input_schema' | 'required_consent_purposes' | 'mirror_column'
+    'requires' | 'input_schema' | 'required_consent_purposes' | 'mirror_column'
   >;
 }
 
@@ -295,7 +295,6 @@ export function useCreateDocumentType() {
           audience: input.audience,
           scope: input.scope,
           requires: source?.requires ?? [],
-          sections: source?.sections ?? [],
           input_schema: source?.input_schema ?? {},
           required_consent_purposes: source?.required_consent_purposes ?? [
             'ai_processing',
@@ -321,7 +320,7 @@ export function useCreateDocumentType() {
   });
 }
 
-/** Edita los metadatos de una plantilla del centro (no toca `sections` ni `requires`). */
+/** Edita los metadatos de una plantilla del centro (no toca `requires`). */
 export function useUpdateDocumentType() {
   const queryClient = useQueryClient();
 
@@ -422,7 +421,6 @@ export function useDuplicateSystemDocumentType() {
           audience: source.audience,
           scope: source.scope,
           requires: source.requires,
-          sections: source.sections,
           input_schema: source.input_schema,
           required_consent_purposes: source.required_consent_purposes,
           mirror_column: source.mirror_column,

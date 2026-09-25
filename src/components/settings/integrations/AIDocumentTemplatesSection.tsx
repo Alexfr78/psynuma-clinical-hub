@@ -45,14 +45,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCenter } from '@/hooks/useCenter';
 import { useProfessionals } from '@/hooks/usePatients';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
-import { parseSections } from '@/lib/ai-documents';
 import { modelOptionsForProvider } from '@/lib/ai-models';
-import {
-  DEFAULT_SYSTEM_PROMPT,
-  DEFAULT_LAYER1_PROMPT,
-  DEFAULT_LAYER2_PROMPT,
-  DEFAULT_LAYER3_PROMPT,
-} from '@/lib/defaultPrompts';
+import { DEFAULT_SYSTEM_PROMPT } from '@/lib/defaultPrompts';
 import {
   useAIDocumentTypes,
   usePromptVersions,
@@ -137,18 +131,6 @@ const MODEL_CHOICE_CUSTOM = '__custom__';
 /** Sentinela para "usar la predeterminada del centro" en el selector de un profesional
  *  (ranuras de predeterminadas, no tiene relación con el selector de modelo de IA). */
 const DEFAULT_SLOT_USE_CENTER = '__use_center__';
-
-/**
- * Solo las tres plantillas heredadas del sistema de "3 capas" tienen un prompt por
- * defecto conocido en el cliente. Las plantillas nuevas (SOAP, primera consulta...)
- * no tienen equivalente en `defaultPrompts.ts`, así que para ellas no se ofrece botón
- * de "restaurar por defecto".
- */
-const DEFAULT_USER_PROMPT_BY_KEY: Record<string, string> = {
-  base_extraction: DEFAULT_LAYER1_PROMPT,
-  clinical_report: DEFAULT_LAYER2_PROMPT,
-  patient_report: DEFAULT_LAYER3_PROMPT,
-};
 
 function formatDate(iso: string): string {
   try {
@@ -518,7 +500,6 @@ function DocumentTypeDetailDialog({
   const duplicate = useDuplicateSystemDocumentType();
   const deleteType = useDeleteDocumentType();
 
-  const sections = parseSections(documentType.sections);
   const origin = getDocumentTypeOrigin(documentType);
   const isSystemTemplate = origin === 'system';
   const isOwnTemplate = origin === 'own' && documentType.professional_id === profile?.id;
@@ -640,38 +621,6 @@ function DocumentTypeDetailDialog({
                 </div>
               </div>
             )}
-
-            <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Secciones que genera ({sections.length})
-              </p>
-              {sections.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Esta plantilla no declara secciones todavía.</p>
-              ) : (
-                <div className="space-y-1">
-                  {sections.map((s) => (
-                    <div
-                      key={s.key}
-                      className="flex items-center justify-between gap-2 rounded border px-3 py-1.5 text-sm"
-                    >
-                      <span>{s.label}</span>
-                      <div className="flex gap-1">
-                        {s.required && (
-                          <Badge variant="outline" className="text-[10px]">
-                            Obligatoria
-                          </Badge>
-                        )}
-                        {s.shareable && (
-                          <Badge variant="outline" className="text-[10px]">
-                            Compartible
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
             {documentType.default_user_prompt && (
               <div>
@@ -893,11 +842,14 @@ function NewVersionForm({
   const [scopeProfessionalId, setScopeProfessionalId] = useState('');
   const [scopeSessionTypeId, setScopeSessionTypeId] = useState('');
 
-  const hasDefault = documentType.key in DEFAULT_USER_PROMPT_BY_KEY;
+  // El prompt por defecto es el semilla de la propia plantilla (`default_user_prompt`), el
+  // mismo que publica el sistema. Las constantes de `defaultPrompts.ts` son del antiguo
+  // sistema de "3 capas" y ya no coinciden con los prompts vigentes.
+  const hasDefault = !!documentType.default_user_prompt;
 
   const handleRestoreDefault = () => {
     setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
-    setUserPrompt(DEFAULT_USER_PROMPT_BY_KEY[documentType.key] ?? '');
+    setUserPrompt(documentType.default_user_prompt ?? '');
   };
 
   const buildScope = (): PromptVersionScope | null => {
@@ -1149,7 +1101,6 @@ function DocumentTypeFormDialog({
       duplicateFrom: duplicateSource
         ? {
             requires: duplicateSource.requires,
-            sections: duplicateSource.sections,
             input_schema: duplicateSource.input_schema,
             required_consent_purposes: duplicateSource.required_consent_purposes,
             mirror_column: null, // el espejo a sessions.ai_summary_* es exclusivo de las plantillas de sistema

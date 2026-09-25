@@ -5,14 +5,7 @@ import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
 import { checkPatientConsent, checkSessionConsent, type ConsentCheckResult, type ConsentPurpose } from "../_shared/consent.ts";
 import { buildTranscriptFromTurns, type DiarizedTurn } from "../_shared/transcriptDiarization.ts";
-import {
-  buildJsonFormatInstruction,
-  parseModelJson,
-  parseSections,
-  renderMarkdown,
-  validateSections,
-  type AiDocumentSection,
-} from "../_shared/aiDocuments.ts";
+import { buildOutputInstruction, cleanModelMarkdown } from "../_shared/aiDocuments.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,6 +112,12 @@ function sanitizeModelName(raw: string, source: string): string {
 // ─── AI Router ───────────────────────────────────────────────────────────────
 const PROVIDER_TIMEOUT_MS = 120_000;
 
+interface AIReply {
+  text: string;
+  /** El proveedor cortó la respuesta al agotar el límite de tokens de salida. */
+  truncated: boolean;
+}
+
 async function callAIOnce(
   systemPrompt: string,
   userPrompt: string,
@@ -127,8 +126,7 @@ async function callAIOnce(
   apiKey: string,
   temperature: number,
   maxTokens: number,
-  jsonMode: boolean,
-): Promise<string> {
+): Promise<AIReply> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
 
@@ -147,7 +145,6 @@ async function callAIOnce(
               generationConfig: {
                 temperature,
                 maxOutputTokens: maxTokens,
-                ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
               },
             }),
             signal: controller.signal,
@@ -160,7 +157,11 @@ async function callAIOnce(
       if (!response.ok) {
         throw new ProviderError(data.error?.message || `Gemini API error: ${response.status}`, response.status >= 500);
       }
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const candidate = data.candidates?.[0];
+      return {
+        text: candidate?.content?.parts?.[0]?.text || '',
+        truncated: candidate?.finishReason === 'MAX_TOKENS',
+      };
     }
 
     // Default: OpenAI-compatible
@@ -184,7 +185,6 @@ async function callAIOnce(
           // ya es compatible con el resto de modelos de chat, así que no hace falta ramificar
           // por modelo.
           max_completion_tokens: maxTokens,
-          ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
         }),
         signal: controller.signal,
       });
@@ -202,7 +202,11 @@ async function callAIOnce(
       }
       throw new ProviderError(data.error?.message || `OpenAI API error: ${response.status}`, response.status >= 500);
     }
-    return data.choices?.[0]?.message?.content || '';
+    const choice = data.choices?.[0];
+    return {
+      text: choice?.message?.content || '',
+      truncated: choice?.finish_reason === 'length',
+    };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -217,71 +221,66 @@ async function callAIWithRetry(
   apiKey: string,
   temperature: number,
   maxTokens: number,
-  jsonMode: boolean,
-): Promise<string> {
+): Promise<AIReply> {
   try {
-    return await callAIOnce(systemPrompt, userPrompt, provider, model, apiKey, temperature, maxTokens, jsonMode);
+    return await callAIOnce(systemPrompt, userPrompt, provider, model, apiKey, temperature, maxTokens);
   } catch (error) {
     if (error instanceof ProviderError && error.retryable) {
       console.warn(`[analyze] Error transitorio del proveedor, reintentando una vez: ${error.message}`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      return await callAIOnce(systemPrompt, userPrompt, provider, model, apiKey, temperature, maxTokens, jsonMode);
+      return await callAIOnce(systemPrompt, userPrompt, provider, model, apiKey, temperature, maxTokens);
     }
     throw error;
   }
 }
 
 /**
- * Llama al proveedor pidiendo JSON, valida que todas las secciones `required` lleguen con
- * contenido y, si falla, hace UN reintento con una instrucción de corrección explícita
- * (§6.8 / §7). Si el segundo intento también falla, lanza un error claro en español.
+ * Llama al proveedor y devuelve el documento en markdown tal y como lo escribe el modelo: la
+ * estructura la marca el prompt, no el sistema. Si la respuesta llega vacía se reintenta UNA
+ * vez; si llega cortada por el límite de tokens se rechaza, porque un informe clínico a medias
+ * no debe guardarse como si estuviera completo.
  */
-async function generateSectionsFromModel(
+async function generateDocumentFromModel(
   systemPrompt: string,
   basePrompt: string,
-  sections: AiDocumentSection[],
   provider: string,
   model: string,
   apiKey: string,
   temperature: number,
   maxTokens: number,
-): Promise<Record<string, string>> {
-  const formatInstruction = buildJsonFormatInstruction(sections);
-  const fullPrompt = `${basePrompt}\n\n${formatInstruction}`;
+): Promise<string> {
+  const fullPrompt = `${basePrompt}\n\n${buildOutputInstruction()}`;
 
-  let raw: string;
-  try {
-    raw = await callAIWithRetry(systemPrompt, fullPrompt, provider, model, apiKey, temperature, maxTokens, true);
-  } catch (error) {
-    const message = error instanceof ProviderError ? error.message : (error as Error).message;
-    throw new UserFacingError(`No se pudo generar el documento: error al conectar con el proveedor de IA (${message}).`);
-  }
-
-  let parsed = parseModelJson(raw);
-  let missing = validateSections(sections, parsed);
-
-  if (missing.length > 0) {
-    console.warn(`[analyze] Respuesta del modelo incompleta (faltan: ${missing.join(', ')}), reintentando con instrucción de corrección`);
-    const correctionPrompt = `${fullPrompt}\n\nTu respuesta anterior no era un JSON válido o dejaba vacías estas claves obligatorias: ${missing.join(', ')}. Devuelve de nuevo el objeto JSON COMPLETO, exclusivamente el JSON, con todas las claves obligatorias rellenas con contenido real y no vacío.`;
-
-    let retryRaw: string;
+  const ask = async (): Promise<AIReply> => {
     try {
-      retryRaw = await callAIWithRetry(systemPrompt, correctionPrompt, provider, model, apiKey, temperature, maxTokens, true);
+      return await callAIWithRetry(systemPrompt, fullPrompt, provider, model, apiKey, temperature, maxTokens);
     } catch (error) {
       const message = error instanceof ProviderError ? error.message : (error as Error).message;
       throw new UserFacingError(`No se pudo generar el documento: error al conectar con el proveedor de IA (${message}).`);
     }
-    parsed = parseModelJson(retryRaw);
-    missing = validateSections(sections, parsed);
+  };
 
-    if (missing.length > 0) {
-      throw new UserFacingError(
-        `El modelo de IA no devolvió un documento válido: faltan las secciones obligatorias "${missing.join('", "')}" tras reintentar. Prueba de nuevo o revisa el prompt de la plantilla en Ajustes → Inteligencia Artificial.`
-      );
-    }
+  let reply = await ask();
+  let markdown = cleanModelMarkdown(reply.text);
+
+  if (!markdown && !reply.truncated) {
+    console.warn('[analyze] Respuesta del modelo vacía, reintentando una vez');
+    reply = await ask();
+    markdown = cleanModelMarkdown(reply.text);
   }
 
-  return parsed;
+  if (reply.truncated) {
+    throw new UserFacingError(
+      'El modelo de IA agotó su límite de texto antes de terminar el documento. Prueba de nuevo, elige otro modelo o acorta el prompt de la plantilla en Ajustes → Inteligencia Artificial.'
+    );
+  }
+  if (!markdown) {
+    throw new UserFacingError(
+      'El modelo de IA devolvió un documento vacío tras reintentar. Prueba de nuevo o revisa el prompt de la plantilla en Ajustes → Inteligencia Artificial.'
+    );
+  }
+
+  return markdown;
 }
 
 // ─── Document type catalog access ─────────────────────────────────────────────
@@ -294,7 +293,6 @@ interface DocumentTypeRow {
   label: string;
   scope: 'session' | 'multi_session' | 'patient' | string;
   requires: string[];
-  sections: unknown;
   required_consent_purposes: string[];
   mirror_column: 'ai_summary_clinical' | 'ai_summary_patient' | null;
   is_active: boolean;
@@ -323,7 +321,7 @@ async function loadDocumentType(
 ): Promise<DocumentTypeRow | null> {
   const { data, error } = await supabase
     .from('ai_document_types')
-    .select('id, center_id, professional_id, key, label, scope, requires, sections, required_consent_purposes, mirror_column, is_active, default_user_prompt')
+    .select('id, center_id, professional_id, key, label, scope, requires, required_consent_purposes, mirror_column, is_active, default_user_prompt')
     .eq('key', key)
     .eq('is_active', true)
     .or(`center_id.eq.${centerId},center_id.is.null`);
@@ -413,9 +411,7 @@ async function resolvePromptVersion(
 
 interface ExistingDocumentRow {
   id: string;
-  content_sections: Record<string, string> | null;
   content_markdown: string;
-  edited_sections: Record<string, string> | null;
   edited_markdown: string | null;
   prompt_version_id: string | null;
   model_used: string | null;
@@ -430,7 +426,7 @@ async function findExistingGeneratedDocument(
 ): Promise<ExistingDocumentRow | null> {
   let query = supabase
     .from('ai_generated_documents')
-    .select('id, content_sections, content_markdown, edited_sections, edited_markdown, prompt_version_id, model_used')
+    .select('id, content_markdown, edited_markdown, prompt_version_id, model_used')
     .eq('document_type_id', documentTypeId)
     .order('generated_at', { ascending: false })
     .limit(1);
@@ -565,7 +561,6 @@ interface GenerationContext {
 interface GeneratedResult {
   documentId: string;
   documentTypeKey: string;
-  sections: Record<string, string>;
   markdown: string;
   promptVersionId: string | null;
   modelUsed: string | null;
@@ -580,11 +575,6 @@ async function generateSingleDocument(
   ctx: GenerationContext,
   depth: number,
 ): Promise<GeneratedResult> {
-  const sections = parseSections(dt.sections);
-  if (sections.length === 0) {
-    throw new UserFacingError(`La plantilla "${dt.label}" no tiene secciones configuradas.`, 400);
-  }
-
   const promptVersion = await resolvePromptVersion(ctx.supabaseService, dt.id, ctx.centerId, ctx.professionalId, ctx.sessionTypeId);
   let userPromptBase = promptVersion?.user_prompt;
 
@@ -631,8 +621,8 @@ async function generateSingleDocument(
   // En modelos de razonamiento (o1/o3/GPT-5...) los tokens de "pensamiento" interno consumen
   // el mismo presupuesto que max_completion_tokens antes de llegar a la respuesta visible.
   // Los límites anteriores (6000/4000) estaban ajustados para modelos sin razonamiento y se
-  // quedaban sin margen para el JSON real con transcripciones largas, devolviendo secciones
-  // obligatorias vacías. Se amplía con margen suficiente para ambos tipos de modelo.
+  // quedaban sin margen para el documento real con transcripciones largas y lo devolvían
+  // incompleto. Se amplía con margen suficiente para ambos tipos de modelo.
   const maxTokens = dt.key === 'base_extraction' ? 24000 : 16000;
 
   const promptParts: string[] = [userPromptBase];
@@ -668,10 +658,9 @@ async function generateSingleDocument(
 
   console.log(`[analyze] Generando "${dt.key}" | Provider: ${ctx.aiConfig.provider} | Model: ${model} | Deps: ${depResults.map((d) => d.documentTypeKey).join(', ') || 'ninguna'}`);
 
-  const sectionsContent = await generateSectionsFromModel(
-    systemPrompt, basePrompt, sections, ctx.aiConfig.provider, model, ctx.aiConfig.apiKey, temperature, maxTokens
+  const markdown = await generateDocumentFromModel(
+    systemPrompt, basePrompt, ctx.aiConfig.provider, model, ctx.aiConfig.apiKey, temperature, maxTokens
   );
-  const markdown = renderMarkdown(sections, sectionsContent);
 
   const isMultiSession = dt.scope === 'multi_session';
   const sourceSessionIdsToStore = isMultiSession
@@ -687,7 +676,6 @@ async function generateSingleDocument(
       document_type_id: dt.id,
       prompt_version_id: promptVersion?.id ?? null,
       source_session_ids: sourceSessionIdsToStore,
-      content_sections: sectionsContent,
       content_markdown: markdown,
       transcript_source: isMultiSession ? null : ctx.transcriptSource,
       plaud_recording_id: isMultiSession ? null : ctx.plaudRecordingId,
@@ -719,7 +707,6 @@ async function generateSingleDocument(
   return {
     documentId: inserted.id as string,
     documentTypeKey: dt.key,
-    sections: sectionsContent,
     markdown,
     promptVersionId: promptVersion?.id ?? null,
     modelUsed: model,
@@ -769,7 +756,6 @@ async function resolveDocument(key: string, depth: number, ctx: GenerationContex
         const result: GeneratedResult = {
           documentId: existing.id,
           documentTypeKey: key,
-          sections: existing.edited_sections ?? existing.content_sections ?? {},
           markdown: existing.edited_markdown ?? existing.content_markdown,
           promptVersionId: existing.prompt_version_id,
           modelUsed: existing.model_used,
@@ -930,7 +916,6 @@ serve(async (req) => {
         testConfig.apiKey,
         0,
         16,
-        false,
       );
 
       console.log(`[analyze] Connection test OK — provider: ${testConfig.provider}, model: ${testConfig.model}`);
@@ -939,7 +924,7 @@ serve(async (req) => {
         connectionTest: true,
         provider: testConfig.provider,
         model: testConfig.model,
-        reply: reply.trim().slice(0, 40),
+        reply: reply.text.trim().slice(0, 40),
       }, 200);
     }
 
@@ -1305,7 +1290,6 @@ serve(async (req) => {
         success: true,
         documentId: result.documentId,
         documentTypeKey: result.documentTypeKey,
-        sections: result.sections,
         markdown: result.markdown,
         promptVersionId: result.promptVersionId,
         modelUsed: result.modelUsed,
