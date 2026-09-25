@@ -24,6 +24,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 import { getSessionTypeLimit, sessionTypeLimitMessage } from "../_shared/sessionTypeLimit.ts";
+import { resolveSessionTypePrice } from "../_shared/sessionPricing.ts";
 import { evaluateLateChangeForSession, LATE_RESCHEDULE_STAFF_NOTE, lateChangeAckRequiredBody, SESSION_STARTED_CODE, SESSION_STARTED_MESSAGE } from "../_shared/lateChange.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -1667,6 +1668,15 @@ serve(async (req) => {
       const professionalStripeMode = stripePaymentDefaults?.stripe_enabled
         ? stripePaymentDefaults.stripe_payment_mode
         : null;
+      // Precio real del paciente (personalizado / tarifa / base): el mismo para
+      // las reglas de pago, el cobro por adelantado y la sesión.
+      const resolvedPrice = await resolveSessionTypePrice(supabase, {
+        patientId: patientId,
+        sessionTypeId: sessionType.id,
+        sessionDate,
+        defaultPrice: sessionType.default_price,
+      });
+
       const paymentRules = resolvePaymentRules({
         patientPaymentMode: existingPatient?.payment_mode,
         patientRequireAdvancePaymentAlways: existingPatient?.require_advance_payment_always,
@@ -1680,7 +1690,7 @@ serve(async (req) => {
           ?? stripePaymentDefaults?.stripe_scheduled_hours_before,
         sessionDate,
         startTime,
-        price: sessionType.default_price || 0,
+        price: resolvedPrice.price,
       });
       const cancellationPolicyState = await resolvePatientCancellationPolicyForSession(supabase, {
         centerId: center.id,
@@ -1713,7 +1723,7 @@ serve(async (req) => {
           session_type: sessionType.name,
           session_modality: sessionModality,
           location_id: locationId,
-          price: sessionType.default_price || 0,
+          ...resolvedPrice.fields,
           payment_mode: paymentRules.paymentMode,
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
@@ -1784,7 +1794,7 @@ serve(async (req) => {
       const paymentRequiredNow = status !== "pending_approval"
         && !bonoResult.applied
         && paymentRules.paymentMode === 'required_now'
-        && Number(sessionType.default_price || 0) > 0;
+        && resolvedPrice.price > 0;
       let checkoutUrl: string | null = null;
       let checkoutError: string | null = null;
 

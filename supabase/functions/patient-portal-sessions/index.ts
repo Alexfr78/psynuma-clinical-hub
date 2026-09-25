@@ -15,6 +15,7 @@ import { resolveDayAvailability } from "../_shared/availability-core.ts";
 import { APP_TZ, buildDayScheduleInput } from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getSessionTypeLimit, sessionTypeLimitMessage } from "../_shared/sessionTypeLimit.ts";
+import { resolveSessionTypePrice } from "../_shared/sessionPricing.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -528,6 +529,15 @@ serve(async (req) => {
 
       // Create session
       const baseStatus = center?.portal_require_approval ? "pending_approval" : "scheduled";
+      // Precio real del paciente (personalizado / tarifa / base): el mismo para
+      // las reglas de pago, el cobro por adelantado y la sesión.
+      const resolvedPrice = await resolveSessionTypePrice(supabase, {
+        patientId: session.patientId!,
+        sessionTypeId: sessionType.id,
+        sessionDate,
+        defaultPrice: sessionType.default_price,
+      });
+
       const paymentRules = resolvePaymentRules({
         patientPaymentMode: patientPayment?.payment_mode,
         patientRequireAdvancePaymentAlways: patientPayment?.require_advance_payment_always,
@@ -540,7 +550,7 @@ serve(async (req) => {
           ?? stripePaymentDefaults?.stripe_scheduled_hours_before,
         sessionDate,
         startTime,
-        price: sessionType.default_price || 0,
+        price: resolvedPrice.price,
       });
       const cancellationPolicyState = await resolvePatientCancellationPolicyForSession(supabase, {
         centerId: session.centerId!,
@@ -569,7 +579,7 @@ serve(async (req) => {
           session_type: sessionType.name,
           session_modality: sessionModality,
           location_id: locationId,
-          price: sessionType.default_price || 0,
+          ...resolvedPrice.fields,
           payment_mode: paymentRules.paymentMode,
           payment_status: paymentRules.paymentStatus,
           advance_payment_limit_hours: paymentRules.advancePaymentLimitHours,
@@ -602,7 +612,7 @@ serve(async (req) => {
       const paymentRequiredNow = status !== 'pending_approval'
         && !bonoResult.applied
         && paymentRules.paymentMode === 'required_now'
-        && Number(sessionType.default_price || 0) > 0;
+        && resolvedPrice.price > 0;
       let checkoutUrl: string | null = null;
       let checkoutError: string | null = null;
 
