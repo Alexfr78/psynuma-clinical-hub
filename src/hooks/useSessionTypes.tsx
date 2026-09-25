@@ -23,8 +23,12 @@ export interface SessionType {
   exemption_code: ExemptionCode | null;
   non_subject_code: NonSubjectCode | null;
   vat_regime_key: string | null;
-  // First consultation flag for closed agenda mode
+  // Marca de primera consulta (al activarla se limita a 1 por paciente)
   is_first_consultation: boolean | null;
+  // Máximo de citas de este servicio por paciente (null = sin límite)
+  max_per_patient: number | null;
+  // Ventana en meses del máximo anterior (0 = para siempre)
+  max_per_patient_period_months: number;
   // Sesión de pareja: pide el segundo miembro al reservar
   is_couple: boolean;
   // Tipos de pareja: tipo individual al que pasa si solo asiste un miembro
@@ -48,6 +52,8 @@ export interface SessionTypeInsert {
   is_first_consultation?: boolean;
   is_couple?: boolean;
   individual_fallback_type_id?: string | null;
+  max_per_patient?: number | null;
+  max_per_patient_period_months?: number;
 }
 
 export interface SessionTypeUpdate {
@@ -69,6 +75,8 @@ export interface SessionTypeUpdate {
   is_first_consultation?: boolean;
   is_couple?: boolean;
   individual_fallback_type_id?: string | null;
+  max_per_patient?: number | null;
+  max_per_patient_period_months?: number;
 }
 
 export function useSessionTypes() {
@@ -140,12 +148,14 @@ export function useCreateSessionType() {
       if (error) throw error;
 
       // La RPC no recibe estos indicadores; se guardan justo después.
-      if (data && (sessionType.is_couple || sessionType.is_first_consultation)) {
+      if (data && (sessionType.is_couple || sessionType.is_first_consultation || sessionType.max_per_patient != null)) {
         const { error: flagsError } = await supabase
           .from('session_types')
           .update({
             is_couple: sessionType.is_couple ?? false,
             is_first_consultation: sessionType.is_first_consultation ?? false,
+            max_per_patient: sessionType.max_per_patient ?? null,
+            max_per_patient_period_months: sessionType.max_per_patient_period_months ?? 0,
           })
           .eq('id', data);
         if (flagsError) throw flagsError;

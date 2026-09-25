@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SessionTypeLimitNotice } from '@/components/agenda/SessionTypeLimitNotice';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -162,6 +163,7 @@ export function CreateSessionDialog({
   const watchPatientId = form.watch('patient_id');
   const watchBonoId = form.watch('bono_id');
   const watchSessionTypeId = form.watch('session_type_id');
+  const watchSessionDate = form.watch('session_date');
 
   // Resolver precio automáticamente cuando cambia paciente + tipo de sesión
   const { data: resolvedPrice } = useResolvedPrice(
@@ -619,6 +621,12 @@ export function CreateSessionDialog({
                   )}
                 />
               )}
+
+              <SessionTypeLimitNotice
+                patientIds={[watchPatientId]}
+                sessionTypeId={watchSessionTypeId}
+                sessionDate={watchSessionDate}
+              />
 
               <FormField
                 control={form.control}

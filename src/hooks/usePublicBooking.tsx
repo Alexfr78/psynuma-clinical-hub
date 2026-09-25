@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
 
 interface CenterConfig {
   centerId: string;
@@ -165,7 +166,8 @@ export function usePublicBooking(centerSlug: string) {
       body: { action, centerSlug, ...params }
     });
     
-    if (error) throw new Error(error.message);
+    // Los 4xx (p. ej. límite de servicio alcanzado) traen el motivo en el cuerpo.
+    if (error) throw new Error(await describeEdgeFunctionError(error, 'Error de conexión'));
     if (data?.error) {
       if (data.disabled) setDisabled(true);
       throw new Error(data.error);
@@ -288,15 +290,18 @@ export function usePublicBooking(centerSlug: string) {
     acceptCancellationPolicy: boolean;
     cancellationPolicyVersionId?: string;
     notes?: string;
-  }): Promise<BookingResult | null> => {
+  }): Promise<BookingResult | { success: false; error: string }> => {
     setLoading(true);
     setError(null);
     try {
       const data = await invoke('create-booking', params);
       return data;
     } catch (err) {
-      setError((err as Error).message);
-      return null;
+      // Se devuelve el mensaje además de guardarlo: quien llama lo necesita ya,
+      // y el estado `error` no se actualiza hasta el siguiente render.
+      const message = (err as Error).message;
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }

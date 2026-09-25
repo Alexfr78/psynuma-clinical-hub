@@ -84,6 +84,11 @@ export function SessionTypesSection() {
     setEditableTypes(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
+
+      // Una primera consulta, por defecto, solo se reserva una vez.
+      if (field === 'is_first_consultation' && value === true && updated[index].max_per_patient == null) {
+        updated[index].max_per_patient = 1;
+      }
       
       // Auto-adjust related fields when tax_treatment changes
       if (field === 'tax_treatment') {
@@ -151,6 +156,8 @@ export function SessionTypesSection() {
         vat_regime_key: '01',
         is_first_consultation: false,
         is_couple: false,
+        max_per_patient: null,
+        max_per_patient_period_months: 0,
       },
     ]);
     setExpandedFiscal(newId);
@@ -203,6 +210,8 @@ export function SessionTypesSection() {
             vat_regime_key: item.vat_regime_key || '01',
             is_first_consultation: item.is_first_consultation ?? false,
             is_couple: item.is_couple ?? false,
+            max_per_patient: item.max_per_patient ?? null,
+            max_per_patient_period_months: item.max_per_patient_period_months ?? 0,
           })
         );
       } else if (item.id) {
@@ -221,6 +230,8 @@ export function SessionTypesSection() {
             original.non_subject_code !== item.non_subject_code ||
             Boolean(original.is_first_consultation) !== Boolean(item.is_first_consultation) ||
             Boolean(original.is_couple) !== Boolean(item.is_couple) ||
+            (original.max_per_patient ?? null) !== (item.max_per_patient ?? null) ||
+            Number(original.max_per_patient_period_months ?? 0) !== Number(item.max_per_patient_period_months ?? 0) ||
             (original.individual_fallback_type_id ?? null) !== (item.individual_fallback_type_id ?? null);
 
           if (hasChanged) {
@@ -240,6 +251,8 @@ export function SessionTypesSection() {
                 is_first_consultation: item.is_first_consultation ?? false,
                 is_couple: item.is_couple ?? false,
                 individual_fallback_type_id: item.is_couple ? item.individual_fallback_type_id ?? null : null,
+                max_per_patient: item.max_per_patient ?? null,
+                max_per_patient_period_months: item.max_per_patient_period_months ?? 0,
               })
             );
           }
@@ -578,8 +591,49 @@ export function SessionTypesSection() {
                           Es primera consulta
                         </Label>
                         <span className="text-xs text-muted-foreground ml-2">
-                          (No se mostrará en reservas públicas si la agenda está cerrada)
+                          (Se limita a 1 por paciente; puedes cambiarlo abajo)
                         </span>
+                      </div>
+
+                      {/* Máximo por paciente */}
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <Icon name="block" className="h-4 w-4 text-muted-foreground" />
+                        <Label htmlFor={`max-per-patient-${itemId}`} className="text-sm">
+                          Máximo por paciente
+                        </Label>
+                        <Input
+                          id={`max-per-patient-${itemId}`}
+                          type="number"
+                          min={1}
+                          placeholder="Sin límite"
+                          className="h-8 w-24"
+                          value={item.max_per_patient ?? ''}
+                          onChange={(e) => {
+                            const n = parseInt(e.target.value, 10);
+                            handleChange(index, 'max_per_patient', Number.isFinite(n) && n >= 1 ? n : null);
+                          }}
+                        />
+                        {item.max_per_patient != null && (
+                          <>
+                            <span className="text-muted-foreground">veces, cada</span>
+                            <Input
+                              aria-label="Periodo en meses"
+                              type="number"
+                              min={0}
+                              className="h-8 w-20"
+                              value={item.max_per_patient_period_months ?? 0}
+                              onChange={(e) => {
+                                const n = parseInt(e.target.value, 10);
+                                handleChange(index, 'max_per_patient_period_months', Number.isFinite(n) && n >= 0 ? n : 0);
+                              }}
+                            />
+                            <span className="text-muted-foreground">meses</span>
+                            <span className="text-xs text-muted-foreground w-full pl-6">
+                              0 meses = para siempre. Cuentan también los no-show; las canceladas no.
+                              En reserva pública y portal se bloquea; en la agenda solo se avisa.
+                            </span>
+                          </>
+                        )}
                       </div>
 
                       {/* Couple session toggle */}

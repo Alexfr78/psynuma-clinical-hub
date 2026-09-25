@@ -23,6 +23,7 @@ import {
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
+import { getSessionTypeLimit, sessionTypeLimitMessage } from "../_shared/sessionTypeLimit.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1558,6 +1559,22 @@ serve(async (req) => {
           .is("email", null)
           .maybeSingle();
         existingPatient = existingByPhone;
+      }
+
+      // Servicios con tope por paciente (p. ej. primera consulta una sola vez).
+      // Un paciente nuevo no tiene historial, así que solo se mira el existente.
+      if (existingPatient) {
+        const limit = await getSessionTypeLimit(supabase, {
+          patientId: existingPatient.id,
+          sessionTypeId,
+          sessionDate,
+        });
+        if (limit.limited && !limit.allowed) {
+          return new Response(
+            JSON.stringify({ error: sessionTypeLimitMessage(limit), limitReached: true }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       let patientId: string;

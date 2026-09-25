@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SessionTypeLimitNotice } from '@/components/agenda/SessionTypeLimitNotice';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -1348,6 +1349,12 @@ export function QuickCreateSessionDialog({
             />
 
             <CoupleSessionFields form={form} isCoupleType={isCoupleType} />
+
+            <SessionTypeLimitNotice
+              patientIds={[watchPatientId, isCoupleType ? watchPartnerId : null]}
+              sessionTypeId={watchSessionType}
+              sessionDate={watchSessionDate}
+            />
 
             {/* Cancellation Policy */}
             <FormField

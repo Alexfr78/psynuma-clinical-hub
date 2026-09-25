@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
 
 export interface PortalCancellationPolicy {
   id: string;
@@ -19,6 +20,9 @@ export interface PortalBookingRequirements {
     id: string;
     name: string;
     duration_minutes: number;
+    /** El paciente ya agotó el máximo de este servicio (session_types.max_per_patient). */
+    limitReached?: boolean;
+    limitMessage?: string | null;
   }>;
 }
 
@@ -305,7 +309,10 @@ export function usePatientPortal(centerSlug?: string) {
         body: { action: 'create', sessionToken: state.sessionToken, ...params },
       });
 
-      if (error || !data?.success) {
+      if (error) {
+        return { success: false, error: await describeEdgeFunctionError(error, 'Error al crear la cita') };
+      }
+      if (!data?.success) {
         return { success: false, error: data?.error || 'Error al crear la cita' };
       }
 

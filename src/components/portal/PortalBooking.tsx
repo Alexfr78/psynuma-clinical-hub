@@ -78,6 +78,8 @@ interface SessionType {
   id: string;
   name: string;
   duration_minutes: number;
+  limitReached?: boolean;
+  limitMessage?: string | null;
 }
 
 interface Location {
@@ -609,12 +611,18 @@ export function PortalBooking({
               </SelectTrigger>
               <SelectContent>
                 {sessionTypes.map(type => (
-                  <SelectItem key={type.id} value={type.id}>
+                  <SelectItem key={type.id} value={type.id} disabled={type.limitReached}>
                     {type.name} ({type.duration_minutes} min)
+                    {type.limitReached && ' · ya utilizado'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {sessionTypes.some(t => t.limitReached) && (
+              <p className="text-xs text-muted-foreground">
+                Algunos servicios solo pueden reservarse un número limitado de veces. Si necesitas uno de ellos, contacta con el centro.
+              </p>
+            )}
           </div>
         )}
 

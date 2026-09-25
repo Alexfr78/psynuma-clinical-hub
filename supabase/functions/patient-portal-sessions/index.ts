@@ -13,6 +13,7 @@ import { getPublicCancellationPolicy, hasAcceptedCancellationPolicy, recordPorta
 import { resolveDayAvailability } from "../_shared/availability-core.ts";
 import { APP_TZ, buildDayScheduleInput } from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { getSessionTypeLimit, sessionTypeLimitMessage } from "../_shared/sessionTypeLimit.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -296,7 +297,7 @@ serve(async (req) => {
         policyEnabled ? getPublicCancellationPolicy(supabase, session.centerId!) : Promise.resolve(null),
         supabase
           .from("session_types")
-          .select("id, name, duration_minutes")
+          .select("id, name, duration_minutes, max_per_patient")
           .eq("center_id", session.centerId!)
           .eq("is_active", true)
           .order("display_order", { ascending: true })
@@ -309,6 +310,18 @@ serve(async (req) => {
       ]);
       if (sessionTypesResult.error) throw sessionTypesResult.error;
       const cardOnBookingMode = policyEnabled ? (centerRes.data?.card_on_booking_mode || "off") : "off";
+
+      // Marca los servicios que el paciente ya ha agotado (a fecha de hoy; si el
+      // tope es por periodo, la fecha real se vuelve a comprobar al crear).
+      const sessionTypes = await Promise.all(
+        ((sessionTypesResult.data ?? []) as { id: string; name: string; duration_minutes: number; max_per_patient: number | null }[])
+          .map(async ({ max_per_patient, ...type }) => {
+            if (max_per_patient == null) return { ...type, limitReached: false, limitMessage: null };
+            const limit = await getSessionTypeLimit(supabase, { patientId: session.patientId!, sessionTypeId: type.id });
+            const reached = limit.limited && !limit.allowed;
+            return { ...type, limitReached: reached, limitMessage: reached ? sessionTypeLimitMessage(limit) : null };
+          }),
+      );
 
       const hasAcceptedPolicy = activePolicy
         ? await hasAcceptedCancellationPolicy(supabase, {
@@ -323,7 +336,7 @@ serve(async (req) => {
           cancellationPolicy: activePolicy,
           hasAcceptedCancellationPolicy: hasAcceptedPolicy,
           cardOnBookingMode,
-          sessionTypes: sessionTypesResult.data ?? [],
+          sessionTypes,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -434,6 +447,18 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Tipo de sesión no válido" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const typeLimit = await getSessionTypeLimit(supabase, {
+        patientId: session.patientId,
+        sessionTypeId: sessionType.id,
+        sessionDate,
+      });
+      if (typeLimit.limited && !typeLimit.allowed) {
+        return new Response(
+          JSON.stringify({ error: sessionTypeLimitMessage(typeLimit), limitReached: true }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 

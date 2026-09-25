@@ -7185,6 +7185,8 @@ export type Database = {
           is_couple: boolean
           is_first_consultation: boolean | null
           is_public: boolean | null
+          max_per_patient: number | null
+          max_per_patient_period_months: number
           name: string
           non_subject_code: string | null
           tax_treatment: string | null
@@ -7207,6 +7209,8 @@ export type Database = {
           is_couple?: boolean
           is_first_consultation?: boolean | null
           is_public?: boolean | null
+          max_per_patient?: number | null
+          max_per_patient_period_months?: number
           name: string
           non_subject_code?: string | null
           tax_treatment?: string | null
@@ -7229,6 +7233,8 @@ export type Database = {
           is_couple?: boolean
           is_first_consultation?: boolean | null
           is_public?: boolean | null
+          max_per_patient?: number | null
+          max_per_patient_period_months?: number
           name?: string
           non_subject_code?: string | null
           tax_treatment?: string | null
@@ -9202,6 +9208,15 @@ export type Database = {
           percentage_rate: number
           variable_amount: number
         }[]
+      }
+      check_session_type_limit: {
+        Args: {
+          p_exclude_session_id?: string
+          p_patient_id: string
+          p_session_date?: string
+          p_session_type_id: string
+        }
+        Returns: Json
       }
       claim_stripe_webhook_event: {
         Args: {

@@ -134,57 +134,58 @@ export default function PublicBooking() {
       notes: notes || undefined
     });
 
-    if (result?.success) {
-      if (result.paymentRequired && result.checkoutUrl) {
-        // Keep a usable fallback on screen before leaving. Public booking is
-        // commonly embedded in an iframe, while Stripe Checkout must open at
-        // the top level rather than inside that frame.
-        setBookingResult(result);
-        setStep('confirmation');
-        toast.info('Abriendo el pago seguro de Stripe...');
+    if (!result.success) {
+      toast.error(('error' in result && result.error) || 'Error al crear la reserva');
+      return;
+    }
 
-        try {
-          if (isEmbed && window.top && window.top !== window) {
-            window.top.location.href = result.checkoutUrl;
-          } else {
-            window.location.assign(result.checkoutUrl);
-          }
-        } catch (navigationError) {
-          console.warn('No se pudo abrir Stripe automáticamente:', navigationError);
-          toast.warning('Pulsa "Ir al pago seguro" para continuar.');
-        }
-        return;
-      }
-
-      // Fase 2 · Inc 1 — captura de tarjeta en la reserva (Checkout de setup, 0 €).
-      if (result.cardCaptureNeeded && result.session?.id) {
-        const setup = result.bookingToken
-          ? await createSetupIntent(result.session.id, result.bookingToken)
-          : null;
-        if (setup?.url) {
-          setBookingResult(result);
-          setStep('confirmation');
-          toast.info('Guarda tu tarjeta para completar la reserva (no se te cobra ahora)...');
-          redirectTopLevel(setup.url);
-          return;
-        }
-        if (result.cardOnBookingMode === 'required') {
-          setBookingResult(result);
-          setStep('confirmation');
-          toast.error('No se pudo iniciar el guardado de la tarjeta. Contacta con el centro.');
-          return;
-        }
-      }
-
+    if (result.paymentRequired && result.checkoutUrl) {
+      // Keep a usable fallback on screen before leaving. Public booking is
+      // commonly embedded in an iframe, while Stripe Checkout must open at
+      // the top level rather than inside that frame.
       setBookingResult(result);
       setStep('confirmation');
-      if (result.paymentRequired) {
-        toast.error('No se pudo iniciar el pago. Contacta con el centro para completarlo.');
-      } else {
-        toast.success(result.message);
+      toast.info('Abriendo el pago seguro de Stripe...');
+
+      try {
+        if (isEmbed && window.top && window.top !== window) {
+          window.top.location.href = result.checkoutUrl;
+        } else {
+          window.location.assign(result.checkoutUrl);
+        }
+      } catch (navigationError) {
+        console.warn('No se pudo abrir Stripe automáticamente:', navigationError);
+        toast.warning('Pulsa "Ir al pago seguro" para continuar.');
       }
+      return;
+    }
+
+    // Fase 2 · Inc 1 — captura de tarjeta en la reserva (Checkout de setup, 0 €).
+    if (result.cardCaptureNeeded && result.session?.id) {
+      const setup = result.bookingToken
+        ? await createSetupIntent(result.session.id, result.bookingToken)
+        : null;
+      if (setup?.url) {
+        setBookingResult(result);
+        setStep('confirmation');
+        toast.info('Guarda tu tarjeta para completar la reserva (no se te cobra ahora)...');
+        redirectTopLevel(setup.url);
+        return;
+      }
+      if (result.cardOnBookingMode === 'required') {
+        setBookingResult(result);
+        setStep('confirmation');
+        toast.error('No se pudo iniciar el guardado de la tarjeta. Contacta con el centro.');
+        return;
+      }
+    }
+
+    setBookingResult(result);
+    setStep('confirmation');
+    if (result.paymentRequired) {
+      toast.error('No se pudo iniciar el pago. Contacta con el centro para completarlo.');
     } else {
-      toast.error(error || 'Error al crear la reserva');
+      toast.success(result.message);
     }
   };
 
