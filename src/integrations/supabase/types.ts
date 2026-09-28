@@ -106,6 +106,7 @@ export type Database = {
           audience: string
           center_id: string | null
           created_at: string
+          default_system_prompt: string | null
           default_user_prompt: string | null
           description: string | null
           id: string
@@ -118,7 +119,6 @@ export type Database = {
           required_consent_purposes: string[]
           requires: string[]
           scope: string
-          sections: Json
           sort_order: number
           updated_at: string
         }
@@ -126,6 +126,7 @@ export type Database = {
           audience: string
           center_id?: string | null
           created_at?: string
+          default_system_prompt?: string | null
           default_user_prompt?: string | null
           description?: string | null
           id?: string
@@ -138,7 +139,6 @@ export type Database = {
           required_consent_purposes?: string[]
           requires?: string[]
           scope?: string
-          sections?: Json
           sort_order?: number
           updated_at?: string
         }
@@ -146,6 +146,7 @@ export type Database = {
           audience?: string
           center_id?: string | null
           created_at?: string
+          default_system_prompt?: string | null
           default_user_prompt?: string | null
           description?: string | null
           id?: string
@@ -158,7 +159,6 @@ export type Database = {
           required_consent_purposes?: string[]
           requires?: string[]
           scope?: string
-          sections?: Json
           sort_order?: number
           updated_at?: string
         }
@@ -204,10 +204,8 @@ export type Database = {
         Row: {
           center_id: string
           content_markdown: string
-          content_sections: Json | null
           document_type_id: string
           edited_markdown: string | null
-          edited_sections: Json | null
           generated_at: string
           generated_by: string | null
           id: string
@@ -227,10 +225,8 @@ export type Database = {
         Insert: {
           center_id: string
           content_markdown: string
-          content_sections?: Json | null
           document_type_id: string
           edited_markdown?: string | null
-          edited_sections?: Json | null
           generated_at?: string
           generated_by?: string | null
           id?: string
@@ -250,10 +246,8 @@ export type Database = {
         Update: {
           center_id?: string
           content_markdown?: string
-          content_sections?: Json | null
           document_type_id?: string
           edited_markdown?: string | null
-          edited_sections?: Json | null
           generated_at?: string
           generated_by?: string | null
           id?: string
