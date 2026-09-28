@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { DAS_SCORING } from '@/data/das-template';
 import { DAS_FACTOR_ORDER } from '@/lib/assessment-utils';
 import { Icon } from '@/components/ui/icon';
+import { DASProfileChart } from './DASProfileChart';
 
 interface DASResultsViewProps {
   factorScores: Record<string, number>;
@@ -36,6 +37,18 @@ export function DASResultsView({ factorScores }: DASResultsViewProps) {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Perfil</CardTitle>
+          <CardDescription>
+            Puntuaciones T por escala. La franja sombreada marca el rango medio (T 40-60).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DASProfileChart factorScores={factorScores} />
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {DAS_FACTOR_ORDER.map(code => {
           const raw = factorScores[code] ?? 0;
