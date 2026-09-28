@@ -115,6 +115,7 @@ export default function AssessmentPublic() {
   // Detect if this is a BDI-II assessment
   const isBDI2 = template?.code === 'BDI2';
   const isYBOCS2 = template?.code === 'YBOCS2';
+  const isDAS = template?.code === 'DAS';
   // Detect if this is a DES (percentage scale 0-100)
   const isDES = template?.code === 'DES';
   // Get response step for slider-based scales (DES uses 10% increments)
@@ -149,7 +150,7 @@ export default function AssessmentPublic() {
           {items.map((item, idx) => (
             <Card key={item.index} className={answers[item.index] !== undefined ? 'border-primary/30' : ''}>
               <CardContent className="pt-6">
-                {(isBDI2 || isYBOCS2) ? (
+                {(isBDI2 || isYBOCS2 || isDAS) ? (
                   <BDI2ItemRenderer
                     item={{
                       index: item.index,

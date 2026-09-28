@@ -8,6 +8,7 @@ import { useAssessmentTemplates, type AssessmentTemplate } from '@/hooks/useAsse
 import { getPAITemplateData } from '@/data/pai-template';
 import { getBDI2TemplateData } from '@/data/bdi2-template';
 import { getDCITemplateData } from '@/data/dci-template';
+import { getDASTemplateData } from '@/data/das-template';
 import { getDESTemplateData } from '@/data/des-template';
 import { getSTAITemplateData } from '@/data/stai-template';
 import { getEMOTemplateData } from '@/data/emo-template';
@@ -36,6 +37,14 @@ const PREDEFINED_TEMPLATES = [
     items: 22,
     time: '5-10 min',
     getData: getDCITemplateData,
+  },
+  {
+    id: 'DAS',
+    name: 'DAS - Escala de Ajuste Diádico',
+    description: 'Evaluación de la calidad de la relación de pareja: consenso, satisfacción, expresión afectiva y cohesión. Puntuaciones T con baremo general y clínico.',
+    items: 32,
+    time: '10-15 min',
+    getData: getDASTemplateData,
   },
   {
     id: 'DES',

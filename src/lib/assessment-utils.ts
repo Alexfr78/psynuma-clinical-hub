@@ -33,6 +33,9 @@ export const DES_FACTOR_LABELS: Record<string, { label: string; description: str
 
 export const DES_FACTOR_ORDER = ['TOTAL', 'DES_A', 'DES_D', 'DES_I', 'DES_T'];
 
+// ===== DAS SPECIFIC =====
+export const DAS_FACTOR_ORDER = ['CON', 'SAT', 'EXP', 'COH', 'TOTAL'];
+
 // ===== BDI-II SPECIFIC =====
 export const BDI2_CUTOFFS = [
   { min: 0, max: 13, level: 'minima', label: 'Depresión Mínima', color: 'green' },
@@ -326,6 +329,9 @@ export function getFactorOrder(templateCode: string): string[] {
   }
   if (templateCode === 'STAI') {
     return STAI_FACTOR_ORDER;
+  }
+  if (templateCode === 'DAS') {
+    return DAS_FACTOR_ORDER;
   }
   if (templateCode === 'EMO') {
     return EMO_FACTOR_ORDER;

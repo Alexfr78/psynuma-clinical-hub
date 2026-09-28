@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
+import { scoreDAS } from "../_shared/dasScoring.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +20,7 @@ interface Scoring {
 interface TemplateData {
   id: string;
   code: string;
-  items: { index: number; text: string }[];
+  items: { index: number; text: string; options?: { value: number }[] }[];
   scoring: Scoring;
   response_min: number;
   response_max: number;
@@ -146,6 +147,7 @@ serve(async (req) => {
     const isDES = template.code === 'DES';
     const isSTAI = template.code === 'STAI';
     const isEMO = template.code === 'EMO';
+    const isDAS = template.code === 'DAS';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
@@ -194,6 +196,24 @@ serve(async (req) => {
             }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
           );
+        }
+      }
+
+      // DAS: each item has its own option set, so the value must be one of them
+      if (isDAS) {
+        for (const item of items) {
+          const allowed = (item.options ?? []).map((o) => o.value);
+          const value = Number(answersRecord[item.index]);
+          if (!allowed.includes(value)) {
+            console.error(`Invalid DAS option for item ${item.index}:`, answersRecord[item.index]);
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: `Valor inválido para el ítem ${item.index}.`,
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
         }
       }
 
@@ -516,11 +536,21 @@ serve(async (req) => {
       });
     }
 
+    // ===== DAS SCORING =====
+    // Sum per scale (answers already carry the correction-sheet value) and
+    // conversion to T with the general and clinical norms.
+    if (isDAS) {
+      const das = scoreDAS(answersRecord);
+      Object.assign(factorScores, das.factorScores);
+      Object.assign(flags, das.flags);
+      console.log('DAS scores:', { factorScores, flags });
+    }
+
     // For other tests, we use mean scores
-    // Skip for tests that already calculated their scores above (BDI2, DCI, DES, STAI, EMO)
+    // Skip for tests that already calculated their scores above (BDI2, DCI, DES, STAI, EMO, DAS)
     for (const [factorCode, factorValue] of Object.entries(scoring)) {
       // CRITICAL: Skip if this factor was already calculated by a test-specific block
-      if (isBDI2 || isDCI || isDES || isSTAI || isEMO) {
+      if (isBDI2 || isDCI || isDES || isSTAI || isEMO || isDAS) {
         continue;
       }
       const factorItems = factorValue?.items;

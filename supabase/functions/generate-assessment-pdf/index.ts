@@ -902,6 +902,7 @@ serve(async (req) => {
     const isDES = templateCode === 'DES';
     const isSTAI = templateCode === 'STAI';
     const isYBOCS2 = templateCode === 'YBOCS2';
+    const isDAS = templateCode === 'DAS';
     const flagThreshold = template.flag_threshold || 4;
     const factorOrder = getFactorOrder(templateCode);
 
@@ -932,6 +933,11 @@ serve(async (req) => {
         parts.push(generateSTAIHTML(factorScores));
       }
 
+      // DAS
+      if (isDAS && factorScores['TOTAL'] !== undefined) {
+        parts.push(generateDASHTML(factorScores));
+      }
+
       // YBOCS2
       if (isYBOCS2) {
         parts.push(generateYBOCS2HTML(answers, factorScores));
@@ -952,7 +958,7 @@ serve(async (req) => {
       }
 
       // Generic factor scores table (skip for MMPI2RF which has its own format)
-      if (Object.keys(factorScores).length > 0 && !isMMPI2RF && !isBDI2 && !isDCI && !isDES && !isSTAI && !isYBOCS2) {
+      if (Object.keys(factorScores).length > 0 && !isMMPI2RF && !isBDI2 && !isDCI && !isDES && !isSTAI && !isYBOCS2 && !isDAS) {
         const tableHtml = renderFactorScoresTable(factorScores, factorOrder, FACTOR_LABELS, flagThreshold, isSCL90 ? 'Dimensión' : 'Factor');
         if (tableHtml) {
           parts.push(renderSection(`Puntuaciones por ${isSCL90 ? 'Dimensión' : 'Factor'}`, tableHtml));
@@ -1473,6 +1479,36 @@ function generateSTAIHTML(factorScores: Record<string, number>): string {
         <div class="global-index"><div class="index-value">${aeScore}</div><div class="index-label">Ansiedad Estado (A/E)</div><div class="index-desc">Estado emocional transitorio (0-60)</div></div>
         <div class="global-index"><div class="index-value">${arScore}</div><div class="index-label">Ansiedad Rasgo (A/R)</div><div class="index-desc">Propensión ansiosa estable (0-60)</div></div>
       </div>
+    </div>
+  `;
+}
+
+function generateDASHTML(factorScores: Record<string, number>): string {
+  const scales = [
+    { code: 'CON', label: 'Consenso', max: 65 },
+    { code: 'SAT', label: 'Satisfacción', max: 50 },
+    { code: 'EXP', label: 'Expresión afectiva', max: 12 },
+    { code: 'COH', label: 'Cohesión', max: 24 },
+    { code: 'TOTAL', label: 'Ajuste diádico', max: 151 },
+  ];
+  const cell = 'padding: 6px 8px; border-bottom: 1px solid #e5e7eb;';
+
+  const rows = scales.map(({ code, label, max }) => {
+    const tGen = factorScores[`${code}_T_GEN`];
+    const tClin = factorScores[`${code}_T_CLIN`];
+    const isLow = tGen !== undefined && tGen < 40;
+    const weight = code === 'TOTAL' ? 'font-weight: bold;' : '';
+    return `<tr style="${weight}${isLow ? ' color: #dc2626;' : ''}"><td style="${cell}">${label}</td><td style="${cell} text-align: center;">${factorScores[code] ?? '—'} / ${max}</td><td style="${cell} text-align: center;">${tGen ?? '—'}</td><td style="${cell} text-align: center;">${tClin ?? '—'}</td></tr>`;
+  }).join('');
+
+  return `
+    <div class="section">
+      <h3>Resultado DAS</h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead><tr style="background: #f3f4f6;"><th style="${cell} text-align: left;">Escala</th><th style="${cell}">PD</th><th style="${cell}">T general</th><th style="${cell}">T clínico</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="note" style="margin-top: 12px;">Puntuaciones T (media 50, DT 10) según la hoja de perfil de la adaptación española (TEA Ediciones, 2017). Puntuaciones más altas indican mejor ajuste. En rojo, T general inferior a 40.</p>
     </div>
   `;
 }
