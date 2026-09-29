@@ -166,12 +166,13 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
     setIsSending(true);
     try {
       // First create a notification record, then invoke send-notification with notificationId
-      const { data: session } = await supabase
+      const { data: session, error: sessionError } = await supabase
         .from('sessions')
         .select('patient_id, patient:patients(first_name)')
         .eq('id', sessionId)
         .single();
 
+      if (sessionError) throw sessionError;
       if (!session?.patient_id) throw new Error('No se pudo resolver el contacto de esta sesión');
 
       // El informe ya no viaja en el mensaje: se guarda como foto en
@@ -219,8 +220,10 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
       }
 
       toast.success(`Informe enviado por ${channel === 'whatsapp' ? 'WhatsApp' : 'email'}`);
-    } catch {
-      toast.error('Error al enviar el informe');
+    } catch (error) {
+      console.error('[sendPatientReport]', error);
+      const reason = (error as { message?: string } | null)?.message;
+      toast.error(reason ? `Error al enviar el informe: ${reason}` : 'Error al enviar el informe');
     } finally {
       setIsSending(false);
     }
