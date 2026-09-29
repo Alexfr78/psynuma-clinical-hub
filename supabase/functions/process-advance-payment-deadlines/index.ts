@@ -247,7 +247,7 @@ serve(async (req) => {
         advance_payment_notification_sent_at,
         advance_payment_notification_failed_at,
         advance_payment_notification_error,
-        patient:patients(first_name, last_name, email, phone),
+        patient:patients!sessions_patient_id_fkey(first_name, last_name, email, phone),
         professional:profiles!sessions_professional_id_fkey(first_name, last_name, email, phone),
         center:centers(name, auto_cancel_unpaid_advance_sessions, unpaid_advance_cancellation_alert_threshold),
         location:center_locations(name)

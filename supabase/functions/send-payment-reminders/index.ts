@@ -77,7 +77,7 @@ serve(async (req) => {
           last_payment_reminder_at,
           patient_id,
           professional_id,
-          patient:patients(id, first_name, last_name, email, phone),
+          patient:patients!sessions_patient_id_fkey(id, first_name, last_name, email, phone),
           professional:profiles(id, first_name, last_name, email)
         `)
         .eq('center_id', center.id)

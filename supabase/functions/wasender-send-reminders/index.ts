@@ -156,7 +156,7 @@ async function getSessions(supabase: SupabaseClient, targetTime: Date, reminderT
       start_time,
       session_type,
       professional_id,
-      patient:patients (
+      patient:patients!sessions_patient_id_fkey (
         id,
         first_name,
         last_name,

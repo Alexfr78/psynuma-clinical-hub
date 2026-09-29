@@ -76,7 +76,7 @@ serve(async (req) => {
         id, center_id, professional_id, patient_id, price, session_type,
         session_date, access_token, status, payment_status, stripe_payment_status,
         stripe_checkout_session_id,
-        patient:patients(email, first_name, last_name)
+        patient:patients!sessions_patient_id_fkey(email, first_name, last_name)
       `);
 
     if (publicSessionAccess) {
