@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderDASProfileSvg, dasNormSeries, DAS_PROFILE_PRINT_COLORS } from "../_shared/dasProfileSvg.ts";
+import { DAS_LOW_T } from "../_shared/dasScoring.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
@@ -1496,7 +1498,7 @@ function generateDASHTML(factorScores: Record<string, number>): string {
   const rows = scales.map(({ code, label, max }) => {
     const tGen = factorScores[`${code}_T_GEN`];
     const tClin = factorScores[`${code}_T_CLIN`];
-    const isLow = tGen !== undefined && tGen < 40;
+    const isLow = tGen !== undefined && tGen < DAS_LOW_T;
     const weight = code === 'TOTAL' ? 'font-weight: bold;' : '';
     return `<tr style="${weight}${isLow ? ' color: #dc2626;' : ''}"><td style="${cell}">${label}</td><td style="${cell} text-align: center;">${factorScores[code] ?? '—'} / ${max}</td><td style="${cell} text-align: center;">${tGen ?? '—'}</td><td style="${cell} text-align: center;">${tClin ?? '—'}</td></tr>`;
   }).join('');
@@ -1504,66 +1506,14 @@ function generateDASHTML(factorScores: Record<string, number>): string {
   return `
     <div class="section">
       <h3>Resultado DAS</h3>
-      ${generateDASProfileSVG(factorScores, scales)}
+      <div style="margin-bottom: 16px;">${renderDASProfileSvg(dasNormSeries(factorScores, DAS_PROFILE_PRINT_COLORS))}</div>
       <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
         <thead><tr style="background: #f3f4f6;"><th style="${cell} text-align: left;">Escala</th><th style="${cell}">PD</th><th style="${cell}">T general</th><th style="${cell}">T clínico</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="note" style="margin-top: 12px;">Puntuaciones T (media 50, DT 10) según la hoja de perfil de la adaptación española (TEA Ediciones, 2017). Puntuaciones más altas indican mejor ajuste. En rojo, T general inferior a 40.</p>
+      <p class="note" style="margin-top: 12px;">Puntuaciones T (media 50, DT 10) según la hoja de perfil de la adaptación española (TEA Ediciones, 2017). Puntuaciones más altas indican mejor ajuste. En rojo, T general inferior a 45 (bandas bajo y muy bajo).</p>
     </div>
   `;
-}
-
-// Hoja de perfil del DAS: T de cada escala unida por una línea (general continua,
-// clínico discontinua) con la franja media T 40-60 sombreada.
-function generateDASProfileSVG(
-  factorScores: Record<string, number>,
-  scales: { code: string; label: string }[],
-): string {
-  const width = 640;
-  const height = 280;
-  const left = 36;
-  const right = 16;
-  const top = 20;
-  const bottom = 44;
-  const plotW = width - left - right;
-  const plotH = height - top - bottom;
-  const y = (t: number) => top + ((80 - t) / 60) * plotH;
-  const x = (i: number) => left + (plotW / scales.length) * (i + 0.5);
-
-  const grid = [20, 30, 40, 50, 60, 70, 80].map(t =>
-    `<line x1="${left}" x2="${width - right}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 50 ? '#9ca3af' : '#e5e7eb'}" ${t === 50 ? 'stroke-dasharray="3 3"' : ''}/>` +
-    `<text x="${left - 6}" y="${y(t) + 3}" font-size="10" text-anchor="end" fill="#6b7280">${t}</text>`
-  ).join('');
-
-  const band = `<rect x="${left}" y="${y(60)}" width="${plotW}" height="${y(40) - y(60)}" fill="#f3f4f6"/>`;
-
-  const labels = scales.map((s, i) =>
-    `<text x="${x(i)}" y="${height - bottom + 18}" font-size="10" text-anchor="middle" fill="#374151">${s.label}</text>`
-  ).join('');
-
-  const series = (suffix: string, color: string, dashed: boolean, filled: boolean, withValues: boolean) => {
-    const points = scales
-      .map((s, i) => ({ i, t: factorScores[`${s.code}_${suffix}`] }))
-      .filter(p => p.t !== undefined);
-    const path = points.map(p => `${x(p.i)},${y(p.t)}`).join(' ');
-    const dots = points.map(p =>
-      `<circle cx="${x(p.i)}" cy="${y(p.t)}" r="4" fill="${filled ? color : '#ffffff'}" stroke="${color}" stroke-width="2"/>` +
-      (withValues ? `<text x="${x(p.i)}" y="${y(p.t) - 9}" font-size="10" font-weight="bold" text-anchor="middle" fill="#111827">${p.t}</text>` : '')
-    ).join('');
-    return `<polyline points="${path}" fill="none" stroke="${color}" stroke-width="2" ${dashed ? 'stroke-dasharray="6 4"' : ''}/>${dots}`;
-  };
-
-  const legendY = height - 8;
-  const legend =
-    `<line x1="${left}" x2="${left + 24}" y1="${legendY - 3}" y2="${legendY - 3}" stroke="#1e3a8a" stroke-width="2"/>` +
-    `<text x="${left + 30}" y="${legendY}" font-size="10" fill="#374151">Baremo general</text>` +
-    `<line x1="${left + 130}" x2="${left + 154}" y1="${legendY - 3}" y2="${legendY - 3}" stroke="#6b7280" stroke-width="2" stroke-dasharray="6 4"/>` +
-    `<text x="${left + 160}" y="${legendY}" font-size="10" fill="#374151">Baremo clínico</text>` +
-    `<rect x="${left + 260}" y="${legendY - 9}" width="14" height="10" fill="#f3f4f6" stroke="#e5e7eb"/>` +
-    `<text x="${left + 280}" y="${legendY}" font-size="10" fill="#374151">Rango medio (T 40-60)</text>`;
-
-  return `<svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width: ${width}px; margin-bottom: 12px;" xmlns="http://www.w3.org/2000/svg">${band}${grid}${labels}${series('T_CLIN', '#6b7280', true, false, false)}${series('T_GEN', '#1e3a8a', false, true, true)}${legend}</svg>`;
 }
 
 function generateMMPI2RFSummaryHTML(answers: Record<string, unknown>): string {

@@ -5,10 +5,13 @@ import { Progress } from '@/components/ui/progress';
 import { DAS_SCORING } from '@/data/das-template';
 import { DAS_FACTOR_ORDER } from '@/lib/assessment-utils';
 import { Icon } from '@/components/ui/icon';
-import { DASProfileChart } from './DASProfileChart';
+import { DASProfileSheet } from './DASProfileSheet';
+import { DAS_LOW_T } from '../../../supabase/functions/_shared/dasScoring';
 
 interface DASResultsViewProps {
   factorScores: Record<string, number>;
+  patientId?: string;
+  patientName: string;
 }
 
 const SCALE_MAX: Record<string, number> = { CON: 65, SAT: 50, EXP: 12, COH: 24, TOTAL: 151 };
@@ -21,17 +24,17 @@ const SCALE_INFO: Record<string, { label: string; description: string }> = {
   },
 };
 
-// En el DAS, una T alta indica mejor ajuste de pareja
+// En el DAS, una T alta indica mejor ajuste de pareja. Bandas de la hoja de perfil.
 function getTLevel(t: number): { label: string; className: string } {
-  if (t < 30) return { label: 'Muy bajo', className: 'text-destructive' };
-  if (t < 40) return { label: 'Bajo', className: 'text-orange-600 dark:text-orange-400' };
-  if (t < 60) return { label: 'Medio', className: 'text-muted-foreground' };
-  if (t < 70) return { label: 'Alto', className: 'text-green-700 dark:text-green-400' };
+  if (t < 35) return { label: 'Muy bajo', className: 'text-destructive' };
+  if (t < 45) return { label: 'Bajo', className: 'text-orange-600 dark:text-orange-400' };
+  if (t <= 55) return { label: 'Medio', className: 'text-muted-foreground' };
+  if (t <= 65) return { label: 'Alto', className: 'text-green-700 dark:text-green-400' };
   return { label: 'Muy alto', className: 'text-green-700 dark:text-green-400' };
 }
 
-export function DASResultsView({ factorScores }: DASResultsViewProps) {
-  const lowScales = DAS_FACTOR_ORDER.filter(code => (factorScores[`${code}_T_GEN`] ?? 50) < 40);
+export function DASResultsView({ factorScores, patientId, patientName }: DASResultsViewProps) {
+  const lowScales = DAS_FACTOR_ORDER.filter(code => (factorScores[`${code}_T_GEN`] ?? 50) < DAS_LOW_T);
   const totalTGen = factorScores['TOTAL_T_GEN'];
   const totalTClin = factorScores['TOTAL_T_CLIN'];
 
@@ -39,13 +42,14 @@ export function DASResultsView({ factorScores }: DASResultsViewProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Perfil</CardTitle>
+          <CardTitle className="text-lg">Hoja de perfil</CardTitle>
           <CardDescription>
-            Puntuaciones T por escala. La franja sombreada marca el rango medio (T 40-60).
+            Puntuación directa de cada escala en su columna de baremo y la T que le corresponde.
+            La franja sombreada marca el rango medio (T 45-55).
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DASProfileChart factorScores={factorScores} />
+          <DASProfileSheet factorScores={factorScores} patientId={patientId} patientName={patientName} />
         </CardContent>
       </Card>
 
@@ -54,7 +58,7 @@ export function DASResultsView({ factorScores }: DASResultsViewProps) {
           const raw = factorScores[code] ?? 0;
           const tGen = factorScores[`${code}_T_GEN`];
           const tClin = factorScores[`${code}_T_CLIN`];
-          const isLow = tGen !== undefined && tGen < 40;
+          const isLow = tGen !== undefined && tGen < DAS_LOW_T;
           const level = tGen !== undefined ? getTLevel(tGen) : null;
           const isTotal = code === 'TOTAL';
 
@@ -119,7 +123,7 @@ export function DASResultsView({ factorScores }: DASResultsViewProps) {
               <p className="font-medium text-destructive">Áreas por debajo de lo esperado</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {lowScales.map(code => SCALE_INFO[code].label).join(', ')}: puntuación T general
-                inferior a 40, más de una desviación típica por debajo de la media de la población general.
+                inferior a 45 (bandas bajo o muy bajo de la hoja de perfil, baremo general).
               </p>
             </div>
           ) : (
@@ -128,7 +132,7 @@ export function DASResultsView({ factorScores }: DASResultsViewProps) {
                 Sin escalas por debajo de lo esperado
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Todas las escalas tienen una puntuación T general de 40 o más.
+                Todas las escalas tienen una puntuación T general de 45 o más.
               </p>
             </div>
           )}

@@ -397,7 +397,11 @@ export default function AssessmentResults() {
       ) : isDAS && hasResults ? (
         /* DAS: Use specialized view with T scores */
         <>
-          <DASResultsView factorScores={factorScores} />
+          <DASResultsView
+            factorScores={factorScores}
+            patientId={patient.id}
+            patientName={`${patient.first_name} ${patient.last_name}`.trim()}
+          />
           {/* Detailed answers accordion */}
           <Accordion type="single" collapsible>
             <AccordionItem value="answers">

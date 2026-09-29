@@ -9,6 +9,11 @@ import {
   type DASScale,
 } from '../../../supabase/functions/_shared/dasScoring';
 import { getDASTemplateData } from '@/data/das-template';
+import {
+  renderDASProfileSvg,
+  dasNormSeries,
+  DAS_PROFILE_PRINT_COLORS,
+} from '../../../supabase/functions/_shared/dasProfileSvg';
 
 const SCALES: DASScale[] = ['CON', 'SAT', 'EXP', 'COH', 'TOTAL'];
 const NORMS: DASNorm[] = ['GEN', 'CLIN'];
@@ -85,5 +90,25 @@ describe('DAS plantilla y puntuación', () => {
     expect(factorScores.TOTAL).toBe(0);
     expect(factorScores.TOTAL_T_GEN).toBe(20);
     expect(flags).toEqual({ CON_low: true, SAT_low: true, EXP_low: true, COH_low: true, TOTAL_low: true });
+  });
+});
+
+describe('DAS hoja de perfil', () => {
+  const scores = scoreDAS(
+    Object.fromEntries(getDASTemplateData().items.map(item => [item.index, item.options[1].value])),
+  ).factorScores;
+
+  it('marca una celda por escala y serie, y dibuja una línea por serie', () => {
+    const svg = renderDASProfileSvg(dasNormSeries(scores, DAS_PROFILE_PRINT_COLORS));
+    expect(svg.match(/<polyline/g)).toHaveLength(2);
+    expect(svg.match(/rx="4.5"/g)).toHaveLength(10);
+  });
+
+  it('escapa los nombres de la leyenda', () => {
+    const svg = renderDASProfileSvg([
+      { label: 'Ana <b>&', scores, norm: 'GEN', color: '#000', dash: '2 3' },
+    ]);
+    expect(svg).toContain('Ana &lt;b&gt;&amp;');
+    expect(svg).not.toContain('<b>');
   });
 });

@@ -130,8 +130,8 @@ export function dasTScore(scale: DASScale, norm: DASNorm, raw: number): number |
 }
 
 // En el DAS una T baja indica peor ajuste. Se marca como alerta una T general
-// por debajo de 40 (más de una desviación típica bajo la media).
-export const DAS_LOW_T = 40;
+// en las bandas "bajo" o "muy bajo" de la hoja de perfil (T < 45).
+export const DAS_LOW_T = 45;
 
 export interface DASResult {
   factorScores: Record<string, number>;
