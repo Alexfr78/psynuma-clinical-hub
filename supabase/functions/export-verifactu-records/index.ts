@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalCenterRequest } from "../_shared/fiscalAuth.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 
@@ -268,7 +268,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  let supabase: ReturnType<typeof createClient> | null = null;
+  let supabase: SupabaseClient | null = null;
   let auditContext: {
     userId: string | null;
     userRole: string | null;
