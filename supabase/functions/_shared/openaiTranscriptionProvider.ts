@@ -51,6 +51,27 @@ export async function getAudioChunk(audio: Blob, chunkIndex: number, mimeType: s
   return new Blob([bytes.slice(start, Math.min(start + MAX_CHUNK_SIZE, bytes.byteLength))], { type: mimeType });
 }
 
+const MIME_EXTENSIONS: Record<string, string> = {
+  "audio/webm": ".webm", "video/webm": ".webm",
+  "audio/ogg": ".ogg", "audio/opus": ".ogg",
+  "audio/mp4": ".m4a", "audio/x-m4a": ".m4a", "audio/aac": ".m4a", "video/mp4": ".mp4",
+  "audio/mpeg": ".mp3", "audio/mp3": ".mp3",
+  "audio/wav": ".wav", "audio/x-wav": ".wav", "audio/wave": ".wav",
+  "audio/flac": ".flac", "audio/x-flac": ".flac",
+};
+
+/**
+ * OpenAI decide el formato por la extensión del nombre de archivo. La grabadora web guarda
+ * el audio en `.../audio`, sin extensión: antes se mandaba como `.mp3` siendo WebM, whisper-1
+ * lo toleraba pero los modelos gpt-* lo rechazan. Se prefiere el MIME, que sí es fiable.
+ */
+function resolveAudioExtension(fileName: string, mimeType: string): string {
+  const fromMime = MIME_EXTENSIONS[mimeType];
+  if (fromMime) return fromMime;
+  const base = fileName.toLowerCase().split("/").pop() ?? "";
+  return base.includes(".") ? base.substring(base.lastIndexOf(".")) : ".mp3";
+}
+
 interface StoredResult {
   result: TranscriptionProviderResult;
 }
@@ -82,9 +103,8 @@ export class OpenAITranscriptionProvider implements TranscriptionProvider {
 
   async startTranscription(audio: AudioReference): Promise<TranscriptionProviderJob> {
     const providerJobId = crypto.randomUUID();
-    const fileName = audio.fileName.toLowerCase();
-    const extension = fileName.includes(".") ? fileName.substring(fileName.lastIndexOf(".")) : ".mp3";
-    const mimeType = audio.mimeType || "audio/mpeg";
+    const mimeType = (audio.mimeType || "audio/mpeg").split(";")[0].trim().toLowerCase();
+    const extension = resolveAudioExtension(audio.fileName, mimeType);
 
     try {
       const apiKey = await this.apiKey;
@@ -191,9 +211,11 @@ async function requestTranscription(
     // problemas de cuenta como una espera, no como un intento fallido.
     let openaiCode = "";
     try {
-      const body = await response.json() as { error?: { code?: string; type?: string } };
+      const body = await response.json() as { error?: { code?: string; type?: string; message?: string } };
       openaiCode = body.error?.code || body.error?.type || "";
-    } catch { /* Cuerpo no JSON: se clasifica solo por el estado HTTP. */ }
+      // El mensaje de error de OpenAI describe la petición, no el contenido del audio.
+      console.error(`[openai-stt] ${model} HTTP ${response.status} ${openaiCode}: ${(body.error?.message ?? "").slice(0, 300)}`);
+    } catch { console.error(`[openai-stt] ${model} HTTP ${response.status} (cuerpo no JSON)`); }
     const outOfCredit = openaiCode === "insufficient_quota" || openaiCode === "billing_hard_limit_reached";
     throw providerError(
       outOfCredit ? "insufficient_quota" : response.status === 401 ? "authentication_failed" : "openai_transcription_failed",
