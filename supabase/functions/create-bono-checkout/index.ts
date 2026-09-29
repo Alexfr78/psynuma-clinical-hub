@@ -94,7 +94,7 @@ serve(async (req) => {
         .from('sessions')
         .select(`
           id, center_id, patient_id, professional_id, status, payment_status, stripe_payment_status,
-          patients (id, email, assigned_professional_id)
+          patients!sessions_patient_id_fkey (id, email, assigned_professional_id)
         `)
         .eq('access_token', session_access_token!)
         .single();
