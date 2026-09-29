@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Label } from '@/components/ui/label';
-import { usePatientPartner } from '@/hooks/usePatientRelationships';
-import { usePatientDASResults } from '@/hooks/useDASResults';
+import { usePartnerResultsByCode } from '@/hooks/usePatientResultsByCode';
+import { PartnerResultSelect, NO_PARTNER_RESULT } from './PartnerResultSelect';
 import {
   renderDASProfileSvg,
   dasNormSeries,
@@ -30,8 +27,6 @@ const THEME_COLORS: DASProfileColors = {
   second: 'rgb(234 88 12)',
 };
 
-const NONE = 'none';
-
 interface DASProfileSheetProps {
   factorScores: Record<string, number>;
   patientId?: string;
@@ -44,17 +39,14 @@ interface DASProfileSheetProps {
  * el baremo elegido.
  */
 export function DASProfileSheet({ factorScores, patientId, patientName }: DASProfileSheetProps) {
-  const { data: couple } = usePatientPartner(patientId);
-  const partner = couple?.partner;
-  const { data: partnerResults = [] } = usePatientDASResults(partner?.id);
+  const { partnerName, results: partnerResults } = usePartnerResultsByCode(patientId, 'DAS');
 
   const [compareChoice, setCompareChoice] = useState<string | null>(null);
   const [norm, setNorm] = useState<DASNorm>('GEN');
 
   // Por defecto se superpone el DAS más reciente de la pareja
-  const compareId = compareChoice ?? partnerResults[0]?.assessmentId ?? NONE;
+  const compareId = compareChoice ?? partnerResults[0]?.assessmentId ?? NO_PARTNER_RESULT;
   const partnerResult = partnerResults.find(r => r.assessmentId === compareId);
-  const partnerName = partner ? `${partner.first_name} ${partner.last_name}`.trim() : '';
 
   const series: DASProfileSeries[] = partnerResult
     ? [
@@ -65,27 +57,14 @@ export function DASProfileSheet({ factorScores, patientId, patientName }: DASPro
 
   return (
     <div className="space-y-4">
-      {partner && partnerResults.length > 0 && (
+      {partnerResults.length > 0 && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="space-y-1.5 sm:w-72">
-            <Label className="text-xs text-muted-foreground">Superponer con la pareja</Label>
-            <Select value={compareId} onValueChange={setCompareChoice}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>No superponer</SelectItem>
-                {partnerResults.map(result => (
-                  <SelectItem key={result.assessmentId} value={result.assessmentId}>
-                    {partnerName}
-                    {result.completedAt
-                      ? ` · ${format(new Date(result.completedAt), 'd MMM yyyy', { locale: es })}`
-                      : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <PartnerResultSelect
+            partnerName={partnerName}
+            results={partnerResults}
+            value={compareId}
+            onChange={setCompareChoice}
+          />
           {partnerResult && (
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Baremo</Label>

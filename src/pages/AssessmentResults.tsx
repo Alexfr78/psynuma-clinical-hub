@@ -17,6 +17,7 @@ import { MMPI2RFResultsView } from '@/components/assessments/MMPI2RFResultsView'
 import { BDI2ResultsView } from '@/components/assessments/BDI2ResultsView';
 import { DCIResultsView } from '@/components/assessments/DCIResultsView';
 import { DASResultsView } from '@/components/assessments/DASResultsView';
+import { EASResultsView } from '@/components/assessments/EASResultsView';
 import { DESResultsView, type AIAnalysis } from '@/components/assessments/DESResultsView';
 import { STAIResultsView } from '@/components/assessments/STAIResultsView';
 import { EMOResultsView, type EMOInterpretation } from '@/components/assessments/EMOResultsView';
@@ -125,6 +126,7 @@ export default function AssessmentResults() {
   const isBDI2 = templateCode === 'BDI2';
   const isDCI = templateCode === 'DCI';
   const isDAS = templateCode === 'DAS';
+  const isEAS = templateCode === 'EAS';
   const isDES = templateCode === 'DES';
   const isSTAI = templateCode === 'STAI';
   const isEMO = templateCode === 'EMO';
@@ -434,6 +436,46 @@ export default function AssessmentResults() {
                               </p>
                             )}
                           </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </>
+      ) : isEAS && hasResults ? (
+        /* EAS: Sternberg triangle, overlayable with the partner */
+        <>
+          <EASResultsView
+            factorScores={factorScores}
+            patientId={patient.id}
+            patientName={`${patient.first_name} ${patient.last_name}`.trim()}
+          />
+          {/* Detailed answers accordion */}
+          <Accordion type="single" collapsible>
+            <AccordionItem value="answers">
+              <AccordionTrigger className="text-lg font-semibold">
+                Ver respuestas detalladas ({Object.keys(answers).length} ítems)
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid gap-2 pt-2">
+                  {template.items
+                    .sort((a, b) => a.index - b.index)
+                    .map(item => {
+                      const answer = answers[item.index.toString()];
+                      return (
+                        <div
+                          key={item.index}
+                          className="flex justify-between items-start py-2 border-b last:border-b-0 gap-4"
+                        >
+                          <span className="text-sm flex-1">
+                            <span className="font-medium mr-2">{item.index}.</span>
+                            {item.text}
+                          </span>
+                          <Badge variant="outline" className="shrink-0 font-mono">
+                            {answer !== undefined ? answer : '—'}
+                          </Badge>
                         </div>
                       );
                     })}

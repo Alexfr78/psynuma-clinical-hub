@@ -9,6 +9,7 @@ import { getPAITemplateData } from '@/data/pai-template';
 import { getBDI2TemplateData } from '@/data/bdi2-template';
 import { getDCITemplateData } from '@/data/dci-template';
 import { getDASTemplateData } from '@/data/das-template';
+import { getEASTemplateData } from '@/data/eas-template';
 import { getDESTemplateData } from '@/data/des-template';
 import { getSTAITemplateData } from '@/data/stai-template';
 import { getEMOTemplateData } from '@/data/emo-template';
@@ -45,6 +46,14 @@ const PREDEFINED_TEMPLATES = [
     items: 32,
     time: '10-15 min',
     getData: getDASTemplateData,
+  },
+  {
+    id: 'EAS',
+    name: 'EAS - Escala del amor de Sternberg',
+    description: 'Escala del modelo triangular del amor: intimidad, pasión y compromiso en la relación de pareja. Representación en triángulo, superponible con la pareja.',
+    items: 45,
+    time: '10-15 min',
+    getData: getEASTemplateData,
   },
   {
     id: 'DES',

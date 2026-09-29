@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage } from "../_shared/adminAlerts.ts";
 import { scoreDAS } from "../_shared/dasScoring.ts";
+import { scoreEAS } from "../_shared/easScoring.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -148,6 +149,7 @@ serve(async (req) => {
     const isSTAI = template.code === 'STAI';
     const isEMO = template.code === 'EMO';
     const isDAS = template.code === 'DAS';
+    const isEAS = template.code === 'EAS';
 
     console.log(
       `Processing ${template.code} assessment with response range ${responseMin}-${responseMax} (items=${items.length}, scales=${Object.keys(scoring).length})`
@@ -546,11 +548,18 @@ serve(async (req) => {
       console.log('DAS scores:', { factorScores, flags });
     }
 
+    // ===== EAS SCORING =====
+    // Sternberg: sum of the 15 items of each component (15-135) and total. No norms.
+    if (isEAS) {
+      Object.assign(factorScores, scoreEAS(answersRecord).factorScores);
+      console.log('EAS scores:', factorScores);
+    }
+
     // For other tests, we use mean scores
-    // Skip for tests that already calculated their scores above (BDI2, DCI, DES, STAI, EMO, DAS)
+    // Skip for tests that already calculated their scores above (BDI2, DCI, DES, STAI, EMO, DAS, EAS)
     for (const [factorCode, factorValue] of Object.entries(scoring)) {
       // CRITICAL: Skip if this factor was already calculated by a test-specific block
-      if (isBDI2 || isDCI || isDES || isSTAI || isEMO || isDAS) {
+      if (isBDI2 || isDCI || isDES || isSTAI || isEMO || isDAS || isEAS) {
         continue;
       }
       const factorItems = factorValue?.items;

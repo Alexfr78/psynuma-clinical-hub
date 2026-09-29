@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { renderDASProfileSvg, dasNormSeries, DAS_PROFILE_PRINT_COLORS } from "../_shared/dasProfileSvg.ts";
 import { DAS_LOW_T } from "../_shared/dasScoring.ts";
+import { renderEASTriangleSvg, EAS_TRIANGLE_PRINT_COLORS } from "../_shared/easTriangleSvg.ts";
+import { easAnchorLabel } from "../_shared/easScoring.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { hasAuthenticatedJWT, unauthorizedResponse } from "../_shared/authGuard.ts";
@@ -905,6 +907,7 @@ serve(async (req) => {
     const isSTAI = templateCode === 'STAI';
     const isYBOCS2 = templateCode === 'YBOCS2';
     const isDAS = templateCode === 'DAS';
+    const isEAS = templateCode === 'EAS';
     const flagThreshold = template.flag_threshold || 4;
     const factorOrder = getFactorOrder(templateCode);
 
@@ -940,6 +943,11 @@ serve(async (req) => {
         parts.push(generateDASHTML(factorScores));
       }
 
+      // EAS
+      if (isEAS && factorScores['TOTAL'] !== undefined) {
+        parts.push(generateEASHTML(factorScores));
+      }
+
       // YBOCS2
       if (isYBOCS2) {
         parts.push(generateYBOCS2HTML(answers, factorScores));
@@ -960,7 +968,7 @@ serve(async (req) => {
       }
 
       // Generic factor scores table (skip for MMPI2RF which has its own format)
-      if (Object.keys(factorScores).length > 0 && !isMMPI2RF && !isBDI2 && !isDCI && !isDES && !isSTAI && !isYBOCS2 && !isDAS) {
+      if (Object.keys(factorScores).length > 0 && !isMMPI2RF && !isBDI2 && !isDCI && !isDES && !isSTAI && !isYBOCS2 && !isDAS && !isEAS) {
         const tableHtml = renderFactorScoresTable(factorScores, factorOrder, FACTOR_LABELS, flagThreshold, isSCL90 ? 'Dimensión' : 'Factor');
         if (tableHtml) {
           parts.push(renderSection(`Puntuaciones por ${isSCL90 ? 'Dimensión' : 'Factor'}`, tableHtml));
@@ -1512,6 +1520,32 @@ function generateDASHTML(factorScores: Record<string, number>): string {
         <tbody>${rows}</tbody>
       </table>
       <p class="note" style="margin-top: 12px;">Puntuaciones T (media 50, DT 10) según la hoja de perfil de la adaptación española (TEA Ediciones, 2017). Puntuaciones más altas indican mejor ajuste. En rojo, T general inferior a 45 (bandas bajo y muy bajo).</p>
+    </div>
+  `;
+}
+
+function generateEASHTML(factorScores: Record<string, number>): string {
+  const components = [
+    { code: 'INT', label: 'Intimidad' },
+    { code: 'PAS', label: 'Pasión' },
+    { code: 'COM', label: 'Compromiso' },
+  ];
+  const cell = 'padding: 6px 8px; border-bottom: 1px solid #e5e7eb;';
+  const rows = components.map(({ code, label }) => {
+    const score = factorScores[code] ?? 0;
+    const mean = score / 15;
+    return `<tr><td style="${cell}">${label}</td><td style="${cell} text-align: center;">${score} / 135</td><td style="${cell} text-align: center;">${mean.toFixed(1).replace('.', ',')}</td><td style="${cell} text-align: center;">${easAnchorLabel(mean)}</td></tr>`;
+  }).join('');
+
+  return `
+    <div class="section">
+      <h3>Resultado EAS - Triángulo del amor</h3>
+      <div style="margin-bottom: 16px;">${renderEASTriangleSvg([{ label: 'Puntuaciones', scores: factorScores, color: EAS_TRIANGLE_PRINT_COLORS.first, dash: '' }], EAS_TRIANGLE_PRINT_COLORS)}</div>
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead><tr style="background: #f3f4f6;"><th style="${cell} text-align: left;">Componente</th><th style="${cell}">Puntuación</th><th style="${cell}">Media por ítem</th><th style="${cell}">Nivel</th></tr></thead>
+        <tbody>${rows}<tr style="font-weight: bold;"><td style="${cell}">Total</td><td style="${cell} text-align: center;">${factorScores['TOTAL'] ?? 0} / 405</td><td style="${cell}"></td><td style="${cell}"></td></tr></tbody>
+      </table>
+      <p class="note" style="margin-top: 12px;">Cada componente suma 15 ítems puntuados de 1 a 9 (15-135). Sin baremos: el nivel es el ancla de la escala más cercana a la media por ítem (1 en absoluto, 3 algo, 5 moderadamente, 7 bastante, 9 extremadamente). Sternberg (1997), adaptación.</p>
     </div>
   `;
 }

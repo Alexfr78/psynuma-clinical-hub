@@ -36,6 +36,9 @@ export const DES_FACTOR_ORDER = ['TOTAL', 'DES_A', 'DES_D', 'DES_I', 'DES_T'];
 // ===== DAS SPECIFIC =====
 export const DAS_FACTOR_ORDER = ['CON', 'SAT', 'EXP', 'COH', 'TOTAL'];
 
+// ===== EAS SPECIFIC =====
+export const EAS_FACTOR_ORDER = ['INT', 'PAS', 'COM', 'TOTAL'];
+
 // ===== BDI-II SPECIFIC =====
 export const BDI2_CUTOFFS = [
   { min: 0, max: 13, level: 'minima', label: 'Depresión Mínima', color: 'green' },
@@ -332,6 +335,9 @@ export function getFactorOrder(templateCode: string): string[] {
   }
   if (templateCode === 'DAS') {
     return DAS_FACTOR_ORDER;
+  }
+  if (templateCode === 'EAS') {
+    return EAS_FACTOR_ORDER;
   }
   if (templateCode === 'EMO') {
     return EMO_FACTOR_ORDER;
