@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
+import { resolveCaller, canActOnCenter, callerErrorResponse } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,9 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
 
     const { 
       debt_id, 
@@ -55,6 +59,10 @@ serve(async (req) => {
         JSON.stringify({ error: 'Deuda no encontrada' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    if (!canActOnCenter(caller, debt.center_id)) {
+      return callerErrorResponse(403, corsHeaders);
     }
 
     // Get center info with public_domain

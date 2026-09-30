@@ -4,6 +4,7 @@ import { decryptSecret } from "../_shared/crypto.ts";
 import { checkPatientConsent, type ConsentDenialReason } from "../_shared/consent.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { isWhatsAppOptedOut, normalizeWhatsAppPhone } from "../_shared/whatsapp-reply-intent.ts";
+import { resolveCaller, canActOnCenter, callerErrorResponse } from "../_shared/requireCaller.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL"); // e.g., "noreply@tudominio.com"
@@ -609,7 +610,16 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Llaman el frontend (JWT del profesional) y otras edge functions (service role).
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+
     const { notificationId, processScheduled, templateParams } = await req.json() as NotificationRequest;
+
+    // Procesar la cola recorre todos los centros: solo para llamadas internas.
+    if (processScheduled && !notificationId && caller.kind !== "service") {
+      return callerErrorResponse(403, corsHeaders);
+    }
 
     console.log(`[send-notification] Request received:`, { notificationId, processScheduled });
 
@@ -625,6 +635,9 @@ serve(async (req) => {
       if (error) {
         console.error(`[send-notification] Error fetching notification ${notificationId}:`, error);
         throw error;
+      }
+      if (!canActOnCenter(caller, data.center_id)) {
+        return callerErrorResponse(403, corsHeaders);
       }
       notifications = [data];
       console.log(`[send-notification] Processing notification:`, {

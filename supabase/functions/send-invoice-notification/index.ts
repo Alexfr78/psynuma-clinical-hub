@@ -3,6 +3,7 @@ import { Resend } from 'https://esm.sh/resend@2.0.0';
 import { decryptSecret } from "../_shared/crypto.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 import { isWhatsAppOptedOut } from "../_shared/whatsapp-reply-intent.ts";
+import { resolveCaller, canActOnCenter, callerErrorResponse } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -367,6 +368,11 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Solo un profesional del centro (o la service role) puede enviar una factura: el
+    // destinatario llega en el cuerpo, así que sin esto cualquiera podía enviarla a donde quisiera.
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+
     const body: RequestBody = await req.json();
     const { invoiceId, patientId, patientEmail, patientPhone, channel } = body;
     const bonoContext = body.bonoContext ?? null;
@@ -399,6 +405,10 @@ Deno.serve(async (req) => {
     if (invoiceError || !invoice) {
       console.error('Error fetching invoice:', invoiceError);
       throw new Error('Invoice not found');
+    }
+
+    if (!canActOnCenter(caller, invoice.center_id)) {
+      return callerErrorResponse(403, corsHeaders);
     }
 
     const patient = invoice.patients;
