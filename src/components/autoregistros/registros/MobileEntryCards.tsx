@@ -6,6 +6,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
+import { usePagination } from '@/hooks/usePagination';
+import { ListPagination } from '@/components/ListPagination';
 import type { FieldDisplayMeta } from '@/lib/autoregistro-field-display';
 import { formatFieldForDisplay } from '@/lib/autoregistro-field-display';
 import { Icon } from '@/components/ui/icon';
@@ -15,6 +17,7 @@ interface MobileEntryCardsProps {
   visibleFields: FieldDisplayMeta[];
   allFields: FieldDisplayMeta[];
   onViewDetail: (entry: AutoregistroEntry) => void;
+  paginationResetKey?: string;
 }
 
 function MobileFieldValue({ meta, value }: { meta: FieldDisplayMeta; value: unknown }) {
@@ -153,10 +156,14 @@ export function MobileEntryCards({
   visibleFields,
   allFields,
   onViewDetail,
+  paginationResetKey = '',
 }: MobileEntryCardsProps) {
+  const pagination = usePagination('autoregistro-entries', [paginationResetKey]);
+  const pageEntries = entries.slice(pagination.from, pagination.to + 1);
+
   return (
     <div className="space-y-2">
-      {entries.map((entry) => (
+      {pageEntries.map((entry) => (
         <EntryCard
           key={entry.id}
           entry={entry}
@@ -165,6 +172,14 @@ export function MobileEntryCards({
           onViewDetail={onViewDetail}
         />
       ))}
+      <ListPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={entries.length}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+        itemLabel={['registro', 'registros']}
+      />
     </div>
   );
 }

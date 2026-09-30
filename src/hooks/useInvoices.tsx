@@ -1,4 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { listSearchPattern } from '@/lib/list-search';
+import { fetchAllRows } from '@/lib/fetch-all-rows';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { type Center } from './useCenter';
@@ -131,6 +133,83 @@ type SessionInvoiceSummary = {
   issue_date: string;
 };
 
+export interface InvoiceListFilters {
+  patientId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  sortBy?: InvoiceSortField;
+  sortDirection?: SortDirection;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyInvoiceFilters<Q extends { eq: any; gte: any; lte: any; in: any }>(query: Q, filters?: InvoiceListFilters): Q {
+  if (filters?.patientId) query = query.eq('patient_id', filters.patientId);
+  if (filters?.startDate) query = query.gte('issue_date', filters.startDate);
+  if (filters?.endDate) query = query.lte('issue_date', filters.endDate);
+  if (filters?.status === 'verifactu_pending') query = query.eq('verifactu_pending', true);
+  else if (filters?.status) query = query.eq('status', filters.status as Invoice['status']);
+  return query;
+}
+
+function invoicesListQuery(filters: InvoiceListFilters, head = false) {
+  let query = supabase.from('invoices').select('*, patients (id, first_name, last_name, tax_id, address, city, postal_code, email, phone)', { count: 'exact', head });
+  query = applyInvoiceFilters(query, filters);
+  if (filters.search?.trim()) query = query.filter('search_text', 'ilike', listSearchPattern(filters.search));
+  return query.order(filters.sortBy || 'invoice_number', { ascending: filters.sortDirection === 'asc' }).order('id', { ascending: true });
+}
+
+export function useInvoicesPage(filters: InvoiceListFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['invoices', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const { data, count, error } = await invoicesListQuery(filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as unknown as InvoiceWithPatient[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
+async function fetchInvoicesList(filters: InvoiceListFilters) {
+  const rows: InvoiceWithPatient[] = [];
+  for (let from = 0; ; from += 500) {
+    const { data, error } = await invoicesListQuery(filters).range(from, from + 499);
+    if (error) throw error;
+    rows.push(...(data ?? []) as unknown as InvoiceWithPatient[]);
+    if (!data || data.length < 500) return rows;
+  }
+}
+
+export function useInvoicesAnalytics(filters: InvoiceListFilters) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['invoices', 'analytics', filters, profile?.center_id],
+    queryFn: () => fetchInvoicesList(filters),
+    enabled: !!profile?.center_id,
+  });
+}
+
+export function useInvoiceOrphanCount(filters: InvoiceListFilters) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['invoices', 'orphan-count', filters, profile?.center_id],
+    queryFn: async () => {
+      const { count, error } = await invoicesListQuery(filters, true)
+        .in('status', ['issued', 'paid'])
+        .or('verifactu_registration_id.is.null,verifactu_registration_id.eq.""')
+        .or('verifactu_pending.is.null,verifactu_pending.eq.false')
+        .or('invoice_number.is.null,invoice_number.not.like.BORRADOR-*');
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
 export function useInvoices(filters?: { 
   patientId?: string; 
   status?: string; 
@@ -155,23 +234,7 @@ export function useInvoices(filters?: {
         `)
         .order(sortField, { ascending: sortAsc });
 
-      if (filters?.patientId) {
-        query = query.eq('patient_id', filters.patientId);
-      }
-      
-      // Special filter for verifactu pending invoices
-      if (filters?.status === 'verifactu_pending') {
-        query = query.eq('verifactu_pending', true);
-      } else if (filters?.status) {
-        query = query.eq('status', filters.status as 'draft' | 'issued' | 'paid' | 'cancelled');
-      }
-      
-      if (filters?.startDate) {
-        query = query.gte('issue_date', filters.startDate);
-      }
-      if (filters?.endDate) {
-        query = query.lte('issue_date', filters.endDate);
-      }
+      query = applyInvoiceFilters(query, filters);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -623,13 +686,14 @@ export function useInvoiceStats() {
       const startOfMonth = fmt(new Date(y, m, 1));
       const endOfMonth = fmt(new Date(y, m + 1, 0));
 
-      const { data, error } = await supabase
+      // Por tramos: con más de 1.000 facturas en el mes, los totales salían cortos sin avisar.
+      const data = await fetchAllRows((from, to) => supabase
         .from('invoices')
         .select('total, status, retention_amount')
         .gte('issue_date', startOfMonth)
-        .lte('issue_date', endOfMonth);
-
-      if (error) throw error;
+        .lte('issue_date', endOfMonth)
+        .order('id', { ascending: true })
+        .range(from, to));
 
       const effective = data.filter(
         (inv) => inv.status === 'issued' || inv.status === 'paid'

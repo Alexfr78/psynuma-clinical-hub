@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react';
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
+import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useDebts, useDebtStats, useDeleteDebt, DebtWithRelations } from '@/hooks/useDebts';
-import { usePayments, usePaymentStats, useDeletePayment, PaymentWithRelations } from '@/hooks/usePayments';
+import { useDebtsPage, useDebtStats, useDeleteDebt, DebtWithRelations } from '@/hooks/useDebts';
+import { usePaymentsPage, usePaymentStats, useDeletePayment, PaymentWithRelations } from '@/hooks/usePayments';
 import { DebtCard } from '@/components/payments/DebtCard';
 import { PaymentHistoryTable } from '@/components/payments/PaymentHistoryTable';
 import { RecordPaymentDialog } from '@/components/payments/RecordPaymentDialog';
@@ -27,7 +29,6 @@ import { LinkPaymentToInvoiceDialog } from '@/components/payments/LinkPaymentToI
 import { CancellationChargesPanel } from '@/components/payments/CancellationChargesPanel';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { useCancellationCharges } from '@/hooks/useCancellationCharges';
-import { format } from 'date-fns';
 import { Icon } from '@/components/ui/icon';
 
 type InvoicePatient = {
@@ -69,54 +70,18 @@ export default function Payments() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: debts, isLoading: debtsLoading } = useDebts();
-  const { data: payments, isLoading: paymentsLoading } = usePayments();
+  const debtsPagination = usePagination('payments-debts', [searchQuery]);
+  const paymentsPagination = usePagination('payments-payments', [searchQuery]);
+  const { data: debtsPage, isLoading: debtsLoading, isFetching: debtsFetching } = useDebtsPage({ search: searchQuery }, debtsPagination);
+  const { data: paymentsPage, isLoading: paymentsLoading, isFetching: paymentsFetching } = usePaymentsPage({ search: searchQuery }, paymentsPagination);
+  const filteredDebts = debtsPage?.rows ?? [];
+  const filteredPayments = paymentsPage?.rows ?? [];
   const { data: cancellationCharges } = useCancellationCharges();
   const { data: debtStats } = useDebtStats();
   const { data: paymentStats } = usePaymentStats();
   const deletePayment = useDeletePayment();
   const deleteDebt = useDeleteDebt();
   
-  // Filter debts by patient name or invoice number
-  const filteredDebts = useMemo(() => {
-    if (!debts) return [];
-    if (!searchQuery.trim()) return debts;
-    
-    const query = searchQuery.toLowerCase().trim();
-    return debts.filter(debt => {
-      const firstName = debt.patients?.first_name?.toLowerCase() || '';
-      const lastName = debt.patients?.last_name?.toLowerCase() || '';
-      const patientName = `${firstName} ${lastName}`.trim();
-      const invoiceNumber = debt.invoices?.invoice_number?.toLowerCase() || '';
-      const createdDate = debt.created_at ? format(new Date(debt.created_at), 'dd/MM/yyyy') : '';
-      
-      return patientName.includes(query) || 
-             invoiceNumber.includes(query) ||
-             createdDate.includes(query);
-    });
-  }, [debts, searchQuery]);
-  
-  // Filter payments by patient name, reference, or date
-  const filteredPayments = useMemo(() => {
-    if (!payments) return [];
-    if (!searchQuery.trim()) return payments;
-    
-    const query = searchQuery.toLowerCase().trim();
-    return payments.filter(payment => {
-      const firstName = payment.patients?.first_name?.toLowerCase() || '';
-      const lastName = payment.patients?.last_name?.toLowerCase() || '';
-      const patientName = `${firstName} ${lastName}`.trim();
-      const reference = payment.reference?.toLowerCase() || '';
-      const invoiceNumber = payment.invoices?.invoice_number?.toLowerCase() || '';
-      const paymentDate = payment.payment_date ? format(new Date(payment.payment_date), 'dd/MM/yyyy') : '';
-      
-      return patientName.includes(query) || 
-             reference.includes(query) ||
-             invoiceNumber.includes(query) ||
-             paymentDate.includes(query);
-    });
-  }, [payments, searchQuery]);
-
   const handleRecordPayment = (debtInfo: {
     debtId: string;
     patientId: string;
@@ -274,6 +239,9 @@ export default function Payments() {
               ))}
             </div>
           )}
+          <ListPagination page={debtsPagination.page} pageSize={debtsPagination.pageSize} total={debtsPage?.total ?? 0}
+            onPageChange={debtsPagination.setPage} onPageSizeChange={debtsPagination.setPageSize}
+            itemLabel={['deuda', 'deudas']} isFetching={debtsFetching} />
         </TabsContent>
 
         <TabsContent value="history" className="mt-0">
@@ -296,6 +264,9 @@ export default function Payments() {
               }}
             />
           )}
+          <ListPagination page={paymentsPagination.page} pageSize={paymentsPagination.pageSize} total={paymentsPage?.total ?? 0}
+            onPageChange={paymentsPagination.setPage} onPageSizeChange={paymentsPagination.setPageSize}
+            itemLabel={['pago', 'pagos']} isFetching={paymentsFetching} />
         </TabsContent>
 
         <TabsContent value="cancellations" className="mt-0">

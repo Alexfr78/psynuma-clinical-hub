@@ -47,6 +47,11 @@ import { useSessionsPage, fetchSessionList } from '../useSessions';
 import { useRecordingsPage } from '../useRecordings';
 import { useAuditLogsPage, useAuditAnomalyCount } from '../useAuditLogs';
 
+import { useInvoices, useInvoicesPage, useInvoicesAnalytics, useInvoiceStats, useInvoiceOrphanCount } from '../useInvoices';
+import { usePayments, usePaymentsPage, usePaymentsAnalytics, usePaymentStats } from '../usePayments';
+import { useDebts, useDebtsPage } from '../useDebts';
+import { useVerifactuEventsPage, useVerifactuEventStats, fetchVerifactuEventList } from '../useVerifactuEvents';
+
 interface QueryOptions {
   queryKey: unknown[];
   queryFn: () => Promise<unknown>;
@@ -66,6 +71,10 @@ beforeEach(() => {
 
 describe('consultas paginadas', () => {
   it.each([
+    ['invoices', () => useInvoicesPage({}, range), 'invoice_number.desc,id.asc'],
+    ['debts', () => useDebtsPage({}, range), 'created_at.desc,id.asc'],
+    ['payments', () => usePaymentsPage({}, range), 'payment_date.desc,id.asc'],
+    ['verifactu-events', () => useVerifactuEventsPage({}, range), 'created_at.desc,id.asc'],
     ['expenses', () => useExpensesPage({}, range), 'expense_date.desc,id.asc'],
     ['bonos', () => useBonosPage({}, range), 'created_at.desc,id.asc'],
     ['notifications', () => useNotificationsPage({}, range), 'created_at.desc,id.asc'],
@@ -192,5 +201,101 @@ describe('consultas paginadas', () => {
     expect(params().get('p_limit')).toBe('2147483647');
     expect(params().get('p_anomalous_only')).toBe('true');
     expect(state.requests.at(-1)!.init.method).toBe('HEAD');
+  });
+});
+
+describe('busqueda calculada y conjuntos completos', () => {
+  it.each([
+    ['invoices', useInvoicesPage],
+    ['debts', useDebtsPage],
+    ['payments', usePaymentsPage],
+    ['verifactu-events', useVerifactuEventsPage],
+  ])('%s busca el termino completo y neutraliza caracteres especiales', async (_key, hook) => {
+    await options(hook({ search: '  Ana Garcia  ' }, range)).queryFn();
+    expect(params().get('search_text')).toBe('ilike.*Ana Garcia*');
+    await options(hook({ search: '  Ana*%_,("test")  ' }, range)).queryFn();
+    expect(params().get('search_text')).toBe('ilike.*Ana,("test")*');
+    expect(params().has('or')).toBe(false);
+    expect(params().get('offset')).toBe('1000');
+    expect(params().get('limit')).toBe('10');
+    expect(new Headers(state.requests.at(-1)!.init.headers).get('prefer')).toContain('count=exact');
+    await options(hook({ search: '*%_' }, range)).queryFn();
+    expect(params().get('search_text')).toBe('ilike.');
+    await options(hook({ search: '   ' }, range)).queryFn();
+    expect(params().has('search_text')).toBe(false);
+    await options(hook({ search: String.raw`a\b` }, range)).queryFn();
+    expect(params().get('search_text')).toBe(String.raw`ilike.*a\\b*`);
+  });
+
+  it('comparte filtros de facturas y mantiene las pesta?as y el orden', async () => {
+    const filters = { patientId: 'p', startDate: '2026-09-01', endDate: '2026-09-30', status: 'paid', sortBy: 'issue_date' as const, sortDirection: 'asc' as const };
+    await options(useInvoices(filters)).queryFn();
+    const oldParams = new URLSearchParams(params());
+    expect(oldParams.has('limit')).toBe(false);
+    await options(useInvoicesPage(filters, range)).queryFn();
+    for (const [key, value] of oldParams) if (key !== 'order' && key !== 'select') expect(params().getAll(key)).toContain(value);
+    expect(params().get('order')).toBe('issue_date.asc,id.asc');
+    await options(useInvoicesPage({ status: 'verifactu_pending' }, range)).queryFn();
+    expect(params().get('verifactu_pending')).toBe('eq.true');
+    expect(params().has('status')).toBe(false);
+    await options(useInvoiceOrphanCount(filters)).queryFn();
+    expect(state.requests.at(-1)!.init.method).toBe('HEAD');
+    expect(params().getAll('status')).toEqual(['eq.paid', 'in.(issued,paid)']);
+    expect(params().getAll('or')).toEqual([
+      '(verifactu_registration_id.is.null,verifactu_registration_id.eq."")',
+      '(verifactu_pending.is.null,verifactu_pending.eq.false)',
+      '(invoice_number.is.null,invoice_number.not.like.BORRADOR-*)',
+    ]);
+    expect(params().has('limit')).toBe(false);
+  });
+
+  it('excluye facturas invalidadas o canceladas sin perder deudas sin factura', async () => {
+    await options(useDebtsPage({}, range)).queryFn();
+    expect(params().get('select')).toContain('excluded_invoice:invoices()');
+    expect(params().get('excluded_invoice.or')).toBe('(is_valid.eq.false,status.eq.cancelled)');
+    expect(params().get('excluded_invoice')).toBe('is.null');
+    expect(params().get('status')).toBe('in.(pending,partial)');
+    await options(useDebtsPage({ patientId: 'p', status: 'paid' }, range)).queryFn();
+    expect(params().get('patient_id')).toBe('eq.p');
+    expect(params().get('status')).toBe('eq.paid');
+    await options(useDebts()).queryFn();
+    expect(params().has('limit')).toBe(false);
+  });
+
+  it('mantiene filtros de pagos sin paginar el hook compartido', async () => {
+    const filters = { patientId: 'p', startDate: '2026-09-01', endDate: '2026-09-30' };
+    await options(usePayments(filters)).queryFn();
+    const oldParams = new URLSearchParams(params());
+    expect(oldParams.has('limit')).toBe(false);
+    await options(usePaymentsPage(filters, range)).queryFn();
+    for (const [key, value] of oldParams) if (key !== 'order' && key !== 'select') expect(params().getAll(key)).toContain(value);
+  });
+
+  it('cuenta todos los eventos con los mismos filtros y conserva las exportaciones completas', async () => {
+    const filters = { eventType: 'error', search: 'invoice', startDate: new Date('2026-09-01T12:00:00Z'), endDate: new Date('2026-09-30T12:00:00Z') };
+    expect(await options(useVerifactuEventStats(filters)).queryFn()).toEqual({ total: 1234, today: 1234, rfGenerated: 1234, errors: 1234 });
+    expect(state.requests).toHaveLength(4);
+    for (const request of state.requests) {
+      expect(request.init.method).toBe('HEAD');
+      expect(request.url.searchParams.get('center_id')).toBe('eq.center');
+      expect(request.url.searchParams.get('search_text')).toBe('ilike.*invoice*');
+      expect(request.url.searchParams.getAll('event_type')).toContain('eq.error');
+      expect(request.url.searchParams.getAll('created_at').length).toBeGreaterThanOrEqual(2);
+      expect(request.url.searchParams.has('limit')).toBe(false);
+    }
+    state.requests = [];
+    state.allRows = true;
+    state.rows = Array.from({ length: 1003 }, (_, id) => ({ id: String(id) }));
+    expect(await fetchVerifactuEventList(filters, 'center')).toHaveLength(1003);
+    expect(state.requests.map(r => r.url.searchParams.get('offset'))).toEqual(['0', '500', '1000']);
+  });
+
+  it('graficos y estadisticas financieras incluyen mas de 1000 filas', async () => {
+    state.allRows = true;
+    state.rows = Array.from({ length: 1003 }, (_, id) => ({ id: String(id), total: 25, amount: 25, status: 'paid', refunded_amount: 0, retention_amount: 0, payment_method: 'cash' }));
+    expect(await options(useInvoicesAnalytics({})).queryFn()).toHaveLength(1003);
+    expect(await options(usePaymentsAnalytics({})).queryFn()).toHaveLength(1003);
+    expect(await options(useInvoiceStats()).queryFn()).toMatchObject({ count: 1003, totalPaid: 25075 });
+    expect(await options(usePaymentStats()).queryFn()).toMatchObject({ grossCount: 1003, grossAmount: 25075 });
   });
 });

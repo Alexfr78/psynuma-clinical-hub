@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import type { AutoregistroField } from './useAutoregistroTemplates';
+import { fetchAllRows, fetchInChunks } from '@/lib/fetch-all-rows';
 
 export interface AutoregistroEntry {
   id: string;
@@ -24,15 +25,20 @@ export function useAutoregistroEntries(opts?: { patientId?: string; templateId?:
   return useQuery({
     queryKey: ['autoregistro-entries', centerId, opts?.patientId, opts?.templateId],
     queryFn: async () => {
-      let q = supabase
-        .from('autoregistro_entries')
-        .select('*, template:autoregistro_templates(name, fields), patient:patients(first_name, last_name)')
-        .eq('center_id', centerId!)
-        .order('submitted_at', { ascending: false });
-      if (opts?.patientId) q = q.eq('patient_id', opts.patientId);
-      if (opts?.templateId) q = q.eq('template_id', opts.templateId);
-      const { data, error } = await q;
-      if (error) throw error;
+      // Todas las entradas filtradas (las alertas clínicas y las gráficas necesitan el conjunto
+      // completo), leídas por tramos para no cortarse en 1.000 filas. La tabla pagina en pantalla.
+      const buildQuery = () => {
+        let q = supabase
+          .from('autoregistro_entries')
+          .select('*, template:autoregistro_templates(name, fields), patient:patients(first_name, last_name)')
+          .eq('center_id', centerId!)
+          .order('submitted_at', { ascending: false })
+          .order('id', { ascending: true });
+        if (opts?.patientId) q = q.eq('patient_id', opts.patientId);
+        if (opts?.templateId) q = q.eq('template_id', opts.templateId);
+        return q;
+      };
+      const data = await fetchAllRows((from, to) => buildQuery().range(from, to));
 
       const entries = (data ?? []).map((e) => ({
         ...e,
@@ -45,11 +51,15 @@ export function useAutoregistroEntries(opts?: { patientId?: string; templateId?:
       // Load alert severities
       const entryIds = entries.map(e => e.id);
       if (entryIds.length > 0) {
-        const { data: logs } = await supabase
+        // Por tandas: un .in() con cientos de ids supera el largo máximo de la URL.
+        const logs = await fetchInChunks(entryIds, (chunk, from, to) => supabase
           .from('autoregistro_alert_logs')
-          .select('entry_id, severity')
-          .in('entry_id', entryIds)
-          .eq('success', true);
+          .select('id, entry_id, severity')
+          .in('entry_id', chunk)
+          .eq('success', true)
+          .order('id', { ascending: true })
+          .range(from, to))
+          .catch(() => null);
 
         if (logs && logs.length > 0) {
           const severityMap = new Map<string, 'critical' | 'warning'>();

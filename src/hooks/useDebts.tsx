@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { listSearchPattern } from '@/lib/list-search';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -53,6 +54,44 @@ export interface DebtInsert {
   notes?: string | null;
 }
 
+export interface DebtListFilters {
+  patientId?: string;
+  search?: string;
+  status?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyDebtFilters<Q extends { eq: any; gte: any; lte: any; in: any }>(query: Q, filters?: DebtListFilters): Q {
+  if (filters?.patientId) query = query.eq('patient_id', filters.patientId);
+  if (filters?.status) query = query.eq('status', filters.status as Debt['status']);
+  else query = query.in('status', ['pending', 'partial']);
+  return query;
+}
+
+function debtsListQuery(filters: DebtListFilters, head = false) {
+  let query = supabase.from('debts').select('*, patients (id, first_name, last_name, phone, email), invoices (id, invoice_number, is_valid, status), sessions (id, session_date, session_type, bono_id, price, payment_status), excluded_invoice:invoices()', { count: 'exact', head });
+  query = applyDebtFilters(query, filters);
+  if (filters.search?.trim()) query = query.filter('search_text', 'ilike', listSearchPattern(filters.search));
+  // Conserva deudas sin factura y excluye las facturas no operativas.
+  return query.or('is_valid.eq.false,status.eq.cancelled', { referencedTable: 'excluded_invoice' })
+    .is('excluded_invoice', null)
+    .order('created_at', { ascending: false }).order('id', { ascending: true });
+}
+
+export function useDebtsPage(filters: DebtListFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['debts', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const { data, count, error } = await debtsListQuery(filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as unknown as DebtWithRelations[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useDebts(filters?: { patientId?: string; status?: string }) {
   const { profile } = useAuth();
 
@@ -69,15 +108,7 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
         `)
         .order('created_at', { ascending: false });
 
-      if (filters?.patientId) {
-        query = query.eq('patient_id', filters.patientId);
-      }
-      if (filters?.status) {
-        query = query.eq('status', filters.status as 'pending' | 'partial' | 'paid' | 'refunded');
-      } else {
-        // By default, show only pending and partial
-        query = query.in('status', ['pending', 'partial'] as const);
-      }
+      query = applyDebtFilters(query, filters);
 
       const { data, error } = await query;
       if (error) throw error;

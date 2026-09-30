@@ -9,6 +9,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { AutoregistroEntry } from '@/hooks/useAutoregistroEntries';
+import { usePagination } from '@/hooks/usePagination';
+import { ListPagination } from '@/components/ListPagination';
 import type { FieldDisplayMeta, FormattedFieldValue } from '@/lib/autoregistro-field-display';
 import { formatFieldForDisplay } from '@/lib/autoregistro-field-display';
 import { Icon } from '@/components/ui/icon';
@@ -19,6 +21,8 @@ interface ClinicalTableProps {
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onSelectAll: (selected: boolean) => void;
+  /** Cambia cuando cambian los filtros: vuelve a la primera página. */
+  paginationResetKey?: string;
   onViewDetail: (entry: AutoregistroEntry) => void;
 }
 
@@ -97,6 +101,7 @@ export function ClinicalTable({
   selectedIds,
   onToggleSelect,
   onSelectAll,
+  paginationResetKey = '',
   onViewDetail,
 }: ClinicalTableProps) {
   const [sortField, setSortField] = useState<string>('__date');
@@ -131,6 +136,10 @@ export function ClinicalTable({
     return sorted;
   }, [entries, sortField, sortDir]);
 
+  // Se pagina después de ordenar: ordenar por columna afecta a todos los registros, no solo a la página.
+  const pagination = usePagination('autoregistro-entries', [paginationResetKey, sortField, sortDir]);
+  const pageEntries = sortedEntries.slice(pagination.from, pagination.to + 1);
+
   const allSelected = entries.length > 0 && selectedIds.size === entries.length;
 
   const SortIcon = ({ field }: { field: string }) => {
@@ -141,6 +150,7 @@ export function ClinicalTable({
   };
 
   return (
+    <div>
     <div className="overflow-x-auto rounded-md border">
       <Table>
         <TableHeader>
@@ -178,7 +188,7 @@ export function ClinicalTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedEntries.map((entry) => {
+          {pageEntries.map((entry) => {
             const isSelected = selectedIds.has(entry.id);
             const hasAlert = entry.alertSeverity;
 
@@ -222,6 +232,15 @@ export function ClinicalTable({
           })}
         </TableBody>
       </Table>
+    </div>
+    <ListPagination
+      page={pagination.page}
+      pageSize={pagination.pageSize}
+      total={sortedEntries.length}
+      onPageChange={pagination.setPage}
+      onPageSizeChange={pagination.setPageSize}
+      itemLabel={['registro', 'registros']}
+    />
     </div>
   );
 }

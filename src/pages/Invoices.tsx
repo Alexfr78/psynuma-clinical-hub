@@ -1,4 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { endOfMonth, format as formatDate, startOfMonth } from 'date-fns';
@@ -26,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useInvoices, useUpdateInvoiceStatus, useInvoiceStats, useDeleteDraftInvoice, type InvoiceWithPatient, type InvoiceSortField, type SortDirection } from '@/hooks/useInvoices';
+import { useInvoicesPage, useInvoicesAnalytics, useInvoiceOrphanCount, useUpdateInvoiceStatus, useInvoiceStats, useDeleteDraftInvoice, type InvoiceWithPatient, type InvoiceSortField, type SortDirection } from '@/hooks/useInvoices';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
 import { InvoiceDetailDialog } from '@/components/invoices/InvoiceDetailDialog';
 import { CreateSimpleInvoiceDialog } from '@/components/invoices/CreateSimpleInvoiceDialog';
@@ -42,8 +44,7 @@ import {
 } from '@/components/invoices/InvoiceAnalyticsCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { hasInvoiceAeatRegistration } from '@/lib/invoice-immutability';
-import { usePayments } from '@/hooks/usePayments';
+import { usePaymentsAnalytics } from '@/hooks/usePayments';
 import { downloadPdfFromUrl } from '@/lib/download-pdf';
 import { Icon } from '@/components/ui/icon';
 
@@ -163,57 +164,29 @@ export default function Invoices() {
 
   const listDateRange = selectedChartBucket || invoiceDateRange;
 
-  const { data: invoices, isLoading, refetch } = useInvoices({
+  const filters = {
     status: statusFilter === 'all' ? undefined : statusFilter,
     startDate: listDateRange.startDate,
     endDate: listDateRange.endDate,
     sortBy,
     sortDirection,
-  });
-  const { data: analyticsInvoices, isLoading: analyticsInvoicesLoading } = useInvoices({
+    search: searchQuery,
+  };
+  const pagination = usePagination('invoices', [filters]);
+  const { data: invoicePage, isLoading, isFetching, refetch } = useInvoicesPage(filters, pagination);
+  const filteredInvoices = invoicePage?.rows ?? [];
+  const { data: orphanCount = 0 } = useInvoiceOrphanCount({ ...filters, search: undefined });
+  const { data: analyticsInvoices, isLoading: analyticsInvoicesLoading } = useInvoicesAnalytics({
     startDate: invoiceDateRange.startDate,
     endDate: invoiceDateRange.endDate,
     sortBy: 'issue_date',
     sortDirection: 'asc',
   });
-  const { data: analyticsPayments, isLoading: analyticsPaymentsLoading } = usePayments({
+  const { data: analyticsPayments, isLoading: analyticsPaymentsLoading } = usePaymentsAnalytics({
     startDate: invoiceDateRange.startDate,
     endDate: invoiceDateRange.endDate,
   });
 
-  // Filter invoices by patient name, invoice number, or date
-  const filteredInvoices = useMemo(() => {
-    if (!invoices) return [];
-    if (!searchQuery.trim()) return invoices;
-    
-    const query = searchQuery.toLowerCase().trim();
-    return invoices.filter(invoice => {
-      const firstName = invoice.patients?.first_name?.toLowerCase() || '';
-      const lastName = invoice.patients?.last_name?.toLowerCase() || '';
-      const patientName = `${firstName} ${lastName}`.trim();
-      const invoiceNumber = invoice.invoice_number?.toLowerCase() || '';
-      // Format date for search (e.g., "15/01/2026", "15-01-2026", "2026-01-15")
-      const issueDate = invoice.issue_date || '';
-      const formattedDate = issueDate ? new Date(issueDate).toLocaleDateString('es-ES') : '';
-      
-      return patientName.includes(query) || 
-             invoiceNumber.includes(query) ||
-             issueDate.includes(query) ||
-             formattedDate.includes(query);
-    });
-  }, [invoices, searchQuery]);
-  
-  // Count orphan invoices (issued/paid without verifactu_hash)
-  const orphanCount = useMemo(() => {
-    if (!invoices) return 0;
-    return invoices.filter(inv => 
-      (inv.status === 'issued' || inv.status === 'paid') && 
-      !hasInvoiceAeatRegistration(inv) &&
-      !inv.verifactu_pending &&
-      !inv.invoice_number?.startsWith('BORRADOR-')
-    ).length;
-  }, [invoices]);
-  
   const { data: stats } = useInvoiceStats();
   const updateStatus = useUpdateInvoiceStatus();
   const deleteDraft = useDeleteDraftInvoice();
@@ -572,7 +545,7 @@ export default function Invoices() {
           </div>
           <div className="flex items-center gap-2">
             <div className="text-sm text-muted-foreground whitespace-nowrap">
-              {filteredInvoices.length} facturas
+              {invoicePage?.total ?? 0} facturas
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -632,6 +605,9 @@ export default function Invoices() {
               ))}
             </div>
           )}
+          <ListPagination page={pagination.page} pageSize={pagination.pageSize} total={invoicePage?.total ?? 0}
+            onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize}
+            itemLabel={['factura', 'facturas']} isFetching={isFetching} />
         </TabsContent>
       </Tabs>
 

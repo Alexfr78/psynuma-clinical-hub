@@ -1,4 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { listSearchPattern } from '@/lib/list-search';
+import { fetchAllRows } from '@/lib/fetch-all-rows';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -52,6 +54,61 @@ export interface PaymentInsert {
   notes?: string | null;
 }
 
+export interface PaymentListFilters {
+  patientId?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyPaymentFilters<Q extends { eq: any; gte: any; lte: any; in: any }>(query: Q, filters?: PaymentListFilters): Q {
+  if (filters?.patientId) query = query.eq('patient_id', filters.patientId);
+  if (filters?.startDate) query = query.gte('payment_date', filters.startDate);
+  if (filters?.endDate) query = query.lte('payment_date', filters.endDate);
+  return query;
+}
+
+function paymentsListQuery(filters: PaymentListFilters, head = false) {
+  let query = supabase.from('payments').select('*, patients (id, first_name, last_name), invoices (id, invoice_number), sessions (id, session_date, start_time)', { count: 'exact', head });
+  query = applyPaymentFilters(query, filters);
+  if (filters.search?.trim()) query = query.filter('search_text', 'ilike', listSearchPattern(filters.search));
+  return query.order('payment_date', { ascending: false }).order('id', { ascending: true });
+}
+
+export function usePaymentsPage(filters: PaymentListFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['payments', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const { data, count, error } = await paymentsListQuery(filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as unknown as PaymentWithRelations[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
+async function fetchPaymentsList(filters: PaymentListFilters) {
+  const rows: PaymentWithRelations[] = [];
+  for (let from = 0; ; from += 500) {
+    const { data, error } = await paymentsListQuery(filters).range(from, from + 499);
+    if (error) throw error;
+    rows.push(...(data ?? []) as unknown as PaymentWithRelations[]);
+    if (!data || data.length < 500) return rows;
+  }
+}
+
+export function usePaymentsAnalytics(filters: PaymentListFilters) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['payments', 'analytics', filters, profile?.center_id],
+    queryFn: () => fetchPaymentsList(filters),
+    enabled: !!profile?.center_id,
+  });
+}
+
 export function usePayments(filters?: { patientId?: string; startDate?: string; endDate?: string }) {
   const { profile } = useAuth();
 
@@ -68,15 +125,7 @@ export function usePayments(filters?: { patientId?: string; startDate?: string; 
         `)
         .order('payment_date', { ascending: false });
 
-      if (filters?.patientId) {
-        query = query.eq('patient_id', filters.patientId);
-      }
-      if (filters?.startDate) {
-        query = query.gte('payment_date', filters.startDate);
-      }
-      if (filters?.endDate) {
-        query = query.lte('payment_date', filters.endDate);
-      }
+      query = applyPaymentFilters(query, filters);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -285,13 +334,14 @@ export function usePaymentStats() {
       const startOfMonth = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
       const endOfMonth = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd');
 
-      const { data, error } = await supabase
+      // Por tramos: con más de 1.000 cobros en el mes, los totales salían cortos sin avisar.
+      const data = await fetchAllRows((from, to) => supabase
         .from('payments')
         .select('amount, payment_method, status, refunded_amount')
         .gte('payment_date', startOfMonth)
-        .lte('payment_date', endOfMonth);
-
-      if (error) throw error;
+        .lte('payment_date', endOfMonth)
+        .order('id', { ascending: true })
+        .range(from, to));
 
       return calculateNetPaymentStats(data);
     },

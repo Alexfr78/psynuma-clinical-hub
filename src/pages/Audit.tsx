@@ -1,3 +1,5 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,7 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useVerifactuEvents, VerifactuEvent } from "@/hooks/useVerifactuEvents";
+import { useVerifactuEventsPage, useVerifactuEventStats, useVerifactuEventExports, VerifactuEvent } from "@/hooks/useVerifactuEvents";
 import { Icon } from '@/components/ui/icon';
 
 const EVENT_TYPES = [
@@ -99,12 +101,11 @@ export default function Audit() {
   });
   const [selectedEvent, setSelectedEvent] = useState<VerifactuEvent | null>(null);
 
-  const { events, isLoading, refetch, stats, exportToCSV, exportToJSON } = useVerifactuEvents({
-    eventType: appliedFilters.eventType,
-    startDate: appliedFilters.startDate,
-    endDate: appliedFilters.endDate,
-    search: appliedFilters.search,
-  });
+  const pagination = usePagination('verifactu-events', [appliedFilters]);
+  const { data: eventsPage, isLoading, isFetching, refetch } = useVerifactuEventsPage(appliedFilters, pagination);
+  const events = eventsPage?.rows ?? [];
+  const { data: stats = { total: 0, today: 0, rfGenerated: 0, errors: 0 }, refetch: refetchStats } = useVerifactuEventStats(appliedFilters);
+  const { exportToCSV, exportToJSON } = useVerifactuEventExports(appliedFilters);
 
   const handleApplyFilters = () => {
     setAppliedFilters({
@@ -131,7 +132,7 @@ export default function Audit() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <Button variant="outline" size="sm" onClick={() => { void refetch(); void refetchStats(); }}>
             <Icon name="refresh" className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Actualizar</span>
           </Button>
@@ -372,6 +373,9 @@ export default function Audit() {
               </div>
             </>
           )}
+          <ListPagination page={pagination.page} pageSize={pagination.pageSize} total={eventsPage?.total ?? 0}
+            onPageChange={pagination.setPage} onPageSizeChange={pagination.setPageSize}
+            itemLabel={['evento', 'eventos']} isFetching={isFetching} />
         </CardContent>
       </Card>
 

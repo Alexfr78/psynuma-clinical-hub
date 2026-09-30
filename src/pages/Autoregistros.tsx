@@ -118,6 +118,9 @@ export default function Autoregistros() {
     });
   }, [entries, dateFrom, dateTo, searchText]);
 
+  // La tabla pagina lo que ya está filtrado; alertas, gráficas y exportación usan todo.
+  const entriesFilterKey = [filterPatientId, filterTemplateId, searchText, dateFrom, dateTo].join('|');
+
   // Clinical alerts derived from entries + field metas
   const clinicalAlerts = useMemo(
     () => (patientTemplateSelected ? detectClinicalAlerts(filteredEntries, fieldMetas) : []),
@@ -404,6 +407,7 @@ export default function Autoregistros() {
                       selectedIds={selectedIds}
                       onToggleSelect={toggleSelectEntry}
                       onSelectAll={selectAllEntries}
+                      paginationResetKey={entriesFilterKey}
                       onViewDetail={(e) => setSelectedEntry(e)}
                     />
                   </div>
@@ -413,6 +417,7 @@ export default function Autoregistros() {
                       visibleFields={visibleFieldMetas}
                       allFields={fieldMetas}
                       onViewDetail={(e) => setSelectedEntry(e)}
+                      paginationResetKey={entriesFilterKey}
                     />
                   </div>
                 </>
