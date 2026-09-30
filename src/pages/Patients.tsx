@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-import { usePatients, PatientFilters as Filters } from '@/hooks/usePatients';
+import { usePatientsPage, PatientFilters as Filters } from '@/hooks/usePatients';
+import { usePagination } from '@/hooks/usePagination';
+import { ListPagination } from '@/components/ListPagination';
 import { usePatientSessionSummaries } from '@/hooks/usePatientSessionSummaries';
 import { PatientFilters } from '@/components/patients/PatientFilters';
 import { PatientCard } from '@/components/patients/PatientCard';
@@ -15,7 +17,9 @@ export default function Patients() {
     professionalId: 'all',
   });
 
-  const { data: patients, isLoading, error } = usePatients(filters);
+  const pagination = usePagination('patients', [filters]);
+  const { data: pageData, isLoading, isFetching, error } = usePatientsPage(filters, pagination);
+  const patients = pageData?.rows;
   const { data: sessionSummaries } = usePatientSessionSummaries();
 
   if (error) {
@@ -63,9 +67,15 @@ export default function Patients() {
                 <PatientCard key={patient.id} patient={patient} />
               ))}
             </div>
-            <div className="border-t px-4 py-3 text-center text-sm text-muted-foreground sm:px-6">
-              Mostrando {patients.length} contacto{patients.length !== 1 ? 's' : ''}
-            </div>
+            <ListPagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              total={pageData?.total ?? 0}
+              onPageChange={pagination.setPage}
+              onPageSizeChange={pagination.setPageSize}
+              itemLabel={['contacto', 'contactos']}
+              isFetching={isFetching}
+            />
           </>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
