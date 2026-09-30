@@ -45,7 +45,7 @@ export default function Assessments() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="sm:size-default" asChild>
-            <Link to="/configuracion">
+            <Link to="/configuracion?section=evaluaciones-plantillas">
               <Icon name="description" className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Gestionar plantillas</span>
               <span className="sm:hidden">Plantillas</span>

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useCenter } from '@/hooks/useCenter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -85,7 +86,11 @@ export function SessionReminderSettingsSection() {
           Recordatorios de Cita
         </CardTitle>
         <CardDescription>
-          Configura cuándo y cómo enviar recordatorios automáticos a los contactos
+          Configura cuándo y cómo enviar recordatorios automáticos a los contactos. El texto de cada
+          canal se edita en Plantillas →{' '}
+          <Link to="/configuracion?section=comunicaciones-email" className="underline hover:no-underline">Email</Link>,{' '}
+          <Link to="/configuracion?section=comunicaciones-whatsapp" className="underline hover:no-underline">WhatsApp</Link> y{' '}
+          <Link to="/configuracion?section=comunicaciones-sms" className="underline hover:no-underline">SMS</Link>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

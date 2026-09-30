@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -303,7 +304,10 @@ export function PaymentSettingsSection() {
             Recordatorios de Pago Pendiente
           </CardTitle>
           <CardDescription>
-            Configura los recordatorios automáticos para sesiones no abonadas
+            Configura los recordatorios automáticos para sesiones no abonadas. El texto del mensaje se edita en{' '}
+            <Link to="/configuracion?section=comunicaciones-recordatorios-pago" className="underline hover:no-underline">
+              Plantillas → Recordatorios de pago
+            </Link>.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

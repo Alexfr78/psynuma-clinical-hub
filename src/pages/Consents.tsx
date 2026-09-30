@@ -60,7 +60,7 @@ export default function Consents() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link to="/configuracion">
+            <Link to="/configuracion?section=consentimientos-plantillas">
               <Icon name="description" className="mr-2 h-4 w-4" />
               Gestionar plantillas
             </Link>

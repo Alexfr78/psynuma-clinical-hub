@@ -180,7 +180,7 @@ export default function Autoregistros() {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" asChild>
-            <Link to="/configuracion">
+            <Link to="/configuracion?section=autorregistros-plantillas">
               <Icon name="edit_note" className="h-4 w-4 mr-2" /> Plantillas
             </Link>
           </Button>

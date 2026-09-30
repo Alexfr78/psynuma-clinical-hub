@@ -458,7 +458,7 @@ export function MobileSessionForm({
                           <Icon name="error" className="h-4 w-4" />
                           <AlertDescription className="text-xs">
                             Google Meet no está conectado.{' '}
-                            <Link to="/configuracion" className="underline font-medium">Configúralo aquí</Link>
+                            <Link to="/configuracion?section=integraciones-google" className="underline font-medium">Configúralo aquí</Link>
                           </AlertDescription>
                         </Alert>
                       )}
@@ -467,7 +467,7 @@ export function MobileSessionForm({
                           <Icon name="error" className="h-4 w-4" />
                           <AlertDescription className="text-xs">
                             Zoom no está conectado.{' '}
-                            <Link to="/configuracion" className="underline font-medium">Configúralo aquí</Link>
+                            <Link to="/configuracion?section=integraciones-zoom" className="underline font-medium">Configúralo aquí</Link>
                           </AlertDescription>
                         </Alert>
                       )}

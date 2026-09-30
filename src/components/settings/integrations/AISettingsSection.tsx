@@ -130,7 +130,7 @@ export function AISettingsSection() {
         ai_temperature: aiTemperature,
         // Los prompts fijos (ai_prompt_system/layer1/2/3) ya no se editan desde aquí:
         // ahora viven en el catálogo de plantillas versionadas (ver
-        // "Plantillas de documentos" en Conexiones Externas → Avanzado). No se
+        // "Documentos IA" en Plantillas → Documentos). No se
         // borran las columnas del centro por si el backfill aún las necesita.
       });
 

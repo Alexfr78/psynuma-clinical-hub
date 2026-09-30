@@ -1414,7 +1414,7 @@ export function QuickCreateSessionDialog({
                       <Icon name="error" className="h-4 w-4" />
                       <AlertDescription className="text-xs">
                         Google Meet no está conectado. El enlace no se generará automáticamente.{' '}
-                        <Link to="/configuracion" className="underline font-medium hover:no-underline">
+                        <Link to="/configuracion?section=integraciones-google" className="underline font-medium hover:no-underline">
                           Configúralo aquí
                         </Link>
                       </AlertDescription>
@@ -1426,7 +1426,7 @@ export function QuickCreateSessionDialog({
                       <Icon name="error" className="h-4 w-4" />
                       <AlertDescription className="text-xs">
                         Zoom no está conectado. El enlace no se generará automáticamente.{' '}
-                        <Link to="/configuracion" className="underline font-medium hover:no-underline">
+                        <Link to="/configuracion?section=integraciones-zoom" className="underline font-medium hover:no-underline">
                           Configúralo aquí
                         </Link>
                       </AlertDescription>

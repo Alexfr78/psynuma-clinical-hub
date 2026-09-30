@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -132,6 +133,7 @@ const categoryIcons: Record<string, string> = {
   'Portal de Contactos': 'group',
   'Pagos y Facturación': 'account_balance_wallet',
   'Comunicaciones': 'mail',
+  'Plantillas': 'edit_document',
   'Conexiones Externas': 'power',
   'Seguridad': 'shield',
   'Sistema': 'account_tree',
@@ -150,10 +152,6 @@ const navItems: NavItem[] = [
   { id: 'centro-portal', label: 'Configuración del portal', icon: 'tune', parent: 'Portal de Contactos' },
   { id: 'consentimientos-config', label: 'Consentimientos informados', icon: 'description', parent: 'Portal de Contactos' },
 
-  { id: 'consentimientos-plantillas', label: 'Plantillas de consentimiento', icon: 'edit_document', parent: 'Portal de Contactos', subgroup: 'Plantillas' },
-  { id: 'evaluaciones-plantillas', label: 'Plantillas de evaluación', icon: 'assignment_turned_in', parent: 'Portal de Contactos', subgroup: 'Plantillas' },
-  { id: 'autorregistros-plantillas', label: 'Plantillas de autorregistro', icon: 'edit_note', parent: 'Portal de Contactos', subgroup: 'Plantillas' },
-
   // Pagos y Facturación
   { id: 'tarifas', label: 'Planes tarifarios', icon: 'layers', parent: 'Pagos y Facturación' },
   { id: 'pagos-config', label: 'Métodos de cobro', icon: 'account_balance_wallet', parent: 'Pagos y Facturación' },
@@ -171,20 +169,22 @@ const navItems: NavItem[] = [
   { id: 'gastos-recurrentes', label: 'Gastos recurrentes', icon: 'autorenew', parent: 'Pagos y Facturación', subgroup: 'Gastos' },
   { id: 'gastos-compensacion-profesionales', label: 'Compensación de profesionales', icon: 'diversity_3', parent: 'Pagos y Facturación', subgroup: 'Gastos' },
 
-  // Comunicaciones — Eventos de cita (creación/reprogramación/cancelación + recordatorios)
-  { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: 'event_available', parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
-  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: 'notifications', parent: 'Comunicaciones', subgroup: 'Eventos de cita' },
+  // Comunicaciones — solo comportamiento (cuándo y a quién); los textos viven en Plantillas
+  { id: 'comunicaciones-recordatorios', label: 'Recordatorios de cita', icon: 'notifications', parent: 'Comunicaciones' },
+  { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: 'notifications_active', parent: 'Comunicaciones' },
 
-  // Comunicaciones — Plantillas generales por canal
-  { id: 'comunicaciones-email', label: 'Plantillas de email', icon: 'mail', parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
-  { id: 'comunicaciones-whatsapp', label: 'Plantillas de WhatsApp', icon: 'chat', parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
-  { id: 'comunicaciones-sms', label: 'Plantillas de SMS', icon: 'smartphone', parent: 'Comunicaciones', subgroup: 'Plantillas por canal' },
+  // Plantillas — Mensajes (textos de communication_templates)
+  { id: 'comunicaciones-email', label: 'Email', icon: 'mail', parent: 'Plantillas', subgroup: 'Mensajes' },
+  { id: 'comunicaciones-whatsapp', label: 'WhatsApp', icon: 'chat', parent: 'Plantillas', subgroup: 'Mensajes' },
+  { id: 'comunicaciones-sms', label: 'SMS', icon: 'smartphone', parent: 'Plantillas', subgroup: 'Mensajes' },
+  { id: 'comunicaciones-confirmaciones-cita', label: 'Confirmaciones de cita', icon: 'event_available', parent: 'Plantillas', subgroup: 'Mensajes' },
+  { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: 'account_balance_wallet', parent: 'Plantillas', subgroup: 'Mensajes' },
 
-  // Comunicaciones — Cobros
-  { id: 'comunicaciones-recordatorios-pago', label: 'Recordatorios de pago', icon: 'account_balance_wallet', parent: 'Comunicaciones', subgroup: 'Cobros' },
-
-  // Comunicaciones — Alertas internas
-  { id: 'comunicaciones-alertas-admin', label: 'Alertas al profesional', icon: 'notifications', parent: 'Comunicaciones', subgroup: 'Alertas internas' },
+  // Plantillas — Documentos
+  { id: 'consentimientos-plantillas', label: 'Consentimientos', icon: 'edit_document', parent: 'Plantillas', subgroup: 'Documentos' },
+  { id: 'evaluaciones-plantillas', label: 'Evaluaciones', icon: 'assignment_turned_in', parent: 'Plantillas', subgroup: 'Documentos' },
+  { id: 'autorregistros-plantillas', label: 'Autorregistros', icon: 'edit_note', parent: 'Plantillas', subgroup: 'Documentos' },
+  { id: 'integraciones-ia-plantillas', label: 'Documentos IA', icon: 'psychology', parent: 'Plantillas', subgroup: 'Documentos' },
 
   // Conexiones Externas
   { id: 'integraciones-resumen', label: 'Estado de conexiones', icon: 'power', parent: 'Conexiones Externas' },
@@ -200,7 +200,6 @@ const navItems: NavItem[] = [
 
   { id: 'integraciones-credenciales', label: 'Configuración avanzada', icon: 'tune', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
   { id: 'integraciones-ia', label: 'Inteligencia Artificial', icon: 'psychology', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
-  { id: 'integraciones-ia-plantillas', label: 'Plantillas de documentos', icon: 'description', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
   { id: 'integraciones-plaud', label: 'Plaud (grabaciones)', icon: 'mic', parent: 'Conexiones Externas', subgroup: 'Avanzado' },
 
   // Seguridad
@@ -210,18 +209,54 @@ const navItems: NavItem[] = [
   { id: 'versiones', label: 'Gestión de versiones', icon: 'account_tree', parent: 'Sistema' },
 ];
 
-const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Conexiones Externas', 'Seguridad', 'Sistema'];
+const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Plantillas', 'Conexiones Externas', 'Seguridad', 'Sistema'];
+
+const sectionIds = new Set<SettingsSection>(navItems.map((item) => item.id));
+
+function parseSection(value: string | null): SettingsSection | null {
+  return value && sectionIds.has(value as SettingsSection) ? value as SettingsSection : null;
+}
+
+// Las vueltas de OAuth llegan a /configuracion?oauth=...&provider=... sin sección:
+// abrimos la de ese proveedor para que su componente se monte y muestre el resultado.
+const oauthProviderSections: Record<string, SettingsSection> = {
+  google: 'integraciones-google',
+  google_drive: 'integraciones-google-drive',
+  zoom: 'integraciones-zoom',
+  stripe: 'integraciones-stripe',
+  plaud: 'integraciones-plaud',
+};
+
+function parentOf(id: SettingsSection): string {
+  return navItems.find((item) => item.id === id)?.parent ?? 'Mi Centro';
+}
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
   const { isAdmin } = useAuth();
-  const [activeSection, setActiveSection] = useState<SettingsSection>('centro-info');
-  const [expandedCategory, setExpandedCategory] = useState<string>('Mi Centro');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSection = parseSection(searchParams.get('section'));
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    () => urlSection ?? oauthProviderSections[searchParams.get('provider') ?? ''] ?? 'centro-info',
+  );
+  const [expandedCategory, setExpandedCategory] = useState<string>(() => parentOf(activeSection));
+
+  // Permite enlazar a una sección concreta (/configuracion?section=...)
+  useEffect(() => {
+    if (urlSection) {
+      setActiveSection(urlSection);
+      setExpandedCategory(parentOf(urlSection));
+    }
+  }, [urlSection]);
 
   const selectSection = (id: SettingsSection) => {
     setActiveSection(id);
-    const parent = navItems.find((item) => item.id === id)?.parent;
-    if (parent) setExpandedCategory(parent);
+    setExpandedCategory(parentOf(id));
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('section', id);
+      return next;
+    }, { replace: true });
   };
 
   const centerForm = useForm<CenterFormValues>({
@@ -452,7 +487,7 @@ export default function Settings() {
       case 'integraciones-google-drive':
         return <GoogleDriveIntegrationSection />;
       case 'integraciones-stripe':
-        return <StripeIntegrationSection onOpenPaymentSettings={() => setActiveSection('pagos-config')} />;
+        return <StripeIntegrationSection onOpenPaymentSettings={() => selectSection('pagos-config')} />;
       case 'integraciones-ia':
         return <AISettingsSection />;
       case 'integraciones-ia-plantillas':
