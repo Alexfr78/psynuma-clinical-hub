@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Icon } from '@/components/ui/icon';
 import { supabase } from "@/integrations/supabase/client";
-import { effectiveMarkdown, renderEditableMarkdown } from "@/lib/ai-documents";
+import { effectiveMarkdown } from "@/lib/ai-documents";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AiDocumentType, AiGeneratedDocumentWithType } from "@/types/ai-documents";
 
@@ -102,6 +102,15 @@ export function TranscriptionAnalysisDialog({
     patientEmail,
     isOpen: open,
   });
+
+  const copyToClipboard = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast.success("Copiado al portapapeles");
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  };
 
   // Fuente de verdad de plantillas y documentos generados — sustituye a la orquestación de
   // "3 capas" que antes vivía aquí mismo. Ver `@/hooks/useAIDocuments`.
@@ -786,6 +795,9 @@ export function TranscriptionAnalysisDialog({
                         {sessionId && <Badge variant="outline" className="text-xs text-green-600">Guardado en sesión</Badge>}
                       </h3>
                       <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => copyToClipboard(effectiveMarkdown(doc))}>
+                          <Icon name="content_copy" className="mr-1 h-3 w-3" /> Copiar
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => downloadTxt(effectiveMarkdown(doc), `${filePrefix}_${key}.txt`)}>
                           <Icon name="download" className="mr-1 h-3 w-3" /> Descargar
                         </Button>
@@ -921,12 +933,6 @@ function DocumentEditor({
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
       />
-      {allowFormatting && (
-        <div className="rounded-md border border-yellow-200/70 bg-yellow-50/60 p-3 text-sm dark:border-yellow-500/20 dark:bg-yellow-500/5">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Vista previa</p>
-          <div className="whitespace-pre-wrap">{renderEditableMarkdown(text)}</div>
-        </div>
-      )}
       {text !== initialText && (
         <Button size="sm" onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" /> : <Icon name="save" className="h-4 w-4 mr-1" />}
