@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
 import { downloadFile } from '@/lib/export/downloadFile';
+import { fetchAllRows, fetchInChunks } from '@/lib/fetch-all-rows';
 import {
   createInvoiceAccountingExport,
   filterInvoicesForAccountingExport,
@@ -60,7 +61,7 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
       const dateToStr = format(dateTo, 'yyyy-MM-dd');
 
       // The selected range always applies to invoice issue_date.
-      const query = supabase
+      const buildQuery = () => supabase
         .from('invoices')
         .select(`
           id,
@@ -110,11 +111,12 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
         .eq('center_id', center.id)
         .gte('issue_date', dateFromStr)
         .lte('issue_date', dateToStr)
-        .order('issue_date', { ascending: true });
+        .order('issue_date', { ascending: true })
+        // Desempate estable para leer por tramos sin repetir ni saltar facturas.
+        .order('id', { ascending: true });
 
-      const { data: invoices, error } = await query;
-
-      if (error) throw error;
+      // Por tramos: un rango con más de 1.000 facturas se exportaba incompleto sin avisar.
+      const invoices = await fetchAllRows((from, to) => buildQuery().range(from, to));
 
       const exportOptions = { includeCancelled, includeDrafts };
       const invoicesToExport = filterInvoicesForAccountingExport(
@@ -134,39 +136,44 @@ export function ExportInvoicesDialog({ open, onOpenChange }: ExportInvoicesDialo
       let verifactuEvents: AccountingVerifactuEvent[] = [];
 
       if (invoiceIds.length > 0) {
-        const [
-          { data: substitutions, error: substitutionsError },
-          { data: records, error: recordsError },
-          { data: events, error: eventsError },
-        ] = await Promise.all([
-          supabase
-            .from('invoice_substitutions')
-            .select(`
-              replacement_invoice_id, substituted_invoice_id,
-              substituted_invoice:substituted_invoice_id (invoice_number, issue_date)
-            `)
-            .in('replacement_invoice_id', invoiceIds),
-          supabase
-            .from('verifactu_records')
-            .select(`
-              id, invoice_id, record_type, hash, previous_hash, aeat_status,
-              aeat_csv, aeat_response_xml, xml_sent, created_at
-            `)
-            .in('invoice_id', invoiceIds)
-            .order('created_at', { ascending: true }),
-          supabase
-            .from('verifactu_events')
-            .select(`
-              invoice_id, event_type, aeat_csv, aeat_response_code,
-              aeat_response_xml, error_details, created_at
-            `)
-            .in('invoice_id', invoiceIds)
-            .order('created_at', { ascending: true }),
+        // Por tandas de ids: con cientos de facturas, un solo .in() superaba el largo de la URL.
+        const [substitutions, records, events] = await Promise.all([
+          fetchInChunks(invoiceIds, (chunk, from, to) =>
+            supabase
+              .from('invoice_substitutions')
+              .select(`
+                id, replacement_invoice_id, substituted_invoice_id,
+                substituted_invoice:substituted_invoice_id (invoice_number, issue_date)
+              `)
+              .in('replacement_invoice_id', chunk)
+              .order('id', { ascending: true })
+              .range(from, to),
+          ),
+          fetchInChunks(invoiceIds, (chunk, from, to) =>
+            supabase
+              .from('verifactu_records')
+              .select(`
+                id, invoice_id, record_type, hash, previous_hash, aeat_status,
+                aeat_csv, aeat_response_xml, xml_sent, created_at
+              `)
+              .in('invoice_id', chunk)
+              .order('created_at', { ascending: true })
+              .order('id', { ascending: true })
+              .range(from, to),
+          ),
+          fetchInChunks(invoiceIds, (chunk, from, to) =>
+            supabase
+              .from('verifactu_events')
+              .select(`
+                id, invoice_id, event_type, aeat_csv, aeat_response_code,
+                aeat_response_xml, error_details, created_at
+              `)
+              .in('invoice_id', chunk)
+              .order('created_at', { ascending: true })
+              .order('id', { ascending: true })
+              .range(from, to),
+          ),
         ]);
-
-        if (substitutionsError) throw substitutionsError;
-        if (recordsError) throw recordsError;
-        if (eventsError) throw eventsError;
 
         substitutionReferences = (substitutions || []).flatMap((substitution) => {
           const replaced = substitution.substituted_invoice;
