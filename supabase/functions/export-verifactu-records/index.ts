@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalCenterRequest } from "../_shared/fiscalAuth.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
+import { fetchAllRows } from "../_shared/fetchAllRows.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -331,20 +332,28 @@ serve(async (req) => {
       center.verifactu_software_version = softwareProviderCenter.verifactu_software_version;
     }
 
-    let recordsQuery = supabase
-      .from('verifactu_records')
-      .select('*')
-      .eq('center_id', centerId)
-      .order('created_at', { ascending: true });
+    const db = supabase; // ya asignado arriba; constante para usarlo dentro de los closures
+    // Todas las lecturas por tramos: PostgREST corta en 1.000 filas y la exportación a la AEAT
+    // tiene que ir completa. Cada tramo reconstruye la consulta, con desempate estable por id.
+    const buildRecordsQuery = () => {
+      let q = db
+        .from('verifactu_records')
+        .select('*')
+        .eq('center_id', centerId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true });
+      if (start_date) q = q.gte('invoice_issue_date', start_date);
+      if (end_date) q = q.lte('invoice_issue_date', end_date);
+      return q;
+    };
 
-    if (start_date) {
-      recordsQuery = recordsQuery.gte('invoice_issue_date', start_date);
+    let records: Awaited<ReturnType<typeof buildRecordsQuery>>['data'] = null;
+    let recordsError: unknown = null;
+    try {
+      records = await fetchAllRows((from, to) => buildRecordsQuery().range(from, to));
+    } catch (err) {
+      recordsError = err;
     }
-    if (end_date) {
-      recordsQuery = recordsQuery.lte('invoice_issue_date', end_date);
-    }
-
-    const { data: records, error: recordsError } = await recordsQuery;
 
     if (recordsError) {
       console.error("Error fetching canonical Verifactu records:", recordsError);
@@ -355,24 +364,29 @@ serve(async (req) => {
     }
 
     // Build query for invoices with Verifactu data
-    let invoicesQuery = supabase
-      .from('invoices')
-      .select(`
-        *,
-        patients (first_name, last_name, tax_id)
-      `)
-      .eq('center_id', centerId)
-      .not('invoice_hash', 'is', null)
-      .order('issue_date', { ascending: true });
+    const buildInvoicesQuery = () => {
+      let q = db
+        .from('invoices')
+        .select(`
+          *,
+          patients (first_name, last_name, tax_id)
+        `)
+        .eq('center_id', centerId)
+        .not('invoice_hash', 'is', null)
+        .order('issue_date', { ascending: true })
+        .order('id', { ascending: true });
+      if (start_date) q = q.gte('issue_date', start_date);
+      if (end_date) q = q.lte('issue_date', end_date);
+      return q;
+    };
 
-    if (start_date) {
-      invoicesQuery = invoicesQuery.gte('issue_date', start_date);
+    let invoices: Awaited<ReturnType<typeof buildInvoicesQuery>>['data'] = null;
+    let invoicesError: unknown = null;
+    try {
+      invoices = await fetchAllRows((from, to) => buildInvoicesQuery().range(from, to));
+    } catch (err) {
+      invoicesError = err;
     }
-    if (end_date) {
-      invoicesQuery = invoicesQuery.lte('issue_date', end_date);
-    }
-
-    const { data: invoices, error: invoicesError } = await invoicesQuery;
 
     if (invoicesError) {
       console.error("Error fetching invoices:", invoicesError);
@@ -385,21 +399,25 @@ serve(async (req) => {
     // Fetch events if requested
     let events: VerifactuExportEvent[] = [];
     if (include_events) {
-      let eventsQuery = supabase
-        .from('verifactu_events')
-        .select('*')
-        .eq('center_id', centerId)
-        .order('created_at', { ascending: true });
+      const buildEventsQuery = () => {
+        let q = db
+          .from('verifactu_events')
+          .select('*')
+          .eq('center_id', centerId)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true });
+        if (start_date) q = q.gte('created_at', start_date);
+        if (end_date) q = q.lte('created_at', end_date + 'T23:59:59');
+        return q;
+      };
 
-      if (start_date) {
-        eventsQuery = eventsQuery.gte('created_at', start_date);
+      // Como antes, un fallo al leer eventos no impide exportar: se exporta sin ellos.
+      try {
+        events = await fetchAllRows((from, to) => buildEventsQuery().range(from, to));
+      } catch (err) {
+        console.error("Error fetching Verifactu events:", err);
+        events = [];
       }
-      if (end_date) {
-        eventsQuery = eventsQuery.lte('created_at', end_date + 'T23:59:59');
-      }
-
-      const { data: eventData } = await eventsQuery;
-      events = eventData || [];
     }
 
     console.log(`Exporting ${invoices?.length || 0} invoices and ${events.length} events for center ${centerId}`);
