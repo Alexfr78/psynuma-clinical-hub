@@ -121,7 +121,8 @@ describe('consultas paginadas', () => {
     expect(params().get('expires_at')).toBe(`gt.${now}`);
     expect(result).toEqual({ rows: [{ id: 'assessment', response: { id: 'response' } }], total: 1234 });
     await options(useAssessmentCounts(now)).queryFn();
-    expect(params().get('or')).toContain(`expires_at.lte.${now}`);
+    // Entrecomillada: ':' y '.' son reservados dentro de un or() de PostgREST.
+    expect(params().get('or')).toContain(`expires_at.lte."${now}"`);
     expect(state.requests.at(-1)!.init.method).toBe('HEAD');
   });
 
