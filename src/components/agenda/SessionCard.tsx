@@ -1,12 +1,11 @@
-import { Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PaymentStatusIndicator } from './PaymentStatusIndicator';
-import { CancellationPolicyIndicator } from './CancellationPolicyIndicator';
 import { Icon } from '@/components/ui/icon';
+import { useVisibleIndicators } from '@/hooks/useAgendaPreferences';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
+import { RecurringIndicator, SessionIndicators } from './SessionIndicators';
 
 interface SessionCardProps {
   session: SessionWithRelations;
@@ -43,17 +42,24 @@ export function SessionCard({
   style 
 }: SessionCardProps) {
   const isMobile = useIsMobile();
+  const { isPrivate } = usePrivacyMode();
+  const indicatorPreferences = useVisibleIndicators();
+  // Private mode: only the time slot is shown, no name, status colour or indicators
+  const visibleIndicators = isPrivate ? { ...indicatorPreferences, professional: false, price: false } : indicatorPreferences;
   
   // Check if this is a Google Calendar event (imported)
-  const isGoogleEvent = (session as { isGoogleEvent?: boolean; recurring_series_id?: string | null }).isGoogleEvent === true;
-  const isRecurring = !!(session as { isGoogleEvent?: boolean; recurring_series_id?: string | null }).recurring_series_id;
+  const isGoogleEvent = (session as { isGoogleEvent?: boolean }).isGoogleEvent === true;
+  const showIndicators = !isGoogleEvent && !isPrivate;
   
   // Use google_event color for imported events
   const effectiveStatus = isGoogleEvent ? 'google_event' : session.status;
-  const statusColor = statusColors[effectiveStatus as keyof typeof statusColors] || statusColors.scheduled;
+  const statusColor = isPrivate
+    ? statusColors.completed
+    : statusColors[effectiveStatus as keyof typeof statusColors] || statusColors.scheduled;
   
   // For blocked sessions from Google Calendar, extract the event title from notes
   const getDisplayName = () => {
+    if (isPrivate) return 'Ocupado';
     if (isGoogleEvent) {
       // For imported Google events, notes contains the summary
       const title = session.notes?.split('\n')[0] || 'Evento externo';
@@ -223,47 +229,18 @@ export function SessionCard({
             {/* Mobile: the name takes the full width; indicators move below and the
                 time is omitted (the grid already shows the hour) */}
             <div className="flex items-center gap-0.5 min-w-0">
-              {isRecurring && <Icon name="refresh" className="h-3 w-3 opacity-60 flex-shrink-0" />}
+              {!isPrivate && <RecurringIndicator session={session} compact />}
               <div className="font-medium truncate min-w-0">{displayName}</div>
             </div>
-            {!isGoogleEvent && (
-              <div className="flex items-center gap-1 opacity-90">
-                <CancellationPolicyIndicator status={session.cancellation_policy_status} compact />
-                <PaymentStatusIndicator
-                  paymentStatus={session.payment_status}
-                  price={session.price}
-                  bonoId={session.bono_id}
-                  compact
-                />
-              </div>
-            )}
+            {showIndicators && <SessionIndicators session={session} compact className="opacity-90" />}
           </>
         ) : (
           <>
             <div className="flex items-center gap-1">
               {draggable && <Icon name="drag_indicator" className="h-3 w-3 opacity-50 flex-shrink-0" />}
-              {isRecurring && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Icon name="refresh" className="h-3 w-3 opacity-60 flex-shrink-0" />
-                    </TooltipTrigger>
-                    <TooltipContent>Cita recurrente</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              {!isPrivate && <RecurringIndicator session={session} compact />}
               <div className="font-medium truncate flex-1">{displayName}</div>
-              {!isGoogleEvent && (
-                <div className="flex shrink-0 items-center gap-1">
-                  <CancellationPolicyIndicator status={session.cancellation_policy_status} compact />
-                  <PaymentStatusIndicator
-                    paymentStatus={session.payment_status}
-                    price={session.price}
-                    bonoId={session.bono_id}
-                    compact
-                  />
-                </div>
-              )}
+              {showIndicators && <SessionIndicators session={session} compact />}
             </div>
             <div className="text-[10px] opacity-75">
               {session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}
@@ -306,34 +283,16 @@ export function SessionCard({
         {draggable && !isMobile && <Icon name="drag_indicator" className="h-4 w-4 opacity-50 flex-shrink-0 mt-0.5" />}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            {isRecurring && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Icon name="refresh" className="h-3.5 w-3.5 opacity-60 flex-shrink-0" />
-                  </TooltipTrigger>
-                  <TooltipContent>Cita recurrente</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+            {!isPrivate && <RecurringIndicator session={session} />}
             <h4 className="font-medium truncate">{displayName}</h4>
-            {!isGoogleEvent && (
-              <div className="flex shrink-0 items-center gap-1">
-                <CancellationPolicyIndicator status={session.cancellation_policy_status} />
-                <PaymentStatusIndicator
-                  paymentStatus={session.payment_status}
-                  price={session.price}
-                  bonoId={session.bono_id}
-                />
-              </div>
-            )}
+            {showIndicators && <SessionIndicators session={session} />}
           </div>
           <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Icon name="schedule" className="h-3.5 w-3.5" />
               <span>{session.start_time?.slice(0, 5)} - {session.end_time?.slice(0, 5)}</span>
             </div>
-            {session.professional && (
+            {visibleIndicators.professional && session.professional && (
               <div className="flex items-center gap-1">
                 <Icon name="person" className="h-3.5 w-3.5" />
                 <span className="truncate">
@@ -343,9 +302,11 @@ export function SessionCard({
             )}
           </div>
         </div>
-        <div className="text-right">
-          <span className="text-sm font-semibold">{Number(session.price).toFixed(0)}€</span>
-        </div>
+        {visibleIndicators.price && (
+          <div className="text-right">
+            <span className="text-sm font-semibold">{Number(session.price).toFixed(0)}€</span>
+          </div>
+        )}
       </div>
     </div>
   );

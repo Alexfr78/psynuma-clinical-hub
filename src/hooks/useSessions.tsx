@@ -25,6 +25,8 @@ export interface SessionWithRelations extends Session {
     first_name: string | null;
     last_name: string | null;
   } | null;
+  /** Miembro extra de una sesión de pareja (solo lo trae useSessions). */
+  participants?: { patient_id: string }[] | null;
 }
 
 export function useSessions(startDate?: string, endDate?: string, professionalId?: string) {
@@ -42,7 +44,8 @@ export function useSessions(startDate?: string, endDate?: string, professionalId
           ),
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
-          )
+          ),
+          participants:session_participants(patient_id)
         `)
         .neq('status', 'cancelled') // Exclude cancelled sessions from agenda
         .order('session_date', { ascending: true })

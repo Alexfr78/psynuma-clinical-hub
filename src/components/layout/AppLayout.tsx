@@ -14,6 +14,8 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { CenterSetupWizard } from '@/components/setup/CenterSetupWizard';
 import { HeaderRecordButton } from '@/components/web-recorder/HeaderRecordButton';
+import { PrivacyModeButton } from '@/components/agenda/PrivacyModeButton';
+import { PrivacyModeProvider } from '@/hooks/usePrivacyMode';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -48,6 +50,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
+    <PrivacyModeProvider>
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
@@ -66,7 +69,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              {location.pathname === '/agenda' && <PrivacyModeButton />}
               <HeaderRecordButton />
             </div>
           </header>
@@ -74,5 +78,6 @@ export function AppLayout({ children }: AppLayoutProps) {
         </SidebarInset>
       </div>
     </SidebarProvider>
+    </PrivacyModeProvider>
   );
 }

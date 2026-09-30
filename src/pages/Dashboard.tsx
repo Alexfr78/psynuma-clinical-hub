@@ -198,10 +198,10 @@ export default function Dashboard() {
   const nextSession = todaySessions?.find((s) => s.start_time >= nowTime);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <TranscriptionIssuesCard />
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl border bg-card p-6 shadow-card">
+      {/* Hero (desktop only: on mobile the dashboard opens straight on today's agenda) */}
+      <div className="relative hidden overflow-hidden rounded-2xl border bg-card p-6 shadow-card md:block">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-card to-secondary/5" />
         <div className="relative z-10 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
@@ -240,7 +240,7 @@ export default function Dashboard() {
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="order-2 grid grid-cols-1 gap-4 md:order-none md:grid-cols-3">
         <div className="rounded-2xl border bg-card p-4 shadow-card">
           <div className="mb-2 flex items-start justify-between">
             <p className="text-sm font-medium text-muted-foreground">Sesiones este mes</p>
@@ -276,7 +276,7 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="order-1 grid grid-cols-1 gap-4 md:order-none lg:grid-cols-3">
         {/* Agenda de Hoy */}
         <div className="rounded-2xl border bg-card p-4 shadow-card lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">

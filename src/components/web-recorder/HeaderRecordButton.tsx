@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useWebRecorder } from '@/hooks/useWebRecorder';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -55,6 +56,7 @@ export function HeaderRecordButton() {
   const { isAdmin, isProfessional } = useAuth();
   const { state } = useWebRecorder();
   const [open, setOpen] = useState(false);
+  const { isPrivate } = usePrivacyMode();
   const { data: sessions, isLoading } = useMyRecordableSessionsToday(open);
 
   if (!isAdmin && !isProfessional) return null;
@@ -114,7 +116,7 @@ export function HeaderRecordButton() {
                   )}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{name}</p>
+                    <p className="truncate text-sm font-medium">{isPrivate ? 'Paciente oculto' : name}</p>
                     <p className="text-xs tabular-nums text-muted-foreground">
                       {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}
                       {s.id === suggestedId && (s.id === currentId ? ' · en curso' : ' · siguiente')}

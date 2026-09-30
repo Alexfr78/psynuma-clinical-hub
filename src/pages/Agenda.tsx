@@ -20,6 +20,8 @@ import { NetworkStatusIndicator } from '@/components/agenda/NetworkStatusIndicat
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgendaHours } from '@/hooks/useAgendaHours';
+import { AgendaIndicatorsProvider, useAgendaIndicatorPreferences } from '@/hooks/useAgendaPreferences';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGoogleCalendarUpdate } from '@/hooks/useGoogleCalendarUpdate';
 import { useCalendarEvents, calendarEventToSessionFormat } from '@/hooks/useCalendarEvents';
@@ -43,6 +45,9 @@ export default function Agenda() {
   const [view, setView] = useState<CalendarView>('week');
   const [timezone, setTimezone] = useState('Europe/Madrid');
   const [selectedProfessional, setSelectedProfessional] = useState('all');
+  const indicatorPreferences = useAgendaIndicatorPreferences();
+  // Private mode (header button): patient data hidden and nothing that opens it
+  const { isPrivate } = usePrivacyMode();
   
   // Get showWeekends preference from center settings (default true)
   const showWeekends = center?.agenda_show_weekends !== false;
@@ -53,6 +58,15 @@ export default function Agenda() {
   const [transcriptionSessionId, setTranscriptionSessionId] = useState<string | null>(null);
   const [transcriptionOpen, setTranscriptionOpen] = useState(false);
   const [moveSession, setMoveSession] = useState<SessionWithRelations | null>(null);
+
+  // Turning private mode on closes anything that shows a patient's data
+  useEffect(() => {
+    if (!isPrivate) return;
+    setSelectedSession(null);
+    setMoveSession(null);
+    setCreateDialogOpen(false);
+    setTranscriptionOpen(false);
+  }, [isPrivate]);
   const [initialDate, setInitialDate] = useState<Date | undefined>();
   const [initialStartTime, setInitialStartTime] = useState<string | undefined>();
   const [initialEndTime, setInitialEndTime] = useState<string | undefined>();
@@ -309,6 +323,7 @@ export default function Agenda() {
   }, [sessionParam, setSearchParams]);
 
   const handleSlotClick = (date: Date, startTime: string, endTime: string) => {
+    if (isPrivate) return;
     setInitialDate(date);
     setInitialStartTime(startTime);
     setInitialEndTime(endTime);
@@ -321,6 +336,7 @@ export default function Agenda() {
   };
 
   const handleSessionClick = (session: SessionWithRelations) => {
+    if (isPrivate) return;
     setSelectedSession(session);
   };
 
@@ -367,6 +383,7 @@ export default function Agenda() {
   }, [view]);
 
   const handleSessionMove = async (sessionId: string, newDate: string, newStartTime: string, newEndTime: string) => {
+    if (isPrivate) return;
     try {
       // First check if this is a Google Calendar event (not a session)
       const sessionOrEvent = allSessions?.find(s => s.id === sessionId);
@@ -580,7 +597,7 @@ export default function Agenda() {
       </div>
 
       {/* Pending Approvals Panel */}
-      <PendingApprovalsPanel />
+      {!isPrivate && <PendingApprovalsPanel />}
 
       {/* Calendar Header */}
       <CalendarHeader
@@ -594,6 +611,7 @@ export default function Agenda() {
       />
 
       {/* Calendar Views */}
+      <AgendaIndicatorsProvider value={indicatorPreferences.visibility}>
       {isLoading && cachedSessions.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <Icon name="progress_activity" className="h-8 w-8 animate-spin text-primary" />
@@ -625,7 +643,7 @@ export default function Agenda() {
               onSessionClick={handleSessionClick}
               onSlotClick={handleSlotClick}
               onSessionMove={handleSessionMove}
-              onMoveRequest={setMoveSession}
+              onMoveRequest={isPrivate ? undefined : setMoveSession}
               hours={hours}
               startHour={startHour}
               onSwipeLeft={navigateNext}
@@ -660,6 +678,7 @@ export default function Agenda() {
           )}
         </>
       )}
+      </AgendaIndicatorsProvider>
 
       {/* Quick Create Session Dialog */}
       <QuickCreateSessionDialog
@@ -700,6 +719,9 @@ export default function Agenda() {
         onTimezoneChange={setTimezone}
         showGoogleEvents={showGoogleEvents}
         onShowGoogleEventsChange={setShowGoogleEvents}
+        visibleIndicators={indicatorPreferences.visibility}
+        onIndicatorChange={indicatorPreferences.setIndicator}
+        onResetIndicators={indicatorPreferences.resetIndicators}
       />
 
       {/* Move Session Dialog (mobile) */}

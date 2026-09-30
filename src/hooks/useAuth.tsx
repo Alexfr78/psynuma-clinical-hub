@@ -14,6 +14,7 @@ interface Profile {
   specialty: string | null;
   center_id: string | null;
   is_active: boolean;
+  agenda_preferences?: unknown;
 }
 
 interface AuthContextType {

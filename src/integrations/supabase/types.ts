@@ -6417,6 +6417,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          agenda_preferences: Json
           avatar_url: string | null
           center_id: string | null
           commission_rate: number | null
@@ -6432,6 +6433,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          agenda_preferences?: Json
           avatar_url?: string | null
           center_id?: string | null
           commission_rate?: number | null
@@ -6447,6 +6449,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          agenda_preferences?: Json
           avatar_url?: string | null
           center_id?: string | null
           commission_rate?: number | null

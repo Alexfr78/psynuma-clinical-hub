@@ -21,6 +21,8 @@ import type { SpecialDay, SpecialDayType } from '@/lib/special-days';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { PaymentStatusIndicator } from './PaymentStatusIndicator';
+import { useVisibleIndicators } from '@/hooks/useAgendaPreferences';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface MonthViewProps {
   currentDate: Date;
@@ -56,6 +58,8 @@ const SPECIAL_DAY_ICON: Record<SpecialDayType, string> = {
 };
 
 export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, onSwipeLeft, onSwipeRight, scheduleExceptions, specialDays, selectedProfessional, professionalNames }: MonthViewProps) {
+  const visibleIndicators = useVisibleIndicators();
+  const { isPrivate } = usePrivacyMode();
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -180,7 +184,9 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                     key={session.id}
                     className={cn(
                       'cursor-pointer rounded px-1 py-0.5 text-[10px] text-white truncate',
-                      statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled
+                      isPrivate
+                        ? 'bg-slate-400'
+                        : statusColors[session.status as keyof typeof statusColors] || statusColors.scheduled
                     )}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -189,15 +195,17 @@ export function MonthView({ currentDate, sessions, onSessionClick, onDayClick, o
                   >
                     <span className="inline-flex min-w-0 max-w-full items-center gap-1">
                       <span className="truncate">
-                        {session.start_time?.slice(0, 5)} {session.patient?.first_name}
+                        {session.start_time?.slice(0, 5)} {isPrivate ? 'Ocupado' : session.patient?.first_name}
                       </span>
-                      <PaymentStatusIndicator
-                        paymentStatus={session.payment_status}
-                        price={session.price}
-                        bonoId={session.bono_id}
-                        compact
-                        className="bg-white/95"
-                      />
+                      {visibleIndicators.payment && !isPrivate && (
+                        <PaymentStatusIndicator
+                          paymentStatus={session.payment_status}
+                          price={session.price}
+                          bonoId={session.bono_id}
+                          compact
+                          className="bg-white/95"
+                        />
+                      )}
                     </span>
                   </div>
                 ))}
