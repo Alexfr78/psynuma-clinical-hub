@@ -58,7 +58,7 @@ interface QueryOptions {
   placeholderData?: unknown;
 }
 const options = (result: unknown) => result as QueryOptions;
-const params = () => state.requests.at(-1)!.url.searchParams;
+const params = () => state.requests[state.requests.length - 1].url.searchParams;
 const range = { from: 1000, to: 1009 };
 
 beforeEach(() => {
@@ -92,7 +92,7 @@ describe('consultas paginadas', () => {
     expect(params().get('offset')).toBe('1000');
     expect(params().get('limit')).toBe('10');
     expect(params().get('order')).toBe(order);
-    expect(new Headers(state.requests.at(-1)!.init.headers).get('prefer')).toContain('count=exact');
+    expect(new Headers(state.requests[state.requests.length - 1].init.headers).get('prefer')).toContain('count=exact');
   });
 
   it('comparte los filtros de gastos sin paginar el hook antiguo', async () => {
@@ -132,7 +132,7 @@ describe('consultas paginadas', () => {
     await options(useAssessmentCounts(now)).queryFn();
     // Entrecomillada: ':' y '.' son reservados dentro de un or() de PostgREST.
     expect(params().get('or')).toContain(`expires_at.lte."${now}"`);
-    expect(state.requests.at(-1)!.init.method).toBe('HEAD');
+    expect(state.requests[state.requests.length - 1].init.method).toBe('HEAD');
   });
 
   it('mantiene bonos compartidos e importes más allá de 1000 filas', async () => {
@@ -200,7 +200,7 @@ describe('consultas paginadas', () => {
     expect(await options(useAuditAnomalyCount('2026-09-01', '2026-09-30')).queryFn()).toBe(1234);
     expect(params().get('p_limit')).toBe('2147483647');
     expect(params().get('p_anomalous_only')).toBe('true');
-    expect(state.requests.at(-1)!.init.method).toBe('HEAD');
+    expect(state.requests[state.requests.length - 1].init.method).toBe('HEAD');
   });
 });
 
@@ -218,7 +218,7 @@ describe('busqueda calculada y conjuntos completos', () => {
     expect(params().has('or')).toBe(false);
     expect(params().get('offset')).toBe('1000');
     expect(params().get('limit')).toBe('10');
-    expect(new Headers(state.requests.at(-1)!.init.headers).get('prefer')).toContain('count=exact');
+    expect(new Headers(state.requests[state.requests.length - 1].init.headers).get('prefer')).toContain('count=exact');
     await options(hook({ search: '*%_' }, range)).queryFn();
     expect(params().get('search_text')).toBe('ilike.');
     await options(hook({ search: '   ' }, range)).queryFn();
@@ -239,7 +239,7 @@ describe('busqueda calculada y conjuntos completos', () => {
     expect(params().get('verifactu_pending')).toBe('eq.true');
     expect(params().has('status')).toBe(false);
     await options(useInvoiceOrphanCount(filters)).queryFn();
-    expect(state.requests.at(-1)!.init.method).toBe('HEAD');
+    expect(state.requests[state.requests.length - 1].init.method).toBe('HEAD');
     expect(params().getAll('status')).toEqual(['eq.paid', 'in.(issued,paid)']);
     expect(params().getAll('or')).toEqual([
       '(verifactu_registration_id.is.null,verifactu_registration_id.eq."")',
