@@ -163,80 +163,19 @@ export function useDebtStats() {
   return useQuery({
     queryKey: ['debt-stats'],
     queryFn: async () => {
-      const [debtsRes, issuedRes] = await Promise.all([
-        supabase
-          .from('debts')
-          .select('amount, paid_amount, status, due_date, invoice_id')
-          .in('status', ['pending', 'partial']),
-        supabase
-          .from('invoices')
-          .select('id, total, is_valid')
-          .eq('status', 'issued')
-          .eq('is_valid', true),
-      ]);
+      // La regla vive en SQL (get_receivables_summary): suma en la base, sin el tope de
+      // 1.000 filas de PostgREST y con la RLS de siempre. Una factura emitida solo cuenta
+      // si no tiene ninguna deuda registrada; con la deuda pagada ya no está pendiente.
+      const { data, error } = await supabase.rpc('get_receivables_summary');
+      if (error) throw error;
 
-      if (debtsRes.error) throw debtsRes.error;
-
-      // If debts have invoice_id, we need to verify those invoices are still valid.
-      // Collect invoice_ids from debts to check validity.
-      const debtInvoiceIds = new Set<string>();
-      const invoiceIdsToCheck = new Set<string>();
-      debtsRes.data.forEach((debt) => {
-        if (debt.invoice_id) {
-          debtInvoiceIds.add(debt.invoice_id);
-          invoiceIdsToCheck.add(debt.invoice_id);
-        }
-      });
-
-      // Fetch validity for debts' invoices
-      let invalidInvoiceIds = new Set<string>();
-      if (invoiceIdsToCheck.size > 0) {
-        const { data: invoiceValidity } = await supabase
-          .from('invoices')
-          .select('id, is_valid')
-          .in('id', Array.from(invoiceIdsToCheck))
-          .eq('is_valid', false);
-
-        if (invoiceValidity) {
-          invalidInvoiceIds = new Set(invoiceValidity.map(i => i.id));
-        }
-      }
-
-      const now = new Date();
-      const stats = {
-        totalPending: 0,
-        overdueAmount: 0,
-        overdueCount: 0,
-        totalCount: 0,
+      const row = data?.[0];
+      return {
+        totalPending: Number(row?.total_pending ?? 0),
+        overdueAmount: Number(row?.overdue_amount ?? 0),
+        overdueCount: Number(row?.overdue_count ?? 0),
+        totalCount: Number(row?.total_count ?? 0),
       };
-
-      // Exclude debts whose invoice is invalidated by rectificativa
-      debtsRes.data.forEach((debt) => {
-        if (debt.invoice_id && invalidInvoiceIds.has(debt.invoice_id)) {
-          return; // Skip debts for invalidated invoices
-        }
-
-        const remaining = Number(debt.amount) - Number(debt.paid_amount);
-        stats.totalPending += remaining;
-        stats.totalCount++;
-
-        if (debt.due_date && new Date(debt.due_date) < now) {
-          stats.overdueAmount += remaining;
-          stats.overdueCount++;
-        }
-      });
-
-      // Add issued valid invoices without a debt record
-      if (issuedRes.data) {
-        issuedRes.data
-          .filter(inv => !debtInvoiceIds.has(inv.id))
-          .forEach(inv => {
-            stats.totalPending += Number(inv.total);
-            stats.totalCount++;
-          });
-      }
-
-      return stats;
     },
     enabled: !!profile?.center_id,
   });

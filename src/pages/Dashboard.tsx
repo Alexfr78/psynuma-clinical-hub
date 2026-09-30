@@ -30,9 +30,6 @@ function useDashboardStats() {
         patientsRes,
         todaySessionsRes,
         monthInvoicesRes,
-        debtsRes,
-        issuedInvoicesRes,
-        allDebtInvoiceIdsRes,
         monthSessionsRes,
         prevMonthSessionsRes,
         newPatientsRes,
@@ -41,10 +38,6 @@ function useDashboardStats() {
         supabase.from('patients').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).eq('session_date', today).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked'),
         supabase.from('invoices').select('total, status, retention_amount').gte('issue_date', startOfMonth).lte('issue_date', endOfMonth),
-        supabase.from('debts').select('amount, paid_amount, invoice_id').in('status', ['pending', 'partial']),
-        supabase.from('invoices').select('id, total').eq('status', 'issued').eq('is_valid', true),
-        // All debts with invoice_id (any status) to know which invoices already have debt records
-        supabase.from('debts').select('invoice_id').not('invoice_id', 'is', null),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).gte('session_date', startOfMonth).lte('session_date', endOfMonth).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked').neq('session_type', 'Bloqueado'),
         supabase.from('sessions').select('id', { count: 'exact', head: true }).gte('session_date', startOfPrevMonth).lte('session_date', endOfPrevMonth).neq('status', 'cancelled').neq('status', 'no_show').neq('status', 'blocked').neq('session_type', 'Bloqueado'),
         supabase.from('patients').select('id', { count: 'exact', head: true }).gte('created_at', startOfMonth).lte('created_at', endOfMonth),
@@ -55,28 +48,6 @@ function useDashboardStats() {
       const monthlyRevenueNet = monthEffective.reduce((sum, inv) => sum + Number(inv.total), 0);
       const monthlyRetained = monthEffective.reduce((sum, inv) => sum + Number(inv.retention_amount ?? 0), 0);
       const monthlyRevenue = monthlyRevenueNet + monthlyRetained;
-
-      // Exclude debts whose invoice has been invalidated by a rectificativa
-      const debtInvoiceIds = new Set(debtsRes.data?.map(d => d.invoice_id).filter(Boolean) as string[]);
-      let invalidInvoiceIds = new Set<string>();
-      if (debtInvoiceIds.size > 0) {
-        const { data: invalidInvoices } = await supabase
-          .from('invoices')
-          .select('id')
-          .in('id', Array.from(debtInvoiceIds))
-          .eq('is_valid', false);
-        if (invalidInvoices) invalidInvoiceIds = new Set(invalidInvoices.map(i => i.id));
-      }
-
-      const debtsPending = debtsRes.data
-        ?.filter(debt => !debt.invoice_id || !invalidInvoiceIds.has(debt.invoice_id))
-        .reduce((sum, debt) => sum + (Number(debt.amount) - Number(debt.paid_amount)), 0) || 0;
-
-      // Issued valid invoices without ANY debt record (fallback for older invoices)
-      const allDebtInvoiceIds = new Set(allDebtInvoiceIdsRes.data?.map(d => d.invoice_id).filter(Boolean));
-      const invoicesWithoutDebt = issuedInvoicesRes.data
-        ?.filter(inv => !allDebtInvoiceIds.has(inv.id))
-        .reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
       const monthSessions = monthSessionsRes.count || 0;
       const prevMonthSessions = prevMonthSessionsRes.count || 0;
@@ -94,7 +65,6 @@ function useDashboardStats() {
         monthlyRevenue,
         monthlyRevenueNet,
         monthlyRetained,
-        pendingDebts: debtsPending + invoicesWithoutDebt,
         monthSessions,
         monthSessionsTrend: trend(monthSessions, prevMonthSessions),
         newPatients,
@@ -156,7 +126,8 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   // Usa la misma fuente que la página de Cobros/Deudas para evitar discrepancias
   const { data: debtStats } = useDebtStats();
-  const pendingDebts = debtStats?.totalPending ?? stats?.pendingDebts ?? 0;
+  // El pendiente de cobro sale de useDebtStats (get_receivables_summary), la misma cifra que en Cobros.
+  const pendingDebts = debtStats?.totalPending ?? 0;
   const { data: todaySessions, isLoading: sessionsLoading } = useTodaySessions();
   const { data: pendingDebtsList, isLoading: debtsListLoading } = useDebts();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);

@@ -9540,6 +9540,15 @@ export type Database = {
           name: string
         }[]
       }
+      get_receivables_summary: {
+        Args: never
+        Returns: {
+          overdue_amount: number
+          overdue_count: number
+          total_count: number
+          total_pending: number
+        }[]
+      }
       get_safe_center: { Args: { p_center_id: string }; Returns: Json }
       get_session_patient_ids: {
         Args: { p_session_id: string }
