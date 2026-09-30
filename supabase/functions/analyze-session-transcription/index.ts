@@ -1263,6 +1263,46 @@ serve(async (req) => {
       throw error;
     }
 
+    // ─── Guardar la transcripción pegada a mano ───────────────────────────────
+    // La que llega de un audio ya vive en `transcripts` (process-transcription-job); la pegada
+    // en el cuadro de texto solo existía en el navegador, y al cerrar el diálogo ya no se podía
+    // generar nada más. Se guarda con la misma retención de 30 días (default de `expires_at`)
+    // para que el fallback de arriba la recupere. Solo tras generar con éxito, es decir, ya
+    // pasada la puerta de consentimiento. Si la última guardada vigente es idéntica no se
+    // duplica (p. ej. "Generar automáticamente" hace dos llamadas con el mismo texto). Un fallo
+    // aquí no rompe la respuesta: el documento ya está generado.
+    if (docType.scope === 'session' && sessionId && originSource === 'manual' && effectiveTranscription?.trim()) {
+      const pastedText = effectiveTranscription.trim();
+      const { data: latestSaved, error: latestError } = await supabaseService
+        .from('transcripts')
+        .select('normalized_text')
+        .eq('session_id', sessionId)
+        .is('deleted_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestError) {
+        console.error('[analyze] Error al comprobar la transcripción guardada antes de persistir la pegada:', latestError.message);
+      } else if ((latestSaved as { normalized_text: string | null } | null)?.normalized_text?.trim() !== pastedText) {
+        const { error: saveError } = await supabaseService.from('transcripts').insert({
+          session_id: sessionId,
+          patient_id: patientId,
+          center_id: centerId,
+          source: 'manual_paste',
+          normalized_text: pastedText,
+          language: 'es',
+          diarization_available: diarizationApplied,
+        });
+        if (saveError) {
+          console.error('[analyze] Error al guardar la transcripción pegada:', saveError.message);
+        } else {
+          console.log(`[analyze] Transcripción pegada guardada para la sesión ${sessionId} (30 días).`);
+        }
+      }
+    }
+
     const dependencies = (docType.requires ?? []).map((depKey) => {
       const dep = ctx.cache.get(depKey);
       return { key: depKey, documentId: dep?.documentId ?? null, reused: dep?.reused ?? false };

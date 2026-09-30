@@ -193,7 +193,8 @@ export function TranscriptionAnalysisDialog({
    *
    * 1. Está en el propio request (`hasTranscription`): lo de siempre.
    * 2. El servidor la recupera solo de una transcripción guardada vigente — la tabla
-   *    `transcripts` del pipeline nuevo (retención de 30 días) o, como legado, de
+   *    `transcripts` (retención de 30 días; recibe tanto la de un audio como la pegada aquí,
+   *    que el servidor guarda al generar el primer documento) o, como legado, de
    *    `plaud_recordings.transcript_text` (ver `analyze-session-transcription/index.ts`,
    *    fallback tras la puerta de consentimiento). `hasSavedTranscriptFallback` refleja si
    *    existe alguna de las dos, sin traer la transcripción entera al cliente para saberlo.
