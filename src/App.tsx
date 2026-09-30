@@ -7,51 +7,55 @@ import { PublicLanding } from "@/components/PublicLanding";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
-import Auth from "./pages/Auth";
-import ResetPassword from "./pages/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import Patients from "./pages/Patients";
-import PatientDetail from "./pages/PatientDetail";
-import Agenda from "./pages/Agenda";
-import Sessions from "./pages/Sessions";
-import Bonos from "./pages/Bonos";
-import Invoices from "./pages/Invoices";
-import Payments from "./pages/Payments";
-import Expenses from "./pages/Expenses";
-import Notifications from "./pages/Notifications";
-import Professionals from "./pages/Professionals";
-import Settings from "./pages/Settings";
-import Audit from "./pages/Audit";
-import AuditLog from "./pages/AuditLog";
-import IntakeRequests from "./pages/IntakeRequests";
-import NotFound from "./pages/NotFound";
-import SessionManagement from "./pages/SessionManagement";
-import CoupleCancellationResponse from "./pages/CoupleCancellationResponse";
-import Install from "./pages/Install";
-import Consents from "./pages/Consents";
-import ConsentSignature from "./pages/ConsentSignature";
-import PatientPortal from "./pages/PatientPortal";
-import PatientPortalDashboard from "./pages/PatientPortalDashboard";
-import InvoiceView from "./pages/InvoiceView";
-import PatientReportView from "./pages/PatientReportView";
-import PublicBooking from "./pages/PublicBooking";
-import PublicBookingManage from "./pages/PublicBookingManage";
-import Assessments from "./pages/Assessments";
-import AssessmentPublic from "./pages/AssessmentPublic";
-import EMOPublic from "./pages/EMOPublic";
-import AssessmentResults from "./pages/AssessmentResults";
-import PayDebt from "./pages/PayDebt";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PublicReferralRegister from "./pages/PublicReferralRegister";
-import Referrals from "./pages/Referrals";
-import Autoregistros from "./pages/Autoregistros";
-import AutoregistroPublic from "./pages/AutoregistroPublic";
-import PlaudReview from "./pages/PlaudReview";
-import Recordings from "./pages/Recordings";
-import PublicShortLinkRedirect from "./pages/PublicShortLinkRedirect";
-import ShareAudio from "./pages/ShareAudio";
 import { WebRecorderProvider } from "@/hooks/useWebRecorder";
 import { WebRecorderWidget } from "@/components/web-recorder/WebRecorderWidget";
+import { RouteBoundary } from "@/components/RouteErrorBoundary";
+import { lazyPage } from "@/lib/lazy-page";
+
+// Una página = un chunk. Las rutas públicas del paciente ya no descargan la app entera.
+const Auth = lazyPage(() => import("./pages/Auth"));
+const ResetPassword = lazyPage(() => import("./pages/ResetPassword"));
+const Dashboard = lazyPage(() => import("./pages/Dashboard"));
+const Patients = lazyPage(() => import("./pages/Patients"));
+const PatientDetail = lazyPage(() => import("./pages/PatientDetail"));
+const Agenda = lazyPage(() => import("./pages/Agenda"));
+const Sessions = lazyPage(() => import("./pages/Sessions"));
+const Bonos = lazyPage(() => import("./pages/Bonos"));
+const Invoices = lazyPage(() => import("./pages/Invoices"));
+const Payments = lazyPage(() => import("./pages/Payments"));
+const Expenses = lazyPage(() => import("./pages/Expenses"));
+const Notifications = lazyPage(() => import("./pages/Notifications"));
+const Professionals = lazyPage(() => import("./pages/Professionals"));
+const Settings = lazyPage(() => import("./pages/Settings"));
+const Audit = lazyPage(() => import("./pages/Audit"));
+const AuditLog = lazyPage(() => import("./pages/AuditLog"));
+const IntakeRequests = lazyPage(() => import("./pages/IntakeRequests"));
+const NotFound = lazyPage(() => import("./pages/NotFound"));
+const SessionManagement = lazyPage(() => import("./pages/SessionManagement"));
+const CoupleCancellationResponse = lazyPage(() => import("./pages/CoupleCancellationResponse"));
+const Install = lazyPage(() => import("./pages/Install"));
+const Consents = lazyPage(() => import("./pages/Consents"));
+const ConsentSignature = lazyPage(() => import("./pages/ConsentSignature"));
+const PatientPortal = lazyPage(() => import("./pages/PatientPortal"));
+const PatientPortalDashboard = lazyPage(() => import("./pages/PatientPortalDashboard"));
+const InvoiceView = lazyPage(() => import("./pages/InvoiceView"));
+const PatientReportView = lazyPage(() => import("./pages/PatientReportView"));
+const PublicBooking = lazyPage(() => import("./pages/PublicBooking"));
+const PublicBookingManage = lazyPage(() => import("./pages/PublicBookingManage"));
+const Assessments = lazyPage(() => import("./pages/Assessments"));
+const AssessmentPublic = lazyPage(() => import("./pages/AssessmentPublic"));
+const EMOPublic = lazyPage(() => import("./pages/EMOPublic"));
+const AssessmentResults = lazyPage(() => import("./pages/AssessmentResults"));
+const PayDebt = lazyPage(() => import("./pages/PayDebt"));
+const PaymentSuccess = lazyPage(() => import("./pages/PaymentSuccess"));
+const PublicReferralRegister = lazyPage(() => import("./pages/PublicReferralRegister"));
+const Referrals = lazyPage(() => import("./pages/Referrals"));
+const Autoregistros = lazyPage(() => import("./pages/Autoregistros"));
+const AutoregistroPublic = lazyPage(() => import("./pages/AutoregistroPublic"));
+const PlaudReview = lazyPage(() => import("./pages/PlaudReview"));
+const Recordings = lazyPage(() => import("./pages/Recordings"));
+const PublicShortLinkRedirect = lazyPage(() => import("./pages/PublicShortLinkRedirect"));
+const ShareAudio = lazyPage(() => import("./pages/ShareAudio"));
 
 const queryClient = new QueryClient();
 
@@ -71,6 +75,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <WebRecorderProvider>
+          <RouteBoundary fullScreen>
           <Routes>
             <Route path="/" element={<PublicLanding />} />
             <Route path="/auth" element={<Auth />} />
@@ -222,6 +227,7 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </RouteBoundary>
           <WebRecorderWidget />
           </WebRecorderProvider>
         </BrowserRouter>

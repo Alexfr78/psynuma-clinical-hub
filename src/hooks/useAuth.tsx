@@ -1,4 +1,5 @@
-import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import React, { useState, useEffect, useRef, useCallback, createContext, useContext, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -47,6 +48,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [needsMfaVerification, setNeedsMfaVerification] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
 
+  // La caché de React Query guarda datos clínicos y casi ninguna clave incluye el usuario
+  // o el centro. Si en el mismo navegador entra otra persona (o se cierra sesión), se vacía
+  // para que no vea, ni un instante, lo que había cargado la anterior.
+  const queryClient = useQueryClient();
+  const cacheOwnerRef = useRef<string | null | undefined>(undefined);
+  const syncCacheOwner = useCallback((nextUserId: string | null) => {
+    const previous = cacheOwnerRef.current;
+    cacheOwnerRef.current = nextUserId;
+    if (previous !== undefined && previous !== nextUserId) {
+      queryClient.clear();
+    }
+  }, [queryClient]);
+
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -81,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        syncCacheOwner(session?.user?.id ?? null);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -100,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      syncCacheOwner(session?.user?.id ?? null);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -111,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [syncCacheOwner]);
 
   const isTrustedDevice = (userId: string): boolean => {
     try {
@@ -221,6 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    syncCacheOwner(null);
     setUser(null);
     setSession(null);
     setProfile(null);

@@ -16,6 +16,7 @@ import { CenterSetupWizard } from '@/components/setup/CenterSetupWizard';
 import { HeaderRecordButton } from '@/components/web-recorder/HeaderRecordButton';
 import { PrivacyModeButton } from '@/components/agenda/PrivacyModeButton';
 import { PrivacyModeProvider } from '@/hooks/usePrivacyMode';
+import { RouteBoundary } from '@/components/RouteErrorBoundary';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -74,7 +75,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               <HeaderRecordButton />
             </div>
           </header>
-          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">{children}</main>
+          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
+            <RouteBoundary>{children}</RouteBoundary>
+          </main>
         </SidebarInset>
       </div>
     </SidebarProvider>
