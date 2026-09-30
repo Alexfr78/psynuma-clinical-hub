@@ -1,3 +1,6 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
+import { toast } from 'sonner';
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -11,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useSessions, SessionWithRelations } from '@/hooks/useSessions';
+import { useSessionsPage, useSessionListStats, fetchSessionList, SessionWithRelations } from '@/hooks/useSessions';
 import { useProfessionals } from '@/hooks/usePatients';
 import { PaymentStatusIndicator } from '@/components/agenda/PaymentStatusIndicator';
 import { CreateSessionDialog } from '@/components/agenda/CreateSessionDialog';
@@ -28,12 +31,6 @@ const PERIOD_LABELS: Record<Period, string> = {
   all: 'Todo',
 };
 
-function isBlockedSession(session: SessionWithRelations) {
-  return session.status === 'blocked'
-    || session.session_type === 'Bloqueado'
-    || !!session.patient?.first_name?.startsWith('[Bloqueado]');
-}
-
 export default function Sessions() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -45,7 +42,6 @@ export default function Sessions() {
   const [transcriptionOpen, setTranscriptionOpen] = useState(false);
 
   const { data: professionals } = useProfessionals();
-  const { data: sessions, isLoading } = useSessions(undefined, undefined, professionalFilter);
 
   const now = new Date();
   const periodRange = useMemo(() => {
@@ -69,28 +65,27 @@ export default function Sessions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
 
-  const billableSessions = sessions?.filter((s) => !isBlockedSession(s)) || [];
-
-  const filteredSessions = billableSessions.filter((session) => {
-    const fullName = `${session.patient?.first_name ?? ''} ${session.patient?.last_name ?? ''}`.toLowerCase().trim();
-    const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    const matchesSearch = terms.length === 0 || terms.every((term) => fullName.includes(term));
-    const matchesStatus = statusFilter === 'all' || session.status === statusFilter;
-    const matchesPeriod = !periodRange || (session.session_date >= periodRange.from && session.session_date <= periodRange.to);
-    return matchesSearch && matchesStatus && matchesPeriod;
-  }).sort((a, b) => (a.session_date + a.start_time < b.session_date + b.start_time ? 1 : -1));
-
-  // Month-to-date summary, independent of the period/search/status filters above
+  const filters = { search, status: statusFilter, professionalId: professionalFilter, startDate: periodRange?.from, endDate: periodRange?.to };
+  const pagination = usePagination('sessions', [filters]);
+  const { data, isLoading, isFetching } = useSessionsPage(filters, pagination);
+  const filteredSessions = data?.rows ?? [];
   const monthStart = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
   const monthEnd = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd');
-  const monthSessions = billableSessions.filter((s) => s.session_date >= monthStart && s.session_date <= monthEnd);
-  const totalSessionsThisMonth = monthSessions.length;
-  const totalBilledThisMonth = monthSessions.reduce((sum, s) => sum + Number(s.price || 0), 0);
+  const { data: stats } = useSessionListStats({ professionalId: professionalFilter, startDate: monthStart, endDate: monthEnd });
+  const totalSessionsThisMonth = stats?.count ?? 0;
+  const totalBilledThisMonth = stats?.billed ?? 0;
 
-  const handleExportCsv = () => {
-    if (filteredSessions.length === 0) return;
+  const handleExportCsv = async () => {
+    let exportSessions: SessionWithRelations[];
+    try {
+      exportSessions = await fetchSessionList(filters);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudieron exportar las sesiones');
+      return;
+    }
+    if (exportSessions.length === 0) return;
     const header = ['Fecha', 'Hora', 'Paciente', 'Tipo', 'Modalidad', 'Estado de pago', 'Importe'];
-    const rows = filteredSessions.map((s) => [
+    const rows = exportSessions.map((s) => [
       s.session_date,
       s.start_time.slice(0, 5),
       `${s.patient?.first_name ?? ''} ${s.patient?.last_name ?? ''}`.trim(),
@@ -301,11 +296,15 @@ export default function Sessions() {
         )}
       </div>
 
-      {filteredSessions.length > 0 && (
-        <div className="text-center text-sm text-muted-foreground">
-          Mostrando {filteredSessions.length} sesión{filteredSessions.length !== 1 ? 'es' : ''}
-        </div>
-      )}
+      <ListPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+        total={data?.total ?? 0}
+        isFetching={isFetching}
+        itemLabel={['sesión', 'sesiones']}
+      />
 
       {/* Dialogs */}
       <CreateSessionDialog
@@ -326,7 +325,7 @@ export default function Sessions() {
       />
 
       {transcriptionSessionId && (() => {
-        const s = sessions?.find(s => s.id === transcriptionSessionId);
+        const s = filteredSessions.find(s => s.id === transcriptionSessionId);
         const pName = s?.patient ? `${s.patient.first_name} ${s.patient.last_name}` : undefined;
         return (
           <TranscriptionAnalysisDialog

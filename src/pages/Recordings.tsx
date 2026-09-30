@@ -1,5 +1,8 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
+import { useRecordingsPage } from '@/hooks/useRecordings';
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -45,18 +48,6 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   failed: { label: 'Fallida', tone: 'destructive' },
 };
 
-interface RecordingRow {
-  id: string;
-  source: string;
-  status: string;
-  professional_id: string;
-  patient_id: string | null;
-  session_id: string | null;
-  duration_ms: number | null;
-  created_at: string;
-  job: { status: string; error_code: string | null }[] | null;
-  transcripts: { id: string }[] | null;
-}
 
 function formatDuration(ms: number | null) {
   if (!ms) return '';
@@ -99,32 +90,9 @@ export default function Recordings() {
     },
   });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['recordings', profile?.center_id, user?.id, isAdmin],
-    queryFn: async () => {
-      const since = new Date(Date.now() - LIST_DAYS * 24 * 60 * 60 * 1000).toISOString();
-      let query = supabase
-        .from('audio_ingestions')
-        .select('id, source, status, professional_id, patient_id, session_id, duration_ms, created_at, job:transcription_jobs(status, error_code), transcripts(id)')
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-        .limit(200);
-      if (!isAdmin) query = query.eq('professional_id', user!.id);
-      const { data: rows, error } = await query;
-      if (error) throw error;
-      const recordings = (rows ?? []) as unknown as RecordingRow[];
-
-      const patientIds = [...new Set(recordings.map((r) => r.patient_id).filter(Boolean))] as string[];
-      const names = new Map<string, string>();
-      if (patientIds.length) {
-        const { data: patients } = await supabase.from('patients').select('id, first_name, last_name').in('id', patientIds);
-        for (const p of patients ?? []) names.set(p.id, `${p.first_name} ${p.last_name ?? ''}`.trim());
-      }
-      return recordings.map((r) => ({ ...r, patientName: r.patient_id ? names.get(r.patient_id) ?? null : null }));
-    },
-    enabled: !!user?.id && !!profile?.center_id,
-    refetchInterval: 60 * 1000,
-  });
+  const pagination = usePagination('recordings', [profile?.center_id, user?.id, isAdmin]);
+  const { data: result, isLoading, isFetching } = useRecordingsPage(pagination);
+  const data = result?.rows;
 
   return (
     <div className="space-y-6">
@@ -206,6 +174,15 @@ export default function Recordings() {
             })}
           </ul>
         )}
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+          total={result?.total ?? 0}
+          isFetching={isFetching}
+          itemLabel={['grabación', 'grabaciones']}
+        />
       </div>
 
       <AlertDialog open={!!toDelete} onOpenChange={(open) => { if (!open && !deleteRecording.isPending) setToDelete(null); }}>

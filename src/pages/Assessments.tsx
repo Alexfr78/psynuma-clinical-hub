@@ -1,8 +1,10 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAssessments, Assessment } from '@/hooks/useAssessments';
+import { useAssessmentActions, useAssessmentsPage, useAssessmentCounts, Assessment } from '@/hooks/useAssessments';
 import { AssessmentCard } from '@/components/assessments/AssessmentCard';
 import { CreateAssessmentDialog } from '@/components/assessments/CreateAssessmentDialog';
 import { AssessmentDetailDialog } from '@/components/assessments/AssessmentDetailDialog';
@@ -11,19 +13,18 @@ import { Icon } from '@/components/ui/icon';
 import { Link } from 'react-router-dom';
 
 export default function Assessments() {
-  const { assessments, isLoading, revokeAssessment, deleteAssessment } = useAssessments();
+  const { revokeAssessment, deleteAssessment } = useAssessmentActions();
   const [createOpen, setCreateOpen] = useState(false);
   const [viewAssessment, setViewAssessment] = useState<Assessment | null>(null);
   const [sendAssessment, setSendAssessment] = useState<Assessment | null>(null);
 
-  const now = new Date();
-  const pending = assessments.filter(a => a.status === 'pending' && new Date(a.expires_at) > now);
-  const completed = assessments.filter(a => a.status === 'completed');
-  const other = assessments.filter(a => 
-    a.status === 'revoked' || 
-    a.status === 'expired' || 
-    (a.status === 'pending' && new Date(a.expires_at) <= now)
-  );
+  const [tab, setTab] = useState('pending');
+  const pagination = usePagination('assessments', [tab]);
+  const { data, isLoading, isFetching } = useAssessmentsPage({ tab }, pagination);
+  const { data: counts = { pending: 0, completed: 0, other: 0 } } = useAssessmentCounts();
+  const pending = tab === 'pending' ? data?.rows ?? [] : [];
+  const completed = tab === 'completed' ? data?.rows ?? [] : [];
+  const other = tab === 'other' ? data?.rows ?? [] : [];
 
   if (isLoading) {
     return (
@@ -59,14 +60,14 @@ export default function Assessments() {
         </div>
       </div>
 
-      <Tabs defaultValue="pending" className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <div className="relative">
           <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-background to-transparent pointer-events-none z-10 sm:hidden" />
           <div className="absolute right-0 top-0 bottom-0 w-3 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 sm:hidden" />
           <TabsList className="w-full sm:w-auto justify-start sm:justify-center overflow-x-auto flex-nowrap gap-1">
-            <TabsTrigger value="pending" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Pend. ({pending.length})</TabsTrigger>
-            <TabsTrigger value="completed" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Compl. ({completed.length})</TabsTrigger>
-            <TabsTrigger value="other" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Otras ({other.length})</TabsTrigger>
+            <TabsTrigger value="pending" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Pend. ({counts.pending})</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Compl. ({counts.completed})</TabsTrigger>
+            <TabsTrigger value="other" className="text-xs sm:text-sm px-3 py-2 min-h-[40px]">Otras ({counts.other})</TabsTrigger>
           </TabsList>
         </div>
 
@@ -135,6 +136,15 @@ export default function Assessments() {
             </div>
           )}
         </TabsContent>
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+          total={data?.total ?? 0}
+          isFetching={isFetching}
+          itemLabel={['evaluación', 'evaluaciones']}
+        />
       </Tabs>
 
       <CreateAssessmentDialog open={createOpen} onOpenChange={setCreateOpen} />

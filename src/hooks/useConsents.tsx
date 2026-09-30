@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -53,6 +53,37 @@ export interface ConsentSignature {
   signed_at: string;
 }
 
+const CONSENT_SELECT = `
+          *,
+          template:consent_templates(name),
+          patient:patients(first_name, last_name, phone),
+          professional:profiles(first_name, last_name)
+        `;
+const consentFilterQuery = () => supabase.from('consents').select(CONSENT_SELECT);
+function applyConsentFilters(query: ReturnType<typeof consentFilterQuery>, filters: { patientId?: string; pendingAt?: string }) {
+  if (filters.patientId) query = query.eq('patient_id', filters.patientId);
+  if (filters.pendingAt) query = query.eq('status', 'pending').gte('expires_at', filters.pendingAt);
+  return query;
+}
+
+export function useConsentsPage(filters: { pendingAt?: string }, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['consents', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const query = supabase.from('consents').select(CONSENT_SELECT, { count: 'exact' })
+        .eq('center_id', profile!.center_id!).order('created_at', { ascending: false }).order('id', { ascending: true });
+      const { data, count, error } = await applyConsentFilters(query, {
+        pendingAt: filters.pendingAt ?? new Date().toISOString(),
+      }).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as Consent[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useConsents(patientId?: string) {
   const { profile } = useAuth();
   const { center } = useCenter();
@@ -65,18 +96,11 @@ export function useConsents(patientId?: string) {
       
       let query = supabase
         .from('consents')
-        .select(`
-          *,
-          template:consent_templates(name),
-          patient:patients(first_name, last_name, phone),
-          professional:profiles(first_name, last_name)
-        `)
+        .select(CONSENT_SELECT)
         .eq('center_id', profile.center_id)
         .order('created_at', { ascending: false });
       
-      if (patientId) {
-        query = query.eq('patient_id', patientId);
-      }
+      query = applyConsentFilters(query, { patientId });
       
       const { data, error } = await query;
       

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useCenter } from './useCenter';
@@ -54,10 +54,61 @@ interface CreateAssessmentParams {
   expires_in_days?: number;
 }
 
+const ASSESSMENT_SELECT = `
+          *,
+          patient:patients(id, first_name, last_name, email, phone),
+          template:assessment_templates(id, code, name),
+          professional:profiles(id, first_name, last_name),
+          response:assessment_responses(id, factor_scores, flags, metadata, created_at)
+        `;
+type AssessmentListFilters = { patientId?: string; tab?: string; now?: string };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyAssessmentFilters<Q extends { eq: any; gt: any; or: any }>(query: Q, filters: AssessmentListFilters): Q {
+  if (filters.patientId) query = query.eq('patient_id', filters.patientId);
+  if (filters.tab === 'pending') query = query.eq('status', 'pending').gt('expires_at', filters.now!);
+  if (filters.tab === 'completed') query = query.eq('status', 'completed');
+  if (filters.tab === 'other') query = query.or(`status.in.(revoked,expired),and(status.eq.pending,expires_at.lte."${filters.now}")`);
+  return query;
+}
+
+export function useAssessmentsPage(filters: AssessmentListFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['assessments', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const query = supabase.from('assessments').select(ASSESSMENT_SELECT, { count: 'exact' })
+        .eq('center_id', profile!.center_id!).order('created_at', { ascending: false }).order('id', { ascending: true });
+      const { data, count, error } = await applyAssessmentFilters(query, {
+        ...filters, now: filters.now ?? new Date().toISOString(),
+      }).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []).map(a => ({ ...a, response: a.response?.[0] || null })) as Assessment[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAssessmentCounts(now?: string) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['assessments', 'counts', now, profile?.center_id],
+    queryFn: async () => {
+      const at = now ?? new Date().toISOString();
+      const counts = await Promise.all(['pending', 'completed', 'other'].map(async (tab) => {
+        const { count, error } = await applyAssessmentFilters(supabase.from('assessments')
+          .select('id', { count: 'exact', head: true }).eq('center_id', profile!.center_id!), { tab, now: at });
+        if (error) throw error;
+        return count ?? 0;
+      }));
+      return { pending: counts[0], completed: counts[1], other: counts[2] };
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
 export function useAssessments(patientId?: string) {
   const { profile } = useAuth();
-  const { center } = useCenter();
-  const queryClient = useQueryClient();
 
   const { data: assessments = [], isLoading } = useQuery({
     queryKey: ['assessments', profile?.center_id, patientId],
@@ -66,19 +117,11 @@ export function useAssessments(patientId?: string) {
 
       let query = supabase
         .from('assessments')
-        .select(`
-          *,
-          patient:patients(id, first_name, last_name, email, phone),
-          template:assessment_templates(id, code, name),
-          professional:profiles(id, first_name, last_name),
-          response:assessment_responses(id, factor_scores, flags, metadata, created_at)
-        `)
+        .select(ASSESSMENT_SELECT)
         .eq('center_id', profile.center_id)
         .order('created_at', { ascending: false });
 
-      if (patientId) {
-        query = query.eq('patient_id', patientId);
-      }
+      query = applyAssessmentFilters(query, { patientId });
 
       const { data, error } = await query;
 
@@ -92,6 +135,14 @@ export function useAssessments(patientId?: string) {
     },
     enabled: !!profile?.center_id,
   });
+
+  return { assessments, isLoading, ...useAssessmentActions() };
+}
+
+export function useAssessmentActions() {
+  const { profile } = useAuth();
+  const { center } = useCenter();
+  const queryClient = useQueryClient();
 
   const createAssessment = useMutation({
     mutationFn: async (params: CreateAssessmentParams) => {
@@ -236,8 +287,6 @@ export function useAssessments(patientId?: string) {
   });
 
   return {
-    assessments,
-    isLoading,
     createAssessment,
     revokeAssessment,
     deleteAssessment,

@@ -1,3 +1,5 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -23,10 +25,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NotificationCard } from '@/components/notifications/NotificationCard';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
-import { useNotifications, useSendNotification, usePendingNotifications, useDeleteNotification, NotificationWithRelations } from '@/hooks/useNotifications';
+import { useNotificationsPage, useNotificationCounts, useSendNotification, usePendingNotifications, useDeleteNotification, NotificationWithRelations } from '@/hooks/useNotifications';
 import { Icon } from '@/components/ui/icon';
 
 export default function Notifications() {
+  const [tab, setTab] = useState('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [whatsappDialog, setWhatsappDialog] = useState<{
@@ -38,20 +41,19 @@ export default function Notifications() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState<NotificationWithRelations | null>(null);
 
-  const { data: notifications, isLoading } = useNotifications({
+  const pagination = usePagination('notifications', [statusFilter, typeFilter, tab]);
+  const filters = {
     status: statusFilter !== 'all' ? statusFilter : undefined,
     type: typeFilter !== 'all' ? typeFilter : undefined,
-  });
+  };
+  const { data, isLoading, isFetching } = useNotificationsPage({ ...filters, tab }, pagination);
+  const notifications = data?.rows;
+  const { data: counts } = useNotificationCounts(filters);
   const { data: pendingNotifications } = usePendingNotifications();
   const sendNotification = useSendNotification();
   const deleteNotification = useDeleteNotification();
 
-  const stats = {
-    total: notifications?.length || 0,
-    pending: notifications?.filter(n => n.status === 'pending').length || 0,
-    sent: notifications?.filter(n => n.status === 'sent').length || 0,
-    failed: notifications?.filter(n => n.status === 'failed').length || 0,
-  };
+  const stats = counts ?? { total: 0, pending: 0, sent: 0, failed: 0 };
 
   const handleSendNotification = async (id: string, notification?: NotificationWithRelations) => {
     const result = await sendNotification.mutateAsync(id);
@@ -157,7 +159,7 @@ export default function Notifications() {
       </div>
 
       {/* Notifications List */}
-      <Tabs defaultValue="all" className="space-y-4">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[120px] sm:w-[160px] shrink-0">
@@ -250,8 +252,7 @@ export default function Notifications() {
             <TabsContent value="pending" className="space-y-4">
               <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {notifications
-                  ?.filter((n) => n.status === 'pending')
-                  .map((notification) => (
+                  ?.map((notification) => (
                     <NotificationCard
                       key={notification.id}
                       notification={notification}
@@ -265,8 +266,7 @@ export default function Notifications() {
             <TabsContent value="sent" className="space-y-4">
               <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {notifications
-                  ?.filter((n) => n.status === 'sent')
-                  .map((notification) => (
+                  ?.map((notification) => (
                     <NotificationCard
                       key={notification.id}
                       notification={notification}
@@ -279,8 +279,7 @@ export default function Notifications() {
             <TabsContent value="failed" className="space-y-4">
               <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {notifications
-                  ?.filter((n) => n.status === 'failed')
-                  .map((notification) => (
+                  ?.map((notification) => (
                     <NotificationCard
                       key={notification.id}
                       notification={notification}
@@ -292,6 +291,15 @@ export default function Notifications() {
             </TabsContent>
           </>
         )}
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+          total={data?.total ?? 0}
+          isFetching={isFetching}
+          itemLabel={['notificación', 'notificaciones']}
+        />
       </Tabs>
 
       {/* WhatsApp Link Dialog */}

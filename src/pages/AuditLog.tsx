@@ -1,9 +1,10 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
+import { useAuditLogsPage, useAuditAnomalyCount, type AuditEntry } from '@/hooks/useAuditLogs';
 import { useState, useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { format, subDays, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FileText } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { usePatients } from '@/hooks/usePatients';
 import { useProfessionals } from '@/hooks/useProfessionals';
@@ -59,34 +60,6 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   failed: { label: 'Error', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30' },
 };
 
-const PAGE_SIZE = 50;
-
-interface AuditEntry {
-  id: string;
-  created_at: string;
-  seq: number;
-  user_id: string | null;
-  user_role: string | null;
-  organization_id: string | null;
-  patient_id: string | null;
-  resource_type: string;
-  resource_id: string | null;
-  action: string;
-  justification: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  status: string;
-  metadata: Record<string, unknown>;
-  previous_hash: string | null;
-  current_hash: string;
-  is_anomalous: boolean;
-  anomaly_reason: string | null;
-  user_first_name: string | null;
-  user_last_name: string | null;
-  patient_first_name: string | null;
-  patient_last_name: string | null;
-}
-
 export default function AuditLog() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -103,7 +76,8 @@ export default function AuditLog() {
   const [status, setStatus] = useState<string>('all');
   const [anomalousOnly, setAnomalousOnly] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [page, setPage] = useState(0);
+  const pagination = usePagination('audit-log', [fromDate, toDate, userId, patientId, action, resourceType, status, anomalousOnly, searchText]);
+  const { setPage } = pagination;
   const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null);
 
   const rpcParams = useMemo(() => ({
@@ -116,34 +90,11 @@ export default function AuditLog() {
     p_status: status !== 'all' ? status : null,
     p_anomalous_only: anomalousOnly,
     p_search: searchText || null,
-    p_limit: PAGE_SIZE,
-    p_offset: page * PAGE_SIZE,
-  }), [fromDate, toDate, userId, patientId, action, resourceType, status, anomalousOnly, searchText, page]);
+  }), [fromDate, toDate, userId, patientId, action, resourceType, status, anomalousOnly, searchText]);
 
-  const { data: logs = [], isLoading, refetch } = useQuery({
-    queryKey: ['audit-logs', rpcParams],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_audit_logs', rpcParams);
-      if (error) throw error;
-      return (data || []) as unknown as AuditEntry[];
-    },
-  });
-
-  // Anomaly count
-  const { data: anomalyCount = 0 } = useQuery({
-    queryKey: ['audit-anomaly-count', fromDate.toISOString(), toDate.toISOString()],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_audit_logs', {
-        p_from: fromDate.toISOString(),
-        p_to: toDate.toISOString(),
-        p_anomalous_only: true,
-        p_limit: 1000,
-        p_offset: 0,
-      });
-      if (error) return 0;
-      return (data || []).length;
-    },
-  });
+  const { data, isLoading, isFetching, refetch } = useAuditLogsPage(rpcParams, pagination);
+  const logs = useMemo(() => data?.rows ?? [], [data]);
+  const { data: anomalyCount = 0 } = useAuditAnomalyCount(fromDate.toISOString(), toDate.toISOString());
 
   const resetFilters = useCallback(() => {
     setFromDate(subDays(new Date(), 7));
@@ -156,7 +107,7 @@ export default function AuditLog() {
     setAnomalousOnly(false);
     setSearchText('');
     setPage(0);
-  }, []);
+  }, [setPage]);
 
   const exportCSV = useCallback(() => {
     if (!logs.length) return;
@@ -184,8 +135,6 @@ export default function AuditLog() {
     a.click();
     URL.revokeObjectURL(url);
   }, [logs]);
-
-  const totalShown = page * PAGE_SIZE + logs.length;
 
   if (!isAdmin) {
     navigate('/dashboard');
@@ -464,23 +413,18 @@ export default function AuditLog() {
                 </Table>
               </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between p-4 border-t">
-                <p className="text-xs text-muted-foreground">
-                  Mostrando {page * PAGE_SIZE + 1}-{totalShown} eventos
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
-                    <Icon name="chevron_left" className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" disabled={logs.length < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>
-                    <Icon name="chevron_right" className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
             </>
           )}
         </CardContent>
+        <ListPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+          total={data?.total ?? 0}
+          isFetching={isFetching}
+          itemLabel={['evento', 'eventos']}
+        />
       </Card>
 
       {/* Detail Sheet */}

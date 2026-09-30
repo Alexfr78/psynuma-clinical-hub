@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
@@ -29,15 +29,7 @@ export interface SessionWithRelations extends Session {
   participants?: { patient_id: string }[] | null;
 }
 
-export function useSessions(startDate?: string, endDate?: string, professionalId?: string) {
-  const { profile } = useAuth();
-
-  return useQuery({
-    queryKey: ['sessions', startDate, endDate, professionalId],
-    queryFn: async () => {
-      let query = supabase
-        .from('sessions')
-        .select(`
+const SESSION_SELECT = `
           *,
           patient:patients!sessions_patient_id_fkey(
             id, first_name, last_name, email, phone, auto_invoice_on_complete, preferred_invoice_type
@@ -46,20 +38,98 @@ export function useSessions(startDate?: string, endDate?: string, professionalId
             id, first_name, last_name
           ),
           participants:session_participants(patient_id)
-        `)
+        `;
+export interface SessionListFilters {
+  startDate?: string;
+  endDate?: string;
+  professionalId?: string;
+  status?: string;
+  search?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applySessionFilters<Q extends { eq: any; gte: any; lte: any }>(query: Q, filters: SessionListFilters): Q {
+  if (filters.startDate) {
+    query = query.gte('session_date', filters.startDate);
+  }
+  if (filters.endDate) {
+    query = query.lte('session_date', filters.endDate);
+  }
+  if (filters.professionalId && filters.professionalId !== 'all') {
+    query = query.eq('professional_id', filters.professionalId);
+  }
+
+  return query;
+}
+
+function sessionListQuery(filters: SessionListFilters) {
+  const hasSearch = !!filters.search?.trim();
+  const select = SESSION_SELECT.replace('patient:patients!sessions_patient_id_fkey(',
+    hasSearch ? 'patient:patients!sessions_patient_id_fkey!inner(' : 'patient:patients!sessions_patient_id_fkey(');
+  let query = supabase.from('sessions').select(`${select}, blocked_patient:patients!sessions_patient_id_fkey()`, { count: 'exact' })
+    .neq('status', 'cancelled').neq('status', 'blocked')
+    .or('session_type.is.null,session_type.neq.Bloqueado')
+    .like('blocked_patient.first_name', '[Bloqueado]%').is('blocked_patient', null)
+    .order('session_date', { ascending: false }).order('start_time', { ascending: false }).order('id', { ascending: true });
+  query = applySessionFilters(query, filters);
+  if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status as Session['status']);
+  for (const term of filters.search?.trim().toLowerCase().split(/\s+/).filter(Boolean) ?? []) {
+    const pattern = JSON.stringify(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    query = query.or(`first_name.imatch.${pattern},last_name.imatch.${pattern}`, { referencedTable: 'patient' });
+  }
+  return query;
+}
+
+export function useSessionsPage(filters: SessionListFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['sessions', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const { data, count, error } = await sessionListQuery(filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as unknown as SessionWithRelations[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export async function fetchSessionList(filters: SessionListFilters) {
+  const rows: SessionWithRelations[] = [];
+  for (let from = 0; ; from += 500) {
+    const { data, error } = await sessionListQuery(filters).range(from, from + 499);
+    if (error) throw error;
+    rows.push(...(data ?? []) as unknown as SessionWithRelations[]);
+    if (!data || data.length < 500) return rows;
+  }
+}
+
+export function useSessionListStats(filters: SessionListFilters) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['sessions', 'stats', filters, profile?.center_id],
+    queryFn: async () => {
+      const rows = await fetchSessionList(filters);
+      return { count: rows.length, billed: rows.reduce((sum, row) => sum + Number(row.price || 0), 0) };
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
+export function useSessions(startDate?: string, endDate?: string, professionalId?: string) {
+  const { profile } = useAuth();
+
+  return useQuery({
+    queryKey: ['sessions', startDate, endDate, professionalId],
+    queryFn: async () => {
+      let query = supabase
+        .from('sessions')
+        .select(SESSION_SELECT)
         .neq('status', 'cancelled') // Exclude cancelled sessions from agenda
         .order('session_date', { ascending: true })
         .order('start_time', { ascending: true });
 
-      if (startDate) {
-        query = query.gte('session_date', startDate);
-      }
-      if (endDate) {
-        query = query.lte('session_date', endDate);
-      }
-      if (professionalId && professionalId !== 'all') {
-        query = query.eq('professional_id', professionalId);
-      }
+      query = applySessionFilters(query, { startDate, endDate, professionalId });
 
       const { data, error } = await query;
       if (error) throw error;

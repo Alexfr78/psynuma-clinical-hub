@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
 import { toast } from 'sonner';
@@ -39,10 +39,61 @@ interface UseIntakeRequestsFilters {
   search?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyIntakeFilters<Q extends { eq: any; or: any }>(query: Q, filters: UseIntakeRequestsFilters): Q {
+  if (filters.type) {
+    query = query.eq('request_type', filters.type);
+  }
+
+  if (filters.status) {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters.search) {
+    const searchTerm = `%${filters.search}%`;
+    query = query.or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`);
+  }
+
+  return query;
+}
+
+export function useIntakeRequestsPage(filters: UseIntakeRequestsFilters, range: { from: number; to: number }) {
+  const { centerId } = useCenter();
+  return useQuery({
+    queryKey: ['intake-requests', 'page', filters, range.from, range.to, centerId],
+    queryFn: async () => {
+      const query = supabase.from('portal_intake_requests').select('*', { count: 'exact' })
+        .eq('center_id', centerId!).order('created_at', { ascending: false }).order('id', { ascending: true });
+      const { data, count, error } = await applyIntakeFilters(query, filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as IntakeRequest[], total: count ?? 0 };
+    },
+    enabled: !!centerId,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useIntakeRequestCounts(filters: UseIntakeRequestsFilters) {
+  const { centerId } = useCenter();
+  return useQuery({
+    queryKey: ['intake-requests', centerId, 'counts', filters],
+    queryFn: async () => {
+      const counts = await Promise.all(['total', 'pending', 'contacted', 'cancelled'].map(async (status) => {
+        let query = applyIntakeFilters(supabase.from('portal_intake_requests').select('id', { count: 'exact', head: true })
+          .eq('center_id', centerId!), filters);
+        if (status !== 'total') query = query.eq('status', status);
+        const { count, error } = await query;
+        if (error) throw error;
+        return count ?? 0;
+      }));
+      return { total: counts[0], pending: counts[1], contacted: counts[2], closed: counts[3] };
+    },
+    enabled: !!centerId,
+  });
+}
+
 export function useIntakeRequests(filters: UseIntakeRequestsFilters = {}) {
   const { centerId } = useCenter();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   const { data: requests = [], isLoading, error } = useQuery({
     queryKey: ['intake-requests', centerId, filters],
@@ -55,18 +106,7 @@ export function useIntakeRequests(filters: UseIntakeRequestsFilters = {}) {
         .eq('center_id', centerId)
         .order('created_at', { ascending: false });
 
-      if (filters.type) {
-        query = query.eq('request_type', filters.type);
-      }
-
-      if (filters.status) {
-        query = query.eq('status', filters.status);
-      }
-
-      if (filters.search) {
-        const searchTerm = `%${filters.search}%`;
-        query = query.or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`);
-      }
+      query = applyIntakeFilters(query, filters);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -74,6 +114,14 @@ export function useIntakeRequests(filters: UseIntakeRequestsFilters = {}) {
     },
     enabled: !!centerId,
   });
+
+  return { requests, isLoading, error, ...useIntakeRequestActions() };
+}
+
+export function useIntakeRequestActions() {
+  const { centerId } = useCenter();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const updateRequest = useMutation({
     mutationFn: async ({ 
@@ -98,6 +146,7 @@ export function useIntakeRequests(filters: UseIntakeRequestsFilters = {}) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['intake-requests', centerId] });
+      queryClient.invalidateQueries({ queryKey: ['intake-requests', 'page'] });
       toast.success('Solicitud actualizada');
     },
     onError: (error) => {
@@ -148,9 +197,6 @@ export function useIntakeRequests(filters: UseIntakeRequestsFilters = {}) {
   };
 
   return {
-    requests,
-    isLoading,
-    error,
     updateRequest,
     markAsContacted,
     markAsClosed,

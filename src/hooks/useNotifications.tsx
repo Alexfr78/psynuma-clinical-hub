@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +32,63 @@ export interface SendNotificationResult {
   }>;
 }
 
+const NOTIFICATION_SELECT = `
+          *,
+          patients:patient_id (first_name, last_name, email, phone),
+          sessions:session_id (session_date, start_time)
+        `;
+type NotificationFilters = { status?: string; type?: string; patientId?: string; tab?: string };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyNotificationFilters<Q extends { eq: any }>(query: Q, filters?: NotificationFilters): Q {
+  if (filters?.status) {
+    query = query.eq('status', filters.status as 'pending' | 'sent' | 'failed');
+  }
+  if (filters?.type) {
+    query = query.eq('type', filters.type as 'email' | 'sms' | 'whatsapp');
+  }
+  if (filters?.patientId) {
+    query = query.eq('patient_id', filters.patientId);
+  }
+
+  if (filters?.tab && filters.tab !== 'all') query = query.eq('status', filters.tab);
+  return query;
+}
+
+export function useNotificationsPage(filters: NotificationFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['notifications', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const query = supabase.from('notifications').select(NOTIFICATION_SELECT, { count: 'exact' })
+        .eq('center_id', profile!.center_id!).order('created_at', { ascending: false }).order('id', { ascending: true });
+      const { data, count, error } = await applyNotificationFilters(query, filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as NotificationWithRelations[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useNotificationCounts(filters: NotificationFilters) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['notifications', 'counts', filters, profile?.center_id],
+    queryFn: async () => {
+      const counts = await Promise.all(['total', 'pending', 'sent', 'failed'].map(async (status) => {
+        let query = applyNotificationFilters(supabase.from('notifications').select('id', { count: 'exact', head: true })
+          .eq('center_id', profile!.center_id!), filters);
+        if (status !== 'total') query = query.eq('status', status as Notification['status']);
+        const { count, error } = await query;
+        if (error) throw error;
+        return count ?? 0;
+      }));
+      return { total: counts[0], pending: counts[1], sent: counts[2], failed: counts[3] };
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
 export function useNotifications(filters?: { 
   status?: string; 
   type?: string;
@@ -44,23 +101,11 @@ export function useNotifications(filters?: {
     queryFn: async () => {
       let query = supabase
         .from('notifications')
-        .select(`
-          *,
-          patients:patient_id (first_name, last_name, email, phone),
-          sessions:session_id (session_date, start_time)
-        `)
+        .select(NOTIFICATION_SELECT)
         .eq('center_id', profile!.center_id!)
         .order('created_at', { ascending: false });
 
-      if (filters?.status) {
-        query = query.eq('status', filters.status as 'pending' | 'sent' | 'failed');
-      }
-      if (filters?.type) {
-        query = query.eq('type', filters.type as 'email' | 'sms' | 'whatsapp');
-      }
-      if (filters?.patientId) {
-        query = query.eq('patient_id', filters.patientId);
-      }
+      query = applyNotificationFilters(query, filters);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -254,15 +299,22 @@ export function usePendingNotifications() {
   return useQuery({
     queryKey: ['notifications', 'pending', profile?.center_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('center_id', profile!.center_id!)
-        .eq('status', 'pending')
-        .lte('scheduled_for', new Date().toISOString())
-        .order('scheduled_for', { ascending: true });
-
-      if (error) throw error;
+      const dueAt = new Date().toISOString();
+      const data: Notification[] = [];
+      for (let from = 0; ; from += 500) {
+        const { data: rows, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('center_id', profile!.center_id!)
+          .eq('status', 'pending')
+          .lte('scheduled_for', dueAt)
+          .order('scheduled_for', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + 499);
+        if (error) throw error;
+        data.push(...rows ?? []);
+        if (!rows || rows.length < 500) break;
+      }
       return data;
     },
     enabled: !!profile?.center_id,

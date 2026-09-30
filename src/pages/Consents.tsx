@@ -1,3 +1,5 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useState } from 'react';
 
 import { format } from 'date-fns';
@@ -17,7 +19,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { useConsents, Consent } from '@/hooks/useConsents';
+import { useConsentsPage, Consent } from '@/hooks/useConsents';
 import { CreateConsentDialog } from '@/components/consents/CreateConsentDialog';
 import { WhatsAppLinkDialog } from '@/components/agenda/WhatsAppLinkDialog';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
@@ -28,17 +30,13 @@ import { Icon } from '@/components/ui/icon';
 import { Link } from 'react-router-dom';
 
 export default function Consents() {
-  const { consents, isLoading: consentsLoading } = useConsents();
+  const pagination = usePagination('consents', []);
+  const { data, isLoading: consentsLoading, isFetching } = useConsentsPage({}, pagination);
+  const pendingConsents = data?.rows ?? [];
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [patientSearchValue, setPatientSearchValue] = useState('');
   const [sendPatient, setSendPatient] = useState<Patient | null>(null);
   const { data: searchPatients, isLoading: patientsLoading } = usePatients({ search: patientSearchValue });
-
-  // Filter pending consents (not expired)
-  const pendingConsents = consents.filter((c) => {
-    const isExpired = new Date(c.expires_at) < new Date();
-    return c.status === 'pending' && !isExpired;
-  });
 
   const handleSelectPatient = (patient: Patient) => {
     setSendPatient(patient);
@@ -126,6 +124,16 @@ export default function Consents() {
           ))}
         </div>
       )}
+
+      <ListPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+        total={data?.total ?? 0}
+        isFetching={isFetching}
+        itemLabel={['consentimiento', 'consentimientos']}
+      />
 
       {sendPatient && (
         <CreateConsentDialog

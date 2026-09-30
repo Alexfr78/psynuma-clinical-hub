@@ -1,3 +1,5 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -18,7 +20,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { useBonos, BonoWithPatient } from '@/hooks/useBonos';
+import { useBonosPage, useBonoListStats, BonoWithPatient } from '@/hooks/useBonos';
 import { usePatients } from '@/hooks/usePatients';
 import { BonoCard } from '@/components/bonos/BonoCard';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
@@ -39,14 +41,14 @@ export default function Bonos() {
 
   const { data: searchPatients, isLoading: patientsLoading } = usePatients({ search: patientSearchValue });
 
-  const { data: bonos, isLoading } = useBonos({
+  const pagination = usePagination('bonos', [statusFilter, selectedPatientId]);
+  const { data, isLoading, isFetching } = useBonosPage({
     status: statusFilter === 'all' ? undefined : statusFilter,
     patientId: selectedPatientId,
-  });
+  }, pagination);
+  const bonos = data?.rows;
 
-  // Unfiltered by status (but still scoped to the selected patient, if any) so the
-  // summary cards always reflect totals across all tabs, not just the active one.
-  const { data: allBonos } = useBonos({ patientId: selectedPatientId });
+  const { data: stats = { active: 0, exhausted: 0, expired: 0, cancelled: 0, pendingSessions: 0, monthlyRevenue: 0 } } = useBonoListStats(selectedPatientId);
 
   const handleSelectPatient = (patientId: string, name: string) => {
     setSelectedPatientId(patientId);
@@ -60,22 +62,6 @@ export default function Bonos() {
     setSelectedPatientId(undefined);
     setSelectedPatientName('');
     setStatusFilter('active');
-  };
-
-  const activeBonos = allBonos?.filter(b => b.status === 'active') || [];
-  const now = new Date();
-  const stats = {
-    active: activeBonos.length,
-    exhausted: allBonos?.filter(b => b.status === 'exhausted').length || 0,
-    expired: allBonos?.filter(b => b.status === 'expired').length || 0,
-    cancelled: allBonos?.filter(b => b.status === 'cancelled').length || 0,
-    pendingSessions: activeBonos.reduce((sum, b) => sum + (b.total_sessions - b.used_sessions), 0),
-    monthlyRevenue: (allBonos || [])
-      .filter(b => {
-        const created = new Date(b.created_at);
-        return created.getFullYear() === now.getFullYear() && created.getMonth() === now.getMonth();
-      })
-      .reduce((sum, b) => sum + Number(b.total_price), 0),
   };
 
   const handleBonoClick = (bono: BonoWithPatient) => {
@@ -269,6 +255,15 @@ export default function Bonos() {
               ))}
             </div>
           )}
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+            total={data?.total ?? 0}
+            isFetching={isFetching}
+            itemLabel={['bono', 'bonos']}
+          />
         </TabsContent>
       </Tabs>
 

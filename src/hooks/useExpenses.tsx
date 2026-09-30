@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -101,6 +101,39 @@ function monthRange(month: string): { start: string; end: string } {
   return { start, end };
 }
 
+type ExpenseQuery = ReturnType<typeof expenseFilterQuery>;
+const expenseFilterQuery = () => supabase.from('expenses').select(EXPENSE_SELECT);
+
+function applyExpenseFilters(query: ExpenseQuery, filters?: ExpenseFilters) {
+  if (filters?.month) {
+    const { start, end } = monthRange(filters.month);
+    query = query.gte('expense_date', start).lte('expense_date', end);
+  }
+  if (filters?.categoryId) query = query.eq('category_id', filters.categoryId);
+  if (filters?.supplierId) query = query.eq('supplier_id', filters.supplierId);
+  if (filters?.professionalId) query = query.eq('professional_id', filters.professionalId);
+  if (filters?.status) query = query.eq('status', filters.status);
+  if (filters?.kind) query = query.eq('kind', filters.kind);
+
+  return query;
+}
+
+export function useExpensesPage(filters: ExpenseFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['expenses', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const query = supabase.from('expenses').select(EXPENSE_SELECT, { count: 'exact' })
+        .order('expense_date', { ascending: false }).order('id', { ascending: true });
+      const { data, count, error } = await applyExpenseFilters(query, filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as unknown as ExpenseWithRelations[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useExpenses(filters?: ExpenseFilters) {
   const { profile } = useAuth();
 
@@ -109,15 +142,7 @@ export function useExpenses(filters?: ExpenseFilters) {
     queryFn: async () => {
       let query = supabase.from('expenses').select(EXPENSE_SELECT).order('expense_date', { ascending: false });
 
-      if (filters?.month) {
-        const { start, end } = monthRange(filters.month);
-        query = query.gte('expense_date', start).lte('expense_date', end);
-      }
-      if (filters?.categoryId) query = query.eq('category_id', filters.categoryId);
-      if (filters?.supplierId) query = query.eq('supplier_id', filters.supplierId);
-      if (filters?.professionalId) query = query.eq('professional_id', filters.professionalId);
-      if (filters?.status) query = query.eq('status', filters.status);
-      if (filters?.kind) query = query.eq('kind', filters.kind);
+      query = applyExpenseFilters(query, filters);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -405,12 +430,18 @@ export function useExpenseStats(month?: string) {
       const { start, end } = monthRange(effectiveMonth);
       const todayISO = new Date().toISOString().split('T')[0];
 
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('amount, paid_amount, status, due_date, expense_date')
-        .neq('status', 'cancelled');
-
-      if (error) throw error;
+      const data: Pick<Expense, 'amount' | 'paid_amount' | 'status' | 'due_date' | 'expense_date'>[] = [];
+      for (let from = 0; ; from += 500) {
+        const { data: rows, error } = await supabase
+          .from('expenses')
+          .select('amount, paid_amount, status, due_date, expense_date')
+          .neq('status', 'cancelled')
+          .order('id', { ascending: true })
+          .range(from, from + 499);
+        if (error) throw error;
+        data.push(...rows ?? []);
+        if (!rows || rows.length < 500) break;
+      }
 
       const stats = { totalPending: 0, totalPaidThisMonth: 0, overdueCount: 0, overdueAmount: 0 };
 

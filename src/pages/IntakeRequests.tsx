@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react';
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CheckCircle2 } from 'lucide-react';
@@ -24,7 +26,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { IntakeRequestDetailDialog } from '@/components/intake/IntakeRequestDetailDialog';
 import { 
-  useIntakeRequests, 
+  useIntakeRequestActions, useIntakeRequestsPage, useIntakeRequestCounts,
   type IntakeRequest, 
   type IntakeRequestStatus, 
   type IntakeRequestType 
@@ -39,17 +41,20 @@ export default function IntakeRequests() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const { 
-    requests, 
-    isLoading, 
     markAsContacted, 
     markAsClosed, 
     updateInternalNotes,
     updateStatus 
-  } = useIntakeRequests({
+  } = useIntakeRequestActions();
+  const filters = {
     type: typeFilter === 'all' ? null : typeFilter,
     status: statusFilter === 'all' ? null : statusFilter,
     search: searchQuery || undefined,
-  });
+  };
+  const pagination = usePagination('intake-requests', [filters]);
+  const { data, isLoading, isFetching } = useIntakeRequestsPage(filters, pagination);
+  const requests = data?.rows ?? [];
+  const { data: stats = { pending: 0, contacted: 0, closed: 0, total: 0 } } = useIntakeRequestCounts(filters);
 
   const handleViewDetail = (request: IntakeRequest) => {
     setSelectedRequest(request);
@@ -78,14 +83,6 @@ export default function IntakeRequests() {
       ? <Badge variant="secondary" className="gap-1"><Icon name="schedule" className="h-3 w-3" />Espera</Badge>
       : <Badge variant="secondary" className="gap-1"><Icon name="group" className="h-3 w-3" />Derivación</Badge>;
   };
-
-  // Stats
-  const stats = useMemo(() => {
-    const pending = requests.filter(r => r.status === 'pending').length;
-    const contacted = requests.filter(r => r.status === 'contacted').length;
-    const closed = requests.filter(r => r.status === 'cancelled').length;
-    return { pending, contacted, closed, total: requests.length };
-  }, [requests]);
 
   return (
     <div className="space-y-6">
@@ -309,6 +306,16 @@ export default function IntakeRequests() {
           )}
         </CardContent>
       </Card>
+
+      <ListPagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.setPage}
+        onPageSizeChange={pagination.setPageSize}
+        total={data?.total ?? 0}
+        isFetching={isFetching}
+        itemLabel={['solicitud', 'solicitudes']}
+      />
 
       {/* Detail Dialog */}
       <IntakeRequestDetailDialog

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -88,6 +88,70 @@ export interface DeleteBonoResult {
   total_sessions?: number;
 }
 
+const BONO_SELECT = `
+          *,
+          patients:patients!bonos_patient_id_fkey (id, first_name, last_name),
+          shared_with:patients!bonos_shared_with_patient_id_fkey (id, first_name, last_name)
+        `;
+type BonoFilters = { patientId?: string; status?: string };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyBonoFilters<Q extends { eq: any; or: any }>(query: Q, filters?: BonoFilters): Q {
+  if (filters?.patientId) {
+    // Bonos propios y los que su pareja comparte con él.
+    query = query.or(`patient_id.eq.${filters.patientId},shared_with_patient_id.eq.${filters.patientId}`);
+  }
+  if (filters?.status) {
+    query = query.eq('status', filters.status as 'active' | 'exhausted' | 'expired' | 'cancelled');
+  }
+
+  return query;
+}
+
+export function useBonosPage(filters: BonoFilters, range: { from: number; to: number }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['bonos', 'page', filters, range.from, range.to, profile?.center_id],
+    queryFn: async () => {
+      const query = supabase.from('bonos').select(BONO_SELECT, { count: 'exact' })
+        .order('created_at', { ascending: false }).order('id', { ascending: true });
+      const { data, count, error } = await applyBonoFilters(query, filters).range(range.from, range.to);
+      if (error) throw error;
+      return { rows: (data ?? []) as BonoWithPatient[], total: count ?? 0 };
+    },
+    enabled: !!profile?.center_id,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useBonoListStats(patientId?: string) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ['bonos', 'stats', patientId, profile?.center_id],
+    queryFn: async () => {
+      const stats = { active: 0, exhausted: 0, expired: 0, cancelled: 0, pendingSessions: 0, monthlyRevenue: 0 };
+      const now = new Date();
+      // Los importes necesitan todos los bonos, sin el límite de respuesta de PostgREST.
+      for (let from = 0; ; from += 500) {
+        const { data, error } = await applyBonoFilters(supabase.from('bonos')
+          .select('id, status, total_sessions, used_sessions, total_price, created_at').order('id'), { patientId })
+          .range(from, from + 499);
+        if (error) throw error;
+        for (const bono of data ?? []) {
+          stats[bono.status] += 1;
+          if (bono.status === 'active') stats.pendingSessions += bono.total_sessions - bono.used_sessions;
+          const created = new Date(bono.created_at);
+          if (created.getFullYear() === now.getFullYear() && created.getMonth() === now.getMonth()) {
+            stats.monthlyRevenue += Number(bono.total_price);
+          }
+        }
+        if (!data || data.length < 500) break;
+      }
+      return stats;
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
 export function useBonos(filters?: { patientId?: string; status?: string }) {
   const { profile } = useAuth();
 
@@ -96,20 +160,10 @@ export function useBonos(filters?: { patientId?: string; status?: string }) {
     queryFn: async () => {
       let query = supabase
         .from('bonos')
-        .select(`
-          *,
-          patients:patients!bonos_patient_id_fkey (id, first_name, last_name),
-          shared_with:patients!bonos_shared_with_patient_id_fkey (id, first_name, last_name)
-        `)
+        .select(BONO_SELECT)
         .order('created_at', { ascending: false });
 
-      if (filters?.patientId) {
-        // Bonos propios y los que su pareja comparte con él.
-        query = query.or(`patient_id.eq.${filters.patientId},shared_with_patient_id.eq.${filters.patientId}`);
-      }
-      if (filters?.status) {
-        query = query.eq('status', filters.status as 'active' | 'exhausted' | 'expired' | 'cancelled');
-      }
+      query = applyBonoFilters(query, filters);
 
       const { data, error } = await query;
       if (error) throw error;

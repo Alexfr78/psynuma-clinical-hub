@@ -1,3 +1,5 @@
+import { ListPagination } from '@/components/ListPagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +17,7 @@ import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
-import { useExpenses, useDeleteExpense, useMarkExpensePaid, type ExpenseFilters, type ExpenseWithRelations } from '@/hooks/useExpenses';
+import { useExpensesPage, useDeleteExpense, useMarkExpensePaid, type ExpenseFilters, type ExpenseWithRelations } from '@/hooks/useExpenses';
 import { ExpenseStatsCards } from '@/components/expenses/ExpenseStatsCards';
 import { ExpenseFiltersBar } from '@/components/expenses/ExpenseFiltersBar';
 import { ExpenseList } from '@/components/expenses/ExpenseList';
@@ -25,7 +27,9 @@ import { ExpenseReportsTab } from '@/components/expenses/ExpenseReportsTab';
 export default function Expenses() {
   const { isAdmin } = useAuth();
   const [filters, setFilters] = useState<ExpenseFilters>({ month: new Date().toISOString().slice(0, 7) });
-  const { data: expenses, isLoading } = useExpenses(filters);
+  const pagination = usePagination('expenses', [filters]);
+  const { data, isLoading, isFetching } = useExpensesPage(filters, pagination);
+  const expenses = data?.rows;
   const deleteExpense = useDeleteExpense();
   const markPaid = useMarkExpensePaid();
 
@@ -69,6 +73,15 @@ export default function Expenses() {
             onEdit={(expense) => { setEditingExpense(expense); setFormOpen(true); }}
             onDelete={(expense) => setExpenseToDelete(expense)}
             onMarkPaid={(expense) => { setExpenseToMarkPaid(expense); setMarkPaidDate(new Date().toISOString().split('T')[0]); }}
+          />
+          <ListPagination
+            page={pagination.page}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.setPage}
+            onPageSizeChange={pagination.setPageSize}
+            total={data?.total ?? 0}
+            isFetching={isFetching}
+            itemLabel={['gasto', 'gastos']}
           />
         </TabsContent>
 
