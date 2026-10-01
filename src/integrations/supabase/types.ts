@@ -1221,6 +1221,7 @@ export type Database = {
           submitted_at: string | null
           template_id: string
           values: Json
+          search_text: string | null
         }
         Insert: {
           center_id: string
@@ -3241,6 +3242,7 @@ export type Database = {
           stripe_checkout_session_id: string | null
           stripe_payment_status: string | null
           updated_at: string
+          search_text: string | null
         }
         Insert: {
           access_token?: string | null
@@ -4456,6 +4458,7 @@ export type Database = {
           verifactu_registration_id: string | null
           verifactu_retry_count: number | null
           verifactu_timestamp: string | null
+          search_text: string | null
         }
         Insert: {
           access_token?: string | null
@@ -5794,6 +5797,7 @@ export type Database = {
           status: Database["public"]["Enums"]["payment_status"]
           stripe_charge_id: string | null
           updated_at: string
+          search_text: string | null
         }
         Insert: {
           amount: number
@@ -8195,6 +8199,7 @@ export type Database = {
           invoice_id: string | null
           retry_count: number | null
           xml_sent: string | null
+          search_text: string | null
         }
         Insert: {
           aeat_csv?: string | null
@@ -9230,6 +9235,17 @@ export type Database = {
       cleanup_expired_transcripts: { Args: never; Returns: Json }
       cleanup_old_rate_limit_entries: { Args: never; Returns: undefined }
       cleanup_orphan_audio_ingestions: { Args: never; Returns: Json }
+      collect_session_payment_split: {
+        Args: {
+          p_notes?: string
+          p_parts: Json
+          p_patient_id: string
+          p_payment_date?: string
+          p_reference?: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       collect_session_payment_v2: {
         Args: {
           p_amount: number
@@ -9747,6 +9763,41 @@ export type Database = {
         Returns: string
       }
       sanitize_error_payload: { Args: { payload: Json }; Returns: Json }
+      search_text:
+        | {
+            Args: {
+              "": Database["public"]["Tables"]["autoregistro_entries"]["Row"]
+            }
+            Returns: {
+              error: true
+            } & "the function public.search_text with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
+        | {
+            Args: { "": Database["public"]["Tables"]["debts"]["Row"] }
+            Returns: {
+              error: true
+            } & "the function public.search_text with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
+        | {
+            Args: { "": Database["public"]["Tables"]["invoices"]["Row"] }
+            Returns: {
+              error: true
+            } & "the function public.search_text with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
+        | {
+            Args: { "": Database["public"]["Tables"]["payments"]["Row"] }
+            Returns: {
+              error: true
+            } & "the function public.search_text with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
+        | {
+            Args: {
+              "": Database["public"]["Tables"]["verifactu_events"]["Row"]
+            }
+            Returns: {
+              error: true
+            } & "the function public.search_text with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+          }
       seed_ai_document_defaults_for_center: {
         Args: { p_center_id: string }
         Returns: undefined
