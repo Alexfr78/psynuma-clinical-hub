@@ -9235,6 +9235,17 @@ export type Database = {
       cleanup_expired_transcripts: { Args: never; Returns: Json }
       cleanup_old_rate_limit_entries: { Args: never; Returns: undefined }
       cleanup_orphan_audio_ingestions: { Args: never; Returns: Json }
+      collect_session_payment_split: {
+        Args: {
+          p_notes?: string
+          p_parts: Json
+          p_patient_id: string
+          p_payment_date?: string
+          p_reference?: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       collect_session_payment_v2: {
         Args: {
           p_amount: number
