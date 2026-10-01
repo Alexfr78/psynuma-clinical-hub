@@ -30,7 +30,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useCollectSessionPayment } from '@/hooks/useSessionPayment';
+import { Switch } from '@/components/ui/switch';
+import { useCollectSessionPayment, useCollectSessionPaymentSplit } from '@/hooks/useSessionPayment';
 import { useCenter } from '@/hooks/useCenter';
 import { useCreateSignedInvoice } from '@/hooks/useCreateSignedInvoice';
 import { useSessionInvoiceStatus } from '@/hooks/useInvoices';
@@ -52,6 +53,28 @@ interface CollectSessionPaymentDialogProps {
   onSuccess?: (invoiceData?: { id: string; invoice_number: string; total: number }) => void;
 }
 
+const PAYMENT_METHODS = [
+  { value: 'cash', label: 'Efectivo' },
+  { value: 'card', label: 'Tarjeta' },
+  { value: 'transfer', label: 'Transferencia' },
+  { value: 'bizum', label: 'Bizum' },
+];
+
+interface SplitRow {
+  method: string;
+  amount: string;
+}
+
+const defaultSplitRows = (): SplitRow[] => [
+  { method: 'cash', amount: '' },
+  { method: 'bizum', amount: '' },
+];
+
+const parseAmount = (value: string) => {
+  const n = parseFloat(value.replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+};
+
 type Step = 'payment' | 'invoice-question' | 'invoice-type' | 'processing' | 'complete';
 
 export function CollectSessionPaymentDialog({
@@ -69,6 +92,8 @@ export function CollectSessionPaymentDialog({
 }: CollectSessionPaymentDialogProps) {
   const [step, setStep] = useState<Step>('payment');
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [isSplit, setIsSplit] = useState(false);
+  const [splitRows, setSplitRows] = useState<SplitRow[]>(defaultSplitRows);
   const [paymentDate, setPaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
@@ -82,6 +107,13 @@ export function CollectSessionPaymentDialog({
   const { center } = useCenter();
   const isMobile = useIsMobile();
   const collectPayment = useCollectSessionPayment();
+  const collectSplitPayment = useCollectSessionPaymentSplit();
+  const isCollecting = collectPayment.isPending || collectSplitPayment.isPending;
+
+  const splitTotal = splitRows.reduce((sum, row) => sum + parseAmount(row.amount), 0);
+  const splitDiff = Math.round((amount - splitTotal) * 100) / 100;
+  const splitValid =
+    splitRows.every((row) => parseAmount(row.amount) > 0) && Math.abs(splitDiff) < 0.01;
   const createSignedInvoice = useCreateSignedInvoice();
   const { data: invoiceStatus, refetch: refetchInvoiceStatus } = useSessionInvoiceStatus(sessionId);
 
@@ -95,6 +127,8 @@ export function CollectSessionPaymentDialog({
   const resetForm = () => {
     setStep('payment');
     setPaymentMethod('cash');
+    setIsSplit(false);
+    setSplitRows(defaultSplitRows());
     setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
     setReference('');
     setNotes('');
@@ -173,15 +207,31 @@ export function CollectSessionPaymentDialog({
     // - Block if amount > remaining
     // - Insert payment and recompute everything
     // This prevents double-charging even on concurrent/repeated clicks.
-    await collectPayment.mutateAsync({
-      sessionId,
-      patientId,
-      amount,
-      paymentMethod,
-      paymentDate,
-      reference: reference || undefined,
-      notes: notes || undefined,
-    });
+    if (isSplit) {
+      if (!splitValid) return;
+      // collect_session_payment_split records every part in a single transaction.
+      await collectSplitPayment.mutateAsync({
+        sessionId,
+        patientId,
+        parts: splitRows.map((row) => ({
+          method: row.method,
+          amount: Math.round(parseAmount(row.amount) * 100) / 100,
+        })),
+        paymentDate,
+        reference: reference || undefined,
+        notes: notes || undefined,
+      });
+    } else {
+      await collectPayment.mutateAsync({
+        sessionId,
+        patientId,
+        amount,
+        paymentMethod,
+        paymentDate,
+        reference: reference || undefined,
+        notes: notes || undefined,
+      });
+    }
 
     // Handle different modes
     // If session already has a valid invoice, skip invoice creation flow
@@ -245,6 +295,49 @@ export function CollectSessionPaymentDialog({
     }, 350);
   };
 
+  const updateSplitRow = (index: number, patch: Partial<SplitRow>) => {
+    setSplitRows((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
+
+  // With two parts, typing one amount fills the other with the rest.
+  const handleSplitAmountChange = (index: number, value: string) => {
+    setSplitRows((rows) => {
+      const next = rows.map((row, i) => (i === index ? { ...row, amount: value } : row));
+      if (next.length === 2) {
+        const rest = Math.round((amount - parseAmount(value)) * 100) / 100;
+        next[1 - index] = { ...next[1 - index], amount: rest > 0 ? rest.toFixed(2) : '' };
+      }
+      return next;
+    });
+  };
+
+  const renderMethodSelect = (id: string, value: string, onChange: (value: string) => void) =>
+    isMobile ? (
+      // Select nativo para móvil - evita problemas de portales/modales
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      >
+        {PAYMENT_METHODS.map((m) => (
+          <option key={m.value} value={m.value}>{m.label}</option>
+        ))}
+      </select>
+    ) : (
+      // Select de Radix para desktop - mejor UX visual
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id}>
+          <SelectValue placeholder="Seleccionar método" />
+        </SelectTrigger>
+        <SelectContent>
+          {PAYMENT_METHODS.map((m) => (
+            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+
   const renderPaymentStep = () => (
     <form onSubmit={handlePaymentSubmit} className="space-y-4">
       {/* Amount Display */}
@@ -253,37 +346,76 @@ export function CollectSessionPaymentDialog({
         <p className="text-3xl font-bold">{amount.toFixed(2)}€</p>
       </div>
 
-      {/* Payment Method */}
-      <div className="space-y-2">
-        <Label htmlFor="payment-method">Método de pago</Label>
-        {isMobile ? (
-          // Select nativo para móvil - evita problemas de portales/modales
-          <select
-            id="payment-method"
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            <option value="cash">Efectivo</option>
-            <option value="card">Tarjeta</option>
-            <option value="transfer">Transferencia</option>
-            <option value="bizum">Bizum</option>
-          </select>
-        ) : (
-          // Select de Radix para desktop - mejor UX visual
-          <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-            <SelectTrigger id="payment-method">
-              <SelectValue placeholder="Seleccionar método" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash">Efectivo</SelectItem>
-              <SelectItem value="card">Tarjeta</SelectItem>
-              <SelectItem value="transfer">Transferencia</SelectItem>
-              <SelectItem value="bizum">Bizum</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
+      {/* Split toggle */}
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+        <div className="space-y-0.5">
+          <Label htmlFor="split-payment" className="cursor-pointer">Dividir entre varios métodos</Label>
+          <p className="text-xs text-muted-foreground">Por ejemplo, una parte en efectivo y otra por Bizum</p>
+        </div>
+        <Switch id="split-payment" checked={isSplit} onCheckedChange={setIsSplit} />
       </div>
+
+      {isSplit ? (
+        <div className="space-y-3">
+          {splitRows.map((row, index) => (
+            <div key={index} className="flex items-end gap-2">
+              <div className="flex-1 space-y-1">
+                {index === 0 && <Label htmlFor={`split-method-${index}`}>Método</Label>}
+                {renderMethodSelect(`split-method-${index}`, row.method, (value) => updateSplitRow(index, { method: value }))}
+              </div>
+              <div className="w-28 space-y-1">
+                {index === 0 && <Label htmlFor={`split-amount-${index}`}>Importe (€)</Label>}
+                <Input
+                  id={`split-amount-${index}`}
+                  type="number"
+                  inputMode="decimal"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={row.amount}
+                  onChange={(e) => handleSplitAmountChange(index, e.target.value)}
+                />
+              </div>
+              {splitRows.length > 2 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSplitRows((rows) => rows.filter((_, i) => i !== index))}
+                  aria-label="Quitar método"
+                >
+                  <Icon name="close" className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSplitRows((rows) => [...rows, { method: 'card', amount: '' }])}
+              disabled={splitRows.length >= PAYMENT_METHODS.length}
+            >
+              <Icon name="add" className="h-4 w-4 mr-1" />
+              Añadir método
+            </Button>
+            <p className={`text-sm ${Math.abs(splitDiff) < 0.01 ? 'text-green-600' : 'text-destructive'}`}>
+              {Math.abs(splitDiff) < 0.01
+                ? 'Importe completo'
+                : splitDiff > 0
+                  ? `Faltan ${splitDiff.toFixed(2)}€`
+                  : `Sobran ${Math.abs(splitDiff).toFixed(2)}€`}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="payment-method">Método de pago</Label>
+          {renderMethodSelect('payment-method', paymentMethod, setPaymentMethod)}
+        </div>
+      )}
 
       {/* Payment Date */}
       <div className="space-y-2">
@@ -336,8 +468,8 @@ export function CollectSessionPaymentDialog({
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={collectPayment.isPending}>
-          {collectPayment.isPending ? 'Procesando...' : 'Confirmar pago'}
+        <Button type="submit" disabled={isCollecting || (isSplit && !splitValid)}>
+          {isCollecting ? 'Procesando...' : 'Confirmar pago'}
         </Button>
       </div>
     </form>
