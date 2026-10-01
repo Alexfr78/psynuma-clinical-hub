@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -21,7 +22,7 @@ export function useProfessionals() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['professionals', profile?.center_id],
+    queryKey: qk.professionals.byCenter(profile?.center_id),
     queryFn: async () => {
       if (!profile?.center_id) throw new Error('No center_id');
 
@@ -42,7 +43,7 @@ export function useProfessionalsWithRoles() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['professionals', 'with-roles', profile?.center_id],
+    queryKey: qk.professionals.withRoles(profile?.center_id),
     queryFn: async () => {
       if (!profile?.center_id) throw new Error('No center_id');
 
@@ -79,7 +80,7 @@ export function useProfessionalsWithRoles() {
 
 export function useProfessional(professionalId: string | null) {
   return useQuery({
-    queryKey: ['professional', professionalId],
+    queryKey: qk.professional.byProfessional(professionalId),
     queryFn: async () => {
       if (!professionalId) throw new Error('No professional ID');
 
@@ -112,8 +113,8 @@ export function useUpdateProfessional() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['professionals'] });
-      queryClient.invalidateQueries({ queryKey: ['professional'] });
+      queryClient.invalidateQueries({ queryKey: qk.professionals.all });
+      queryClient.invalidateQueries({ queryKey: qk.professional.all });
     },
   });
 }
@@ -142,14 +143,14 @@ export function useInviteProfessional() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['professionals'] });
+      queryClient.invalidateQueries({ queryKey: qk.professionals.all });
     },
   });
 }
 
 export function useProfessionalAvailability(professionalId: string | null) {
   return useQuery({
-    queryKey: ['availability', professionalId],
+    queryKey: qk.availability.byProfessional(professionalId),
     queryFn: async () => {
       if (!professionalId) throw new Error('No professional ID');
 
@@ -182,7 +183,7 @@ export function useCreateAvailability() {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['availability', variables.professional_id] });
+      queryClient.invalidateQueries({ queryKey: qk.availability.byProfessional(variables.professional_id) });
     },
   });
 }
@@ -203,7 +204,7 @@ export function useUpdateAvailability() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['availability'] });
+      queryClient.invalidateQueries({ queryKey: qk.availability.all });
     },
   });
 }
@@ -221,14 +222,14 @@ export function useDeleteAvailability() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['availability'] });
+      queryClient.invalidateQueries({ queryKey: qk.availability.all });
     },
   });
 }
 
 export function useAllProfessionalAvailability(professionalIds: string[]) {
   return useQuery({
-    queryKey: ['availability', 'all', professionalIds],
+    queryKey: qk.availability.byProfessionals(professionalIds),
     queryFn: async () => {
       if (professionalIds.length === 0) return [];
 

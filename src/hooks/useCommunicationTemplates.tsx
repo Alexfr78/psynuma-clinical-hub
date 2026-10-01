@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
@@ -265,7 +266,7 @@ export function useCommunicationTemplates() {
   const { center } = useCenter();
 
   return useQuery({
-    queryKey: ['communication-templates', center?.id],
+    queryKey: qk.communicationTemplates.byCenter(center?.id),
     queryFn: async () => {
       if (!center?.id) return [];
 
@@ -285,7 +286,7 @@ export function useCommunicationTemplate(channel: TemplateChannel, templateType:
   const { center } = useCenter();
 
   return useQuery({
-    queryKey: ['communication-template', center?.id, channel, templateType],
+    queryKey: qk.communicationTemplate.list(center?.id, channel, templateType),
     queryFn: async () => {
       if (!center?.id) return null;
 
@@ -344,8 +345,8 @@ export function useUpsertCommunicationTemplate() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['communication-templates'] });
-      queryClient.invalidateQueries({ queryKey: ['communication-template'] });
+      queryClient.invalidateQueries({ queryKey: qk.communicationTemplates.all });
+      queryClient.invalidateQueries({ queryKey: qk.communicationTemplate.all });
       toast.success('Plantilla guardada correctamente');
     },
     onError: (error) => {

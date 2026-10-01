@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -353,7 +354,7 @@ export function TranscriptionAnalysisDialog({
       const { error } = await supabase.from("transcripts").delete().eq("session_id", sessionId);
       if (error) throw error;
       await transcriptAvailability.refetch();
-      queryClient.invalidateQueries({ queryKey: ["ai-documents", "transcript-availability", sessionId] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocuments.transcriptAvailability(sessionId) });
       toast.success("Transcripción eliminada");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo eliminar la transcripción");

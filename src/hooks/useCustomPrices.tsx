@@ -90,7 +90,7 @@ export interface ResolvedPrice {
 /** Lista todas las tarifas personalizadas de un paciente, incluyendo nombre del servicio/bono */
 export function usePatientCustomPrices(patientId: string | undefined) {
   return useQuery({
-    queryKey: ['patient-custom-prices', patientId],
+    queryKey: qk.patientCustomPrices.byPatient(patientId),
     queryFn: async (): Promise<CustomPriceWithTarget[]> => {
       if (!patientId) return [];
 
@@ -154,7 +154,7 @@ export function usePatientCustomPrices(patientId: string | undefined) {
 /** Historial de cambios de una tarifa personalizada concreta */
 export function useCustomPriceHistory(customPriceId: string | undefined) {
   return useQuery({
-    queryKey: ['custom-price-history', customPriceId],
+    queryKey: qk.customPriceHistory.byCustomPrice(customPriceId),
     queryFn: async (): Promise<CustomPriceHistory[]> => {
       if (!customPriceId) return [];
       const { data, error } = await supabase
@@ -222,7 +222,7 @@ export function useCreateCustomPrice() {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['patient-custom-prices', variables.patient_id] });
+      queryClient.invalidateQueries({ queryKey: qk.patientCustomPrices.byPatient(variables.patient_id) });
       queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa personalizada creada');
     },
@@ -264,7 +264,7 @@ export function useUpdateCustomPrice() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['patient-custom-prices', data.patient_id] });
+      queryClient.invalidateQueries({ queryKey: qk.patientCustomPrices.byPatient(data.patient_id) });
       queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa personalizada actualizada');
     },
@@ -295,7 +295,7 @@ export function useDeactivateCustomPrice() {
       return { ...data, patientId };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['patient-custom-prices', data.patientId] });
+      queryClient.invalidateQueries({ queryKey: qk.patientCustomPrices.byPatient(data.patientId) });
       queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa personalizada desactivada');
     },

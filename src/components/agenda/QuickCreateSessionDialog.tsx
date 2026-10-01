@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, useEffect } from 'react';
 import { SessionTypeLimitNotice } from '@/components/agenda/SessionTypeLimitNotice';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -758,8 +759,8 @@ export function QuickCreateSessionDialog({
         // En sesiones de pareja, sendSessionNotificationDirect ya avisa también al otro miembro.
 
         // Invalidate notification queries manually
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
+        queryClient.invalidateQueries({ queryKey: qk.notifications.all });
+        queryClient.invalidateQueries({ queryKey: qk.whatsappMessages.all });
         
         // Show toast for auto-sent notifications
         if (notificationResult.whatsappAutoSent) {

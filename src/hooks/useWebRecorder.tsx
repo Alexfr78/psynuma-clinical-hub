@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,10 +29,10 @@ export function WebRecorderProvider({ children }: { children: ReactNode }) {
     setState(idleRecorderState);
     if (!userId || !centerId || !allowed) return;
     const instance = new WebRecorderController(userId, centerId, setState, (sessionId, patientId) => {
-      void queryClient.invalidateQueries({ queryKey: ['ai-documents', 'transcript-availability', sessionId] });
-      void queryClient.invalidateQueries({ queryKey: ['ai-documents', 'session', sessionId] });
-      void queryClient.invalidateQueries({ queryKey: ['ai-documents', 'patient', patientId] });
-      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      void queryClient.invalidateQueries({ queryKey: qk.aiDocuments.transcriptAvailability(sessionId) });
+      void queryClient.invalidateQueries({ queryKey: qk.aiDocuments.session(sessionId) });
+      void queryClient.invalidateQueries({ queryKey: qk.aiDocuments.patient(patientId) });
+      void queryClient.invalidateQueries({ queryKey: qk.sessions.all });
     });
     controller.current = instance;
     void instance.initialize();

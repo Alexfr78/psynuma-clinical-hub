@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,7 +52,7 @@ export function useAIDocumentTypes() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['ai-document-types', profile?.center_id],
+    queryKey: qk.aiDocumentTypes.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await aiDb
         .from(AI_DOCUMENT_TABLES.types)
@@ -75,7 +76,7 @@ export function usePromptVersions(documentTypeId: string | undefined) {
   const centerId = profile?.center_id;
 
   const versionsQuery = useQuery({
-    queryKey: ['ai-prompt-versions', documentTypeId, centerId],
+    queryKey: qk.aiPromptVersions.list(documentTypeId, centerId),
     queryFn: async () => {
       const { data, error } = await aiDb
         .from(AI_DOCUMENT_TABLES.versions)
@@ -114,7 +115,7 @@ export function usePromptVersions(documentTypeId: string | undefined) {
   );
 
   const professionalsQuery = useQuery({
-    queryKey: ['ai-prompt-versions-professionals', professionalIds],
+    queryKey: qk.aiPromptVersionsProfessionals.byProfessionalIds(professionalIds),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
@@ -127,7 +128,7 @@ export function usePromptVersions(documentTypeId: string | undefined) {
   });
 
   const sessionTypesQuery = useQuery({
-    queryKey: ['ai-prompt-versions-session-types', sessionTypeIds],
+    queryKey: qk.aiPromptVersionsSessionTypes.bySessionTypeIds(sessionTypeIds),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('session_types')
@@ -220,7 +221,7 @@ export function useCreatePromptVersion() {
       return data as AiPromptVersion;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['ai-prompt-versions', data.document_type_id] });
+      queryClient.invalidateQueries({ queryKey: qk.aiPromptVersions.byDocumentType(data.document_type_id) });
       toast.success('Versión guardada como borrador');
     },
     onError: (error) => {
@@ -246,7 +247,7 @@ export function usePublishPromptVersion() {
       return data as AiPromptVersion;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['ai-prompt-versions', variables.documentTypeId] });
+      queryClient.invalidateQueries({ queryKey: qk.aiPromptVersions.byDocumentType(variables.documentTypeId) });
       toast.success('Versión publicada: se usará en las próximas generaciones que casen con su ámbito');
     },
     onError: (error) => {
@@ -310,7 +311,7 @@ export function useCreateDocumentType() {
       return data as AiDocumentType;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-document-types'] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentTypes.all });
       toast.success('Plantilla creada');
     },
     onError: (error) => {
@@ -339,7 +340,7 @@ export function useUpdateDocumentType() {
       return data as AiDocumentType;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-document-types'] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentTypes.all });
       toast.success('Plantilla actualizada');
     },
     onError: (error) => {
@@ -363,8 +364,8 @@ export function useDeleteDocumentType() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-document-types'] });
-      queryClient.invalidateQueries({ queryKey: ['ai-document-defaults'] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentTypes.all });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentDefaults.all });
       toast.success('Plantilla eliminada');
     },
     onError: (error) => {
@@ -387,7 +388,7 @@ export function useSetDocumentTypeActive() {
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['ai-document-types'] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentTypes.all });
       toast.success(variables.isActive ? 'Plantilla activada' : 'Plantilla desactivada');
     },
     onError: (error) => {
@@ -433,7 +434,7 @@ export function useDuplicateSystemDocumentType() {
       return data as AiDocumentType;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-document-types'] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentTypes.all });
       toast.success('Plantilla duplicada para el centro. Ya puedes personalizarla.');
     },
     onError: (error) => {
@@ -452,7 +453,7 @@ export function useAIDocumentDefaults() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['ai-document-defaults', profile?.center_id],
+    queryKey: qk.aiDocumentDefaults.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await aiDb
         .from(AI_DOCUMENT_DEFAULTS_TABLE)
@@ -566,7 +567,7 @@ export function useSetDocumentDefault() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-document-defaults'] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentDefaults.all });
       toast.success('Predeterminada actualizada');
     },
     onError: (error) => {
@@ -593,7 +594,7 @@ export function useClearOwnDocumentDefault() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-document-defaults'] });
+      queryClient.invalidateQueries({ queryKey: qk.aiDocumentDefaults.all });
       toast.success('Ahora se usará la predeterminada del centro');
     },
     onError: (error) => {

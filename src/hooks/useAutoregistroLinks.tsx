@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -24,7 +25,7 @@ export function useAutoregistroLinks(opts?: { patientId?: string }) {
   const centerId = profile?.center_id;
 
   const query = useQuery({
-    queryKey: ['autoregistro-links', centerId, opts?.patientId],
+    queryKey: qk.autoregistroLinks.list(centerId, opts?.patientId),
     queryFn: async () => {
       let q = supabase
         .from('autoregistro_links')
@@ -57,7 +58,7 @@ export function useAutoregistroLinks(opts?: { patientId?: string }) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autoregistro-links'] });
+      queryClient.invalidateQueries({ queryKey: qk.autoregistroLinks.all });
       toast.success('Enlace creado');
     },
     onError: () => toast.error('Error al crear enlace'),
@@ -69,7 +70,7 @@ export function useAutoregistroLinks(opts?: { patientId?: string }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autoregistro-links'] });
+      queryClient.invalidateQueries({ queryKey: qk.autoregistroLinks.all });
       toast.success('Enlace desactivado');
     },
     onError: () => toast.error('Error al desactivar enlace'),
@@ -81,7 +82,7 @@ export function useAutoregistroLinks(opts?: { patientId?: string }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autoregistro-links'] });
+      queryClient.invalidateQueries({ queryKey: qk.autoregistroLinks.all });
       toast.success('Envío eliminado');
     },
     onError: () => toast.error('Error al eliminar envío'),

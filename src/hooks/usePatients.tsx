@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -50,7 +51,7 @@ export function usePatients(filters?: PatientFilters) {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['patients', filters],
+    queryKey: qk.patients.list(filters),
     queryFn: async () => {
       const query = supabase
         .from('patients')
@@ -76,7 +77,7 @@ export function usePatientsPage(filters: PatientFilters | undefined, range: { fr
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['patients', 'page', filters, range.from, range.to],
+    queryKey: qk.patients.page(filters, range.from, range.to),
     queryFn: async () => {
       const query = supabase
         .from('patients')
@@ -98,7 +99,7 @@ export function usePatientsPage(filters: PatientFilters | undefined, range: { fr
 
 export function usePatient(patientId: string | undefined) {
   return useQuery({
-    queryKey: ['patient', patientId],
+    queryKey: qk.patient.byPatient(patientId),
     queryFn: async () => {
       if (!patientId) return null;
 
@@ -144,7 +145,7 @@ export function useCreatePatient() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
     },
   });
 }
@@ -165,8 +166,8 @@ export function useUpdatePatient() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['patient', data.id] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
+      queryClient.invalidateQueries({ queryKey: qk.patient.byPatient(data.id) });
     },
   });
 }
@@ -175,7 +176,7 @@ export function useProfessionals() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['professionals'],
+    queryKey: qk.professionals.all,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')

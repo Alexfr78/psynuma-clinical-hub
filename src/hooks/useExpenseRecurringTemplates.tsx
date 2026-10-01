@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -50,7 +51,7 @@ export function useExpenseRecurringTemplates() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['expense-recurring-templates', profile?.center_id],
+    queryKey: qk.expenseRecurringTemplates.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expense_recurring_templates')
@@ -80,7 +81,7 @@ export function useCreateExpenseRecurringTemplate() {
       return data as ExpenseRecurringTemplate;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expense-recurring-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenseRecurringTemplates.all });
       toast.success('Gasto recurrente creado');
     },
     onError: (error: Error) => {
@@ -105,7 +106,7 @@ export function useUpdateExpenseRecurringTemplate() {
       return data as ExpenseRecurringTemplate;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expense-recurring-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenseRecurringTemplates.all });
       toast.success('Gasto recurrente actualizado');
     },
     onError: (error: Error) => {
@@ -127,7 +128,7 @@ export function useToggleExpenseRecurringTemplate() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expense-recurring-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenseRecurringTemplates.all });
       toast.success('Estado actualizado');
     },
     onError: (error: Error) => {
@@ -145,7 +146,7 @@ export function useDeleteExpenseRecurringTemplate() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expense-recurring-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenseRecurringTemplates.all });
       toast.success('Gasto recurrente eliminado');
     },
     onError: (error: Error) => {

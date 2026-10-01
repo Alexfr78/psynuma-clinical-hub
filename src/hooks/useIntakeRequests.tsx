@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
@@ -60,7 +61,7 @@ function applyIntakeFilters<Q extends { eq: any; or: any }>(query: Q, filters: U
 export function useIntakeRequestsPage(filters: UseIntakeRequestsFilters, range: { from: number; to: number }) {
   const { centerId } = useCenter();
   return useQuery({
-    queryKey: ['intake-requests', 'page', filters, range.from, range.to, centerId],
+    queryKey: qk.intakeRequests.page(filters, range.from, range.to, centerId),
     queryFn: async () => {
       const query = supabase.from('portal_intake_requests').select('*', { count: 'exact' })
         .eq('center_id', centerId!).order('created_at', { ascending: false }).order('id', { ascending: true });
@@ -76,7 +77,7 @@ export function useIntakeRequestsPage(filters: UseIntakeRequestsFilters, range: 
 export function useIntakeRequestCounts(filters: UseIntakeRequestsFilters) {
   const { centerId } = useCenter();
   return useQuery({
-    queryKey: ['intake-requests', centerId, 'counts', filters],
+    queryKey: qk.intakeRequests.counts(centerId, filters),
     queryFn: async () => {
       const counts = await Promise.all(['total', 'pending', 'contacted', 'cancelled'].map(async (status) => {
         let query = applyIntakeFilters(supabase.from('portal_intake_requests').select('id', { count: 'exact', head: true })
@@ -96,7 +97,7 @@ export function useIntakeRequests(filters: UseIntakeRequestsFilters = {}) {
   const { centerId } = useCenter();
 
   const { data: requests = [], isLoading, error } = useQuery({
-    queryKey: ['intake-requests', centerId, filters],
+    queryKey: qk.intakeRequests.list(centerId, filters),
     queryFn: async () => {
       if (!centerId) return [];
 
@@ -145,8 +146,8 @@ export function useIntakeRequestActions() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['intake-requests', centerId] });
-      queryClient.invalidateQueries({ queryKey: ['intake-requests', 'page'] });
+      queryClient.invalidateQueries({ queryKey: qk.intakeRequests.byCenter(centerId) });
+      queryClient.invalidateQueries({ queryKey: qk.intakeRequests.pages() });
       toast.success('Solicitud actualizada');
     },
     onError: (error) => {

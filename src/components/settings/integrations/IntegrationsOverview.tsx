@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -62,7 +63,7 @@ export function IntegrationsOverview() {
   const { profile } = useAuth();
 
   const { data: plaudStatus } = useQuery({
-    queryKey: ["plaud-connection", profile?.center_id],
+    queryKey: qk.plaudConnection.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke<{ connected: boolean; enabled?: boolean | null }>(
         "plaud-connection",

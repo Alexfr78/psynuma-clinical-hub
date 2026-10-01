@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,7 +44,7 @@ export function useAppVersions() {
   const { logView } = useAuditLog();
 
   const versionsQuery = useQuery({
-    queryKey: ['app-versions'],
+    queryKey: qk.appVersions.all,
     queryFn: async () => {
       const { data: versions, error } = await supabase
         .from('app_versions')
@@ -73,7 +74,7 @@ export function useAppVersions() {
   });
 
   const pendingChangesQuery = useQuery({
-    queryKey: ['app-changes-pending'],
+    queryKey: qk.appChangesPending.all,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('app_change_log')
@@ -118,7 +119,7 @@ export function useAppVersions() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-changes-pending'] });
+      queryClient.invalidateQueries({ queryKey: qk.appChangesPending.all });
       toast.success('Cambio registrado');
     },
     onError: () => toast.error('Error al registrar el cambio'),
@@ -133,7 +134,7 @@ export function useAppVersions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-changes-pending'] });
+      queryClient.invalidateQueries({ queryKey: qk.appChangesPending.all });
       toast.success('Cambio actualizado');
     },
     onError: () => toast.error('Error al actualizar'),
@@ -148,7 +149,7 @@ export function useAppVersions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-changes-pending'] });
+      queryClient.invalidateQueries({ queryKey: qk.appChangesPending.all });
       toast.success('Cambio archivado');
     },
     onError: () => toast.error('Error al archivar'),
@@ -194,8 +195,8 @@ export function useAppVersions() {
       return version;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-versions'] });
-      queryClient.invalidateQueries({ queryKey: ['app-changes-pending'] });
+      queryClient.invalidateQueries({ queryKey: qk.appVersions.all });
+      queryClient.invalidateQueries({ queryKey: qk.appChangesPending.all });
       toast.success('Versión creada');
     },
     onError: () => toast.error('Error al crear la versión'),
@@ -212,7 +213,7 @@ export function useAppVersions() {
       logView('app_versions', id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-versions'] });
+      queryClient.invalidateQueries({ queryKey: qk.appVersions.all });
       toast.success('Versión publicada');
     },
     onError: () => toast.error('Error al publicar'),
@@ -229,7 +230,7 @@ export function useAppVersions() {
       logView('app_versions', id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-versions'] });
+      queryClient.invalidateQueries({ queryKey: qk.appVersions.all });
       toast.success('Versión marcada como actual');
     },
     onError: () => toast.error('Error al marcar como actual'),
@@ -250,7 +251,7 @@ export function useAppVersions() {
       logView('app_versions', id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-versions'] });
+      queryClient.invalidateQueries({ queryKey: qk.appVersions.all });
       toast.success('Versión sincronizada con VeriFactu');
     },
     onError: () => toast.error('Error al sincronizar con VeriFactu'),
@@ -265,7 +266,7 @@ export function useAppVersions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['app-versions'] });
+      queryClient.invalidateQueries({ queryKey: qk.appVersions.all });
       toast.success('Versión archivada');
     },
     onError: () => toast.error('Error al archivar'),

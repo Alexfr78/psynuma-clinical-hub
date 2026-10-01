@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -33,7 +34,7 @@ export function PatientSummary({ patient, onNavigateToConsents }: PatientSummary
   const { granted: grantedPurposes, total: totalPurposes } = countGrantedConsentPurposes(consentResults);
   // Fetch patient stats
   const { data: stats } = useQuery({
-    queryKey: ['patient-stats', patient.id],
+    queryKey: qk.patientStats.byPatient(patient.id),
     queryFn: async () => {
       const [sessionsRes, debtsRes, bonosRes] = await Promise.all([
         supabase

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
@@ -35,7 +36,7 @@ export function useReferralRequests() {
   const queryClient = useQueryClient();
 
   const { data: requests = [], isLoading } = useQuery({
-    queryKey: ['referral-requests', centerId],
+    queryKey: qk.referralRequests.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return [];
       const { data, error } = await supabase
@@ -86,8 +87,8 @@ export function useReferralRequests() {
       if (updateError) throw updateError;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-requests', centerId] });
-      queryClient.invalidateQueries({ queryKey: ['referral-partners', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralRequests.byCenter(centerId) });
+      queryClient.invalidateQueries({ queryKey: qk.referralPartners.byCenter(centerId) });
       toast.success('Solicitud aprobada. Profesional añadido al catálogo.');
     },
     onError: (e) => toast.error('Error: ' + e.message),
@@ -108,7 +109,7 @@ export function useReferralRequests() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-requests', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralRequests.byCenter(centerId) });
       toast.success('Solicitud rechazada');
     },
     onError: (e) => toast.error('Error: ' + e.message),

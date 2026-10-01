@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -34,7 +35,7 @@ export function usePublicAssessment(token: string | undefined) {
   const queryClient = useQueryClient();
 
   const { data: assessment, isLoading, error } = useQuery({
-    queryKey: ['public-assessment', token],
+    queryKey: qk.publicAssessment.byToken(token),
     queryFn: async () => {
       if (!token) throw new Error('No token');
 
@@ -80,7 +81,7 @@ export function usePublicAssessment(token: string | undefined) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-assessment', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicAssessment.byToken(token) });
       toast.success('Respuestas enviadas correctamente');
     },
     onError: (error) => {

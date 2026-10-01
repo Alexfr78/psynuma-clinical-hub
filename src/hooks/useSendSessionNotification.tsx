@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { buildPublicUrl, getPublicBaseUrl } from '@/lib/public-base-url';
@@ -483,8 +484,8 @@ export function useSendSessionNotification() {
       return sendSessionNotificationDirect(params, profile.center_id, center);
     },
     onSuccess: ({ results, whatsappData, whatsappAutoSent }) => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
+      queryClient.invalidateQueries({ queryKey: qk.notifications.all });
+      queryClient.invalidateQueries({ queryKey: qk.whatsappMessages.all });
       
       if (whatsappAutoSent) {
         toast.success('WhatsApp enviado automáticamente', {

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -40,7 +41,7 @@ export default function CoupleCancellationResponse() {
   const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading, error: loadError } = useQuery({
-    queryKey: ['couple-cancellation', token],
+    queryKey: qk.coupleCancellation.byToken(token),
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('couple-cancellation', {
         body: { action: 'get', token },

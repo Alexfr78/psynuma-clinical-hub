@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -50,7 +51,7 @@ export function useGoogleCalendarSync() {
       return data as SyncResult;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       
       // Check for errors first - show error message instead of success
       if (data.errors && data.errors.length > 0) {

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -5,7 +6,7 @@ import { ScheduleException } from '@/lib/schedule-exceptions';
 
 export function useScheduleExceptions(centerId?: string, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ['schedule-exceptions', centerId, startDate, endDate],
+    queryKey: qk.scheduleExceptions.list(centerId, startDate, endDate),
     queryFn: async () => {
       let query = supabase
         .from('schedule_exceptions')
@@ -39,7 +40,7 @@ export function useCreateScheduleException() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedule-exceptions'] });
+      queryClient.invalidateQueries({ queryKey: qk.scheduleExceptions.all });
       toast({ title: 'Bloqueo creado', description: 'El bloqueo de disponibilidad se ha creado correctamente.' });
     },
     onError: () => {
@@ -64,7 +65,7 @@ export function useUpdateScheduleException() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedule-exceptions'] });
+      queryClient.invalidateQueries({ queryKey: qk.scheduleExceptions.all });
       toast({ title: 'Bloqueo actualizado' });
     },
     onError: () => {
@@ -86,7 +87,7 @@ export function useDeleteScheduleException() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedule-exceptions'] });
+      queryClient.invalidateQueries({ queryKey: qk.scheduleExceptions.all });
       toast({ title: 'Bloqueo eliminado' });
     },
     onError: () => {
@@ -106,7 +107,7 @@ export function useConflictingSessions(
   enabled = false
 ) {
   return useQuery({
-    queryKey: ['conflicting-sessions', centerId, startDate, endDate, professionalId],
+    queryKey: qk.conflictingSessions.list(centerId, startDate, endDate, professionalId),
     queryFn: async () => {
       let query = supabase
         .from('sessions')

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +18,7 @@ export function usePatientSessionSummaries() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['patient-session-summaries'],
+    queryKey: qk.patientSessionSummaries.all,
     queryFn: async () => {
       const now = new Date();
       const from = format(new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -21,7 +22,7 @@ interface RecordingRow {
 export function useRecordingsPage(range: { from: number; to: number }) {
   const { user, profile, isAdmin } = useAuth();
   return useQuery({
-    queryKey: ['recordings', 'page', { centerId: profile?.center_id, userId: user?.id, isAdmin }, range.from, range.to],
+    queryKey: qk.recordings.page({ centerId: profile?.center_id, userId: user?.id, isAdmin }, range.from, range.to),
     queryFn: async () => {
       const since = new Date(Date.now() - LIST_DAYS * 24 * 60 * 60 * 1000).toISOString();
       let query = supabase

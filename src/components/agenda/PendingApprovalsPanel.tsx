@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -36,7 +37,7 @@ export function PendingApprovalsPanel() {
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const { data: pendingSessions, isLoading } = useQuery({
-    queryKey: ['pending-approvals', center?.id],
+    queryKey: qk.pendingApprovals.byCenter(center?.id),
     queryFn: async () => {
       if (!center?.id) return [];
       
@@ -72,8 +73,8 @@ export function PendingApprovalsPanel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.pendingApprovals.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       toast.success('Cita aprobada');
     },
     onError: () => {
@@ -95,8 +96,8 @@ export function PendingApprovalsPanel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.pendingApprovals.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       toast.success('Cita rechazada');
     },
     onError: () => {

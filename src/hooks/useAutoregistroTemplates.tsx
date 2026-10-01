@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -80,7 +81,7 @@ export function useAutoregistroTemplates() {
   };
 
   const query = useQuery({
-    queryKey: ['autoregistro-templates', centerId],
+    queryKey: qk.autoregistroTemplates.byCenter(centerId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('autoregistro_templates')
@@ -133,7 +134,7 @@ export function useAutoregistroTemplates() {
       throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.autoregistroTemplates.all });
       toast.success('Plantilla creada');
     },
     onError: () => toast.error('Error al crear plantilla'),
@@ -166,7 +167,7 @@ export function useAutoregistroTemplates() {
       throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.autoregistroTemplates.all });
       toast.success('Plantilla actualizada');
     },
     onError: () => toast.error('Error al actualizar plantilla'),
@@ -178,7 +179,7 @@ export function useAutoregistroTemplates() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autoregistro-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.autoregistroTemplates.all });
       toast.success('Plantilla eliminada');
     },
     onError: () => toast.error('Error al eliminar plantilla'),

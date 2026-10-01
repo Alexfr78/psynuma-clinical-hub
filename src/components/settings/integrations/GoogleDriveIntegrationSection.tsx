@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +31,7 @@ export function GoogleDriveIntegrationSection() {
   const queryClient = useQueryClient();
 
   const { data: status, isLoading } = useQuery({
-    queryKey: ['google-drive-connection', profile?.center_id],
+    queryKey: qk.googleDriveConnection.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke<DriveConnectionStatus>('google-drive-connection', {
         body: { action: 'status' },
@@ -48,7 +49,7 @@ export function GoogleDriveIntegrationSection() {
     if (oauthStatus && provider === 'google_drive') {
       if (oauthStatus === 'success') {
         toast.success('Google Drive conectado correctamente');
-        queryClient.invalidateQueries({ queryKey: ['google-drive-connection'] });
+        queryClient.invalidateQueries({ queryKey: qk.googleDriveConnection.all });
       } else if (oauthStatus === 'error') {
         const message = searchParams.get('message');
         toast.error(`Error al conectar Google Drive: ${message || 'Error desconocido'}`);
@@ -97,7 +98,7 @@ export function GoogleDriveIntegrationSection() {
       });
       if (error) throw error;
       toast.success('Google Drive desconectado');
-      queryClient.invalidateQueries({ queryKey: ['google-drive-connection'] });
+      queryClient.invalidateQueries({ queryKey: qk.googleDriveConnection.all });
     } catch (err) {
       toast.error('Error al desconectar Google Drive');
     }

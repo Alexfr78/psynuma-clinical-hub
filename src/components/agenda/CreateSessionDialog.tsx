@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, useEffect } from 'react';
 import { SessionTypeLimitNotice } from '@/components/agenda/SessionTypeLimitNotice';
 import { useForm } from 'react-hook-form';
@@ -322,8 +323,8 @@ export function CreateSessionDialog({
         }, profile!.center_id, center);
         
         // Invalidate notification queries manually
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
+        queryClient.invalidateQueries({ queryKey: qk.notifications.all });
+        queryClient.invalidateQueries({ queryKey: qk.whatsappMessages.all });
         
         // Show toast for auto-sent notifications
         if (notificationResult.whatsappAutoSent) {

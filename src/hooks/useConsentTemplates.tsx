@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -25,7 +26,7 @@ export interface ConsentTemplate {
 export function useConsentTemplates() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
-  const templatesQueryKey = ['consent-templates', profile?.center_id];
+  const templatesQueryKey = qk.consentTemplates.byCenter(profile?.center_id);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: templatesQueryKey,
@@ -62,7 +63,7 @@ export function useConsentTemplates() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consent-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.consentTemplates.all });
       toast.success('Plantilla creada correctamente');
     },
     onError: (error) => {
@@ -97,7 +98,7 @@ export function useConsentTemplates() {
       return { previousTemplates };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consent-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.consentTemplates.all });
       toast.success('Plantilla actualizada');
     },
     onError: (error, _variables, context) => {
@@ -119,7 +120,7 @@ export function useConsentTemplates() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consent-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.consentTemplates.all });
       toast.success('Plantilla eliminada');
     },
     onError: (error) => {

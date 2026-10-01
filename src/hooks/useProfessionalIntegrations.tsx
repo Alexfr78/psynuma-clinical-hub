@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -68,7 +69,7 @@ export function useProfessionalIntegrations(overrideProfessionalId?: string) {
 
   // Fetch integrations for current professional
   const { data: integrations, isLoading: isLoadingIntegrations } = useQuery({
-    queryKey: ['professional-integrations', professionalId],
+    queryKey: qk.professionalIntegrations.byProfessional(professionalId),
     queryFn: async () => {
       if (!professionalId) return null;
       
@@ -87,7 +88,7 @@ export function useProfessionalIntegrations(overrideProfessionalId?: string) {
   // Fetch OAuth connections for current professional
   // Uses oauth_connections_safe view which excludes sensitive tokens
   const { data: oauthConnections, isLoading: isLoadingOAuth } = useQuery({
-    queryKey: ['oauth-connections', professionalId],
+    queryKey: qk.oauthConnections.byProfessional(professionalId),
     queryFn: async () => {
       if (!professionalId) return [];
       
@@ -131,7 +132,7 @@ export function useProfessionalIntegrations(overrideProfessionalId?: string) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['professional-integrations', professionalId] });
+      queryClient.invalidateQueries({ queryKey: qk.professionalIntegrations.byProfessional(professionalId) });
       toast.success('Configuración guardada');
     },
     onError: (error) => {
@@ -282,9 +283,9 @@ export function useProfessionalIntegrations(overrideProfessionalId?: string) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['oauth-connections', professionalId] });
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-      queryClient.invalidateQueries({ queryKey: ['google-calendar-health'] });
+      queryClient.invalidateQueries({ queryKey: qk.oauthConnections.byProfessional(professionalId) });
+      queryClient.invalidateQueries({ queryKey: qk.calendarEvents.all });
+      queryClient.invalidateQueries({ queryKey: qk.googleCalendarHealth.all });
       toast.success('Integración desconectada');
     },
     onError: (error) => {

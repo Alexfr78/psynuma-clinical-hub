@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,8 +15,8 @@ export function useSetPatientDischarged() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['patient'] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
+      queryClient.invalidateQueries({ queryKey: qk.patient.all });
       toast.success('Contacto marcado como Alta');
     },
     onError: (error: Error) => {
@@ -37,8 +38,8 @@ export function useRemovePatientDischarged() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['patient'] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
+      queryClient.invalidateQueries({ queryKey: qk.patient.all });
       const newStatus = (data as { status?: string })?.status;
       toast.success(`Estado actualizado a ${newStatus === 'active' ? 'Activo' : 'Inactivo'}`);
     },
@@ -61,8 +62,8 @@ export function useRecomputePatientStatus() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['patient'] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
+      queryClient.invalidateQueries({ queryKey: qk.patient.all });
     },
   });
 }
@@ -79,7 +80,7 @@ export function useRecomputeAllPatientStatuses() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
       const processed = (data as { processed?: number })?.processed || 0;
       toast.success(`Estados recalculados para ${processed} contactos`);
     },

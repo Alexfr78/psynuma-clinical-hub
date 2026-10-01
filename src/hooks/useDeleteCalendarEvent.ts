@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -51,8 +52,8 @@ export function useDeleteCalendarEvent() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.calendarEvents.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       toast.success('Evento eliminado de la agenda y de Google Calendar');
     },
     onError: (error) => {

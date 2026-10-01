@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -40,7 +41,7 @@ const statusConfig: Record<string, { label: string; icon: string; className: str
 
 function usePatientSessionHistory(patientId: string, currentSessionId?: string) {
   return useQuery({
-    queryKey: ['patient-session-history', patientId],
+    queryKey: qk.patientSessionHistory.byPatient(patientId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sessions')

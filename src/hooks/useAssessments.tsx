@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -74,7 +75,7 @@ function applyAssessmentFilters<Q extends { eq: any; gt: any; or: any }>(query: 
 export function useAssessmentsPage(filters: AssessmentListFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['assessments', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.assessments.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const query = supabase.from('assessments').select(ASSESSMENT_SELECT, { count: 'exact' })
         .eq('center_id', profile!.center_id!).order('created_at', { ascending: false }).order('id', { ascending: true });
@@ -92,7 +93,7 @@ export function useAssessmentsPage(filters: AssessmentListFilters, range: { from
 export function useAssessmentCounts(now?: string) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['assessments', 'counts', now, profile?.center_id],
+    queryKey: qk.assessments.counts(now, profile?.center_id),
     queryFn: async () => {
       const at = now ?? new Date().toISOString();
       const counts = await Promise.all(['pending', 'completed', 'other'].map(async (tab) => {
@@ -111,7 +112,7 @@ export function useAssessments(patientId?: string) {
   const { profile } = useAuth();
 
   const { data: assessments = [], isLoading } = useQuery({
-    queryKey: ['assessments', profile?.center_id, patientId],
+    queryKey: qk.assessments.list(profile?.center_id, patientId),
     queryFn: async () => {
       if (!profile?.center_id) return [];
 
@@ -174,7 +175,7 @@ export function useAssessmentActions() {
       return data as Assessment;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessments.all });
       toast.success('Evaluación creada correctamente');
     },
     onError: (error) => {
@@ -193,7 +194,7 @@ export function useAssessmentActions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessments.all });
       toast.success('Evaluación revocada');
     },
     onError: (error) => {
@@ -221,7 +222,7 @@ export function useAssessmentActions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessments.all });
       toast.success('Evaluación eliminada');
     },
     onError: (error) => {
@@ -254,7 +255,7 @@ export function useAssessmentActions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessments.all });
       toast.success('Fecha de caducidad actualizada');
     },
     onError: (error) => {
@@ -277,7 +278,7 @@ export function useAssessmentActions() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessments.all });
       toast.success('Evaluación reenviada');
     },
     onError: (error) => {

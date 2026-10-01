@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,7 +93,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
 
   // Query
   const { data: rules = [], isLoading } = useQuery({
-    queryKey: ['alert-rules', templateId],
+    queryKey: qk.alertRules.byTemplate(templateId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('autoregistro_alert_rules')
@@ -113,7 +114,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['alert-rules', templateId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.alertRules.byTemplate(templateId) }),
     onError: () => toast.error('Error al cambiar el estado'),
   });
 
@@ -127,7 +128,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alert-rules', templateId] });
+      queryClient.invalidateQueries({ queryKey: qk.alertRules.byTemplate(templateId) });
       toast.success('Regla eliminada');
     },
     onError: () => toast.error('Error al eliminar la regla'),
@@ -186,7 +187,7 @@ export default function AlertRulesBuilder({ templateId, fields }: Props) {
 
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alert-rules', templateId] });
+      queryClient.invalidateQueries({ queryKey: qk.alertRules.byTemplate(templateId) });
       toast.success(editingRule ? 'Regla actualizada' : 'Regla creada');
       closeDialog();
     },

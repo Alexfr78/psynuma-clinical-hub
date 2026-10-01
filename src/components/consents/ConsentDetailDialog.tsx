@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -37,7 +38,7 @@ const statusConfig = {
 // Fetch full consent with verification responses
 function useConsentDetail(consentId: string) {
   return useQuery({
-    queryKey: ['consent-detail', consentId],
+    queryKey: qk.consentDetail.byConsent(consentId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('consents')

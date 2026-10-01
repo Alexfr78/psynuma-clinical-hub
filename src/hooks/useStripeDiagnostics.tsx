@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -18,7 +19,7 @@ export function useStripeDiagnostics(limit = 20) {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['stripe-diagnostics', profile?.id, limit],
+    queryKey: qk.stripeDiagnostics.list(profile?.id, limit),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('integration_errors')

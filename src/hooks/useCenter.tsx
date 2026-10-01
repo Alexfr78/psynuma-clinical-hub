@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -145,7 +146,7 @@ export function useCenter() {
   const centerId = profile?.center_id;
 
   const { data: center, isLoading } = useQuery({
-    queryKey: ['center', centerId],
+    queryKey: qk.center.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return null;
       
@@ -173,7 +174,7 @@ export function useCenter() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['center', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.center.byCenter(centerId) });
       toast.success('Centro actualizado correctamente');
     },
     onError: (error) => {

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 /**
  * Hook unificado para el catálogo de plantillas de documentos clínicos con IA
  * (`ai_document_types`) y los documentos generados a partir de ellas
@@ -55,7 +56,7 @@ const DOCUMENT_WITH_TYPE_SELECT =
  */
 export function useAiDocumentTypes(centerId: string | undefined, scope?: AiDocumentScope) {
   return useQuery({
-    queryKey: ['ai-document-types', centerId, scope ?? 'all'],
+    queryKey: qk.aiDocumentTypes.list(centerId, scope ?? 'all'),
     queryFn: async () => {
       let query = aiDb
         .from('ai_document_types')
@@ -439,7 +440,7 @@ export function useGenerateAiDocument() {
       // `ai_summary_clinical`/`ai_summary_patient` cuando la plantilla tiene `mirror_column`.
       queryClient.invalidateQueries({ queryKey: [AI_DOCUMENTS_KEY] });
       if (variables.sessionId) {
-        queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       }
     },
   });

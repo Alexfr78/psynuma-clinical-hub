@@ -1,4 +1,4 @@
-import { invalidateKeys, MONEY_KEYS } from '@/lib/query-keys';
+import { qk, invalidateKeys, MONEY_KEYS } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useIssueInvoice } from '@/hooks/useIssueInvoice';
@@ -148,7 +148,7 @@ export function useCollectDebtPayment() {
     },
     onSuccess: (data) => {
       invalidateKeys(queryClient, MONEY_KEYS);
-      queryClient.invalidateQueries({ queryKey: ['bono-payment-status'] });
+      queryClient.invalidateQueries({ queryKey: qk.bonoPaymentStatus.all });
       
       if (data.invoiceIssued) {
         toast.success('Pago registrado y factura emitida');

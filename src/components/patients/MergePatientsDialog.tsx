@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, useMemo } from 'react';
 import { useProfessionals } from '@/hooks/useProfessionals';
 import { useNavigate } from 'react-router-dom';
@@ -208,8 +209,8 @@ export function MergePatientsDialog({ primaryPatientId, primaryPatientName, trig
         description: `Todos los datos han sido transferidos al contacto principal.`,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['patient', primaryPatientId] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
+      queryClient.invalidateQueries({ queryKey: qk.patient.byPatient(primaryPatientId) });
 
       setOpen(false);
       resetState();

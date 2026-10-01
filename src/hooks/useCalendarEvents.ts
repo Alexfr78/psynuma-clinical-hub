@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -38,7 +39,7 @@ export function useCalendarEvents({
   const toIso = `${rangeEnd}T23:59:59.999Z`;
 
   return useQuery({
-    queryKey: ['calendar-events', professionalId, rangeStart, rangeEnd],
+    queryKey: qk.calendarEvents.list(professionalId, rangeStart, rangeEnd),
     queryFn: async () => {
       if (!professionalId || professionalId === 'all') {
         // If 'all' professionals, fetch for current user's professional ID

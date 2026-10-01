@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,7 +58,7 @@ function applyNotificationFilters<Q extends { eq: any }>(query: Q, filters?: Not
 export function useNotificationsPage(filters: NotificationFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['notifications', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.notifications.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const query = supabase.from('notifications').select(NOTIFICATION_SELECT, { count: 'exact' })
         .eq('center_id', profile!.center_id!).order('created_at', { ascending: false }).order('id', { ascending: true });
@@ -73,7 +74,7 @@ export function useNotificationsPage(filters: NotificationFilters, range: { from
 export function useNotificationCounts(filters: NotificationFilters) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['notifications', 'counts', filters, profile?.center_id],
+    queryKey: qk.notifications.counts(filters, profile?.center_id),
     queryFn: async () => {
       const counts = await Promise.all(['total', 'pending', 'sent', 'failed'].map(async (status) => {
         let query = applyNotificationFilters(supabase.from('notifications').select('id', { count: 'exact', head: true })
@@ -97,7 +98,7 @@ export function useNotifications(filters?: {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['notifications', profile?.center_id, filters],
+    queryKey: qk.notifications.list(profile?.center_id, filters),
     queryFn: async () => {
       let query = supabase
         .from('notifications')
@@ -135,7 +136,7 @@ export function useCreateNotification() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: qk.notifications.all });
     },
     onError: (error) => {
       toast({
@@ -162,7 +163,7 @@ export function useSendNotification() {
       return data as SendNotificationResult;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: qk.notifications.all });
       
       // Check if this was a WhatsApp Web notification (has link)
       const results = data?.results || [];
@@ -297,7 +298,7 @@ export function usePendingNotifications() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['notifications', 'pending', profile?.center_id],
+    queryKey: qk.notifications.pending(profile?.center_id),
     queryFn: async () => {
       const dueAt = new Date().toISOString();
       const data: Notification[] = [];
@@ -335,7 +336,7 @@ export function useDeleteNotification() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: qk.notifications.all });
       toast({
         title: 'Notificación eliminada',
         description: 'La notificación se ha eliminado correctamente.',

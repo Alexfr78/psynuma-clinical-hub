@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -24,7 +25,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
 
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ['patient-sessions', patientId],
+    queryKey: qk.patientSessions.byPatient(patientId),
     queryFn: async () => {
       const select = `
           *,
@@ -57,7 +58,7 @@ export function PatientSessions({ patientId }: PatientSessionsProps) {
   // Otro miembro de cada sesión de pareja (titular o participante, el que no sea este contacto).
   const sessionIds = useMemo(() => (sessions ?? []).map((s) => s.id), [sessions]);
   const { data: companions } = useQuery({
-    queryKey: ['patient-session-companions', patientId, sessionIds],
+    queryKey: qk.patientSessionCompanions.list(patientId, sessionIds),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('session_participants')

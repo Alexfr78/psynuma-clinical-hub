@@ -200,7 +200,7 @@ export function usePatientActiveBonos(patientId: string | undefined) {
 // Fetch a specific bono by ID (even if exhausted) - used to display currently assigned bono
 export function useBono(bonoId: string | null | undefined) {
   return useQuery({
-    queryKey: ['bono', bonoId],
+    queryKey: qk.bono.byBono(bonoId),
     queryFn: async () => {
       if (!bonoId) return null;
       
@@ -283,7 +283,7 @@ export function useCreateBonoWithDebt() {
     },
     onSuccess: () => {
       invalidateKeys(queryClient, BONO_KEYS);
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       invalidateKeys(queryClient, BONO_DEBT_KEYS);
     },
     onError: (error) => {
@@ -346,7 +346,7 @@ export function useDeleteBono() {
     },
     onSuccess: (result) => {
       invalidateKeys(queryClient, BONO_KEYS);
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       queryClient.invalidateQueries({ queryKey: qk.bonoSessions.all });
       
       if (result.success) {
@@ -377,7 +377,7 @@ export function useBonoTemplates() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['bono-templates'],
+    queryKey: qk.bonoTemplates.all,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bono_templates')
@@ -411,7 +411,7 @@ export function useCreateBonoTemplate() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bono-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.bonoTemplates.all });
       toast.success('Plantilla creada correctamente');
     },
     onError: (error) => {
@@ -436,7 +436,7 @@ export function useUpdateBonoTemplate() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bono-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.bonoTemplates.all });
       toast.success('Plantilla actualizada correctamente');
     },
     onError: (error) => {
@@ -458,7 +458,7 @@ export function useDeleteBonoTemplate() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bono-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.bonoTemplates.all });
       toast.success('Plantilla eliminada');
     },
     onError: (error) => {
@@ -484,7 +484,7 @@ export function useApplyBonoToSession() {
     },
     onSuccess: () => {
       invalidateKeys(queryClient, BONO_KEYS);
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       invalidateKeys(queryClient, BONO_DEBT_KEYS);
     },
     onError: (error) => {
@@ -509,7 +509,7 @@ export function useRemoveBonoFromSession() {
     },
     onSuccess: () => {
       invalidateKeys(queryClient, BONO_KEYS);
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       queryClient.invalidateQueries({ queryKey: qk.bonoSessions.all });
     },
     onError: (error) => {

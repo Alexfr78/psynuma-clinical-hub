@@ -34,7 +34,7 @@ export function useRecurringSeries(seriesId?: string) {
   const { center } = useCenter();
 
   return useQuery({
-    queryKey: ['recurring-series', seriesId],
+    queryKey: qk.recurringSeries.bySeries(seriesId),
     queryFn: async () => {
       if (!seriesId) return null;
       
@@ -116,8 +116,8 @@ export function useCreateRecurringSeries() {
       };
     },
     onSuccess: ({ createdCount }) => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['recurring-series'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.recurringSeries.all });
       toast.success(`Se han creado ${createdCount} citas recurrentes`);
     },
     onError: (error) => {
@@ -257,8 +257,8 @@ export function useUpdateRecurringSession() {
       }
     },
     onSuccess: ({ updated }) => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['recurring-series'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.recurringSeries.all });
       toast.success(`Se han actualizado ${updated} cita${updated !== 1 ? 's' : ''}`);
     },
     onError: (error) => {
@@ -382,8 +382,8 @@ export function useCancelRecurringSession() {
       }
     },
     onSuccess: ({ cancelled }) => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['recurring-series'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.recurringSeries.all });
       queryClient.invalidateQueries({ queryKey: qk.cancellationCharges.all });
       toast.success(`Se han cancelado ${cancelled} cita${cancelled !== 1 ? 's' : ''}`);
     },
@@ -509,7 +509,7 @@ export function useEnsureOccurrences() {
     },
     onSuccess: ({ generated }) => {
       if (generated > 0) {
-        queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       }
     },
   });

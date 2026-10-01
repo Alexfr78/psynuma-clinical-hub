@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -39,7 +40,7 @@ function auditQuery(filters: AuditFilters, head = false) {
 export function useAuditLogsPage(filters: AuditFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['audit-logs', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.auditLogs.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const { data, count, error } = await auditQuery(filters)
         .order('seq', { ascending: false }).order('id', { ascending: true }).range(range.from, range.to);
@@ -53,7 +54,7 @@ export function useAuditLogsPage(filters: AuditFilters, range: { from: number; t
 export function useAuditAnomalyCount(from: string, to: string) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['audit-anomaly-count', from, to, profile?.center_id],
+    queryKey: qk.auditAnomalyCount.list(from, to, profile?.center_id),
     queryFn: async () => {
       const { count, error } = await auditQuery({ p_from: from, p_to: to, p_anomalous_only: true }, true);
       if (error) return 0;

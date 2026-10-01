@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,7 +22,7 @@ export interface PublicPatientReport {
  */
 export function usePublicPatientReport(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-patient-report', token],
+    queryKey: qk.publicPatientReport.byToken(token),
     queryFn: async (): Promise<PublicPatientReport> => {
       if (!token) throw new Error('No token');
 

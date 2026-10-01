@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -240,7 +241,7 @@ export function CancellationPolicySettingsSection() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['active-cancellation-policy', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.activeCancellationPolicy.byCenter(centerId) });
       toast.success('Política de cancelación guardada');
     },
     onError: (error) => {

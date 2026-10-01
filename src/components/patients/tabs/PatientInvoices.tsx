@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -41,7 +42,7 @@ export function PatientInvoices({ patientId, onInvoiceClick }: PatientInvoicesPr
   };
 
   const { data: invoices, isLoading } = useQuery({
-    queryKey: ['patient-invoices', patientId],
+    queryKey: qk.patientInvoices.byPatient(patientId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')

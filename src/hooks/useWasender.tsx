@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -45,7 +46,7 @@ export function useWasender() {
 
   // Fetch WhatsApp session status
   const { data: session, isLoading: isLoadingSession, refetch: refetchSession } = useQuery({
-    queryKey: ['whatsapp-session', centerId],
+    queryKey: qk.whatsappSession.byCenter(centerId),
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('wasender-get-session');
       
@@ -62,7 +63,7 @@ export function useWasender() {
 
   // Fetch message history
   const { data: messages, isLoading: isLoadingMessages } = useQuery({
-    queryKey: ['whatsapp-messages', centerId],
+    queryKey: qk.whatsappMessages.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return [];
       
@@ -93,7 +94,7 @@ export function useWasender() {
     },
     onSuccess: (data) => {
       // Invalidate and refetch session immediately
-      queryClient.invalidateQueries({ queryKey: ['whatsapp-session', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.whatsappSession.byCenter(centerId) });
       
       if (data?.status === 'connected') {
         toast.success(`WhatsApp conectado${data.phone_number ? ` (${data.phone_number})` : ''}`);
@@ -140,7 +141,7 @@ export function useWasender() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['whatsapp-messages', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.whatsappMessages.byCenter(centerId) });
       toast.success('Mensaje enviado correctamente');
     },
     onError: (error: Error) => {
@@ -166,7 +167,7 @@ export function useWasender() {
       if (data?.error) throw new Error(data.code || data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['whatsapp-session', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.whatsappSession.byCenter(centerId) });
       toast.success('Sesión de WhatsApp desconectada. Puedes reconectar escaneando un nuevo QR.');
     },
     onError: () => {

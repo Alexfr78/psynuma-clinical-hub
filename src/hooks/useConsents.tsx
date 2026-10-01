@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -69,7 +70,7 @@ function applyConsentFilters(query: ReturnType<typeof consentFilterQuery>, filte
 export function useConsentsPage(filters: { pendingAt?: string }, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['consents', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.consents.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const query = supabase.from('consents').select(CONSENT_SELECT, { count: 'exact' })
         .eq('center_id', profile!.center_id!).order('created_at', { ascending: false }).order('id', { ascending: true });
@@ -90,7 +91,7 @@ export function useConsents(patientId?: string) {
   const queryClient = useQueryClient();
 
   const { data: consents = [], isLoading } = useQuery({
-    queryKey: ['consents', profile?.center_id, patientId],
+    queryKey: qk.consents.list(profile?.center_id, patientId),
     queryFn: async () => {
       if (!profile?.center_id) return [];
       
@@ -154,7 +155,7 @@ export function useConsents(patientId?: string) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consents'] });
+      queryClient.invalidateQueries({ queryKey: qk.consents.all });
       toast.success('Consentimiento creado correctamente');
     },
     onError: (error) => {
@@ -180,7 +181,7 @@ export function useConsents(patientId?: string) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consents'] });
+      queryClient.invalidateQueries({ queryKey: qk.consents.all });
       toast.success('Consentimiento revocado');
     },
     onError: (error) => {
@@ -199,7 +200,7 @@ export function useConsents(patientId?: string) {
 
 export function useConsentSignatures(consentId: string) {
   const { data: signatures = [], isLoading } = useQuery({
-    queryKey: ['consent-signatures', consentId],
+    queryKey: qk.consentSignatures.byConsent(consentId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('consent_signatures')

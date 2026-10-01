@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +29,7 @@ export function PlaudIntegrationSection() {
   const queryClient = useQueryClient();
 
   const { data: status, isLoading } = useQuery({
-    queryKey: ["plaud-connection", profile?.center_id],
+    queryKey: qk.plaudConnection.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke<PlaudConnectionStatus>("plaud-connection", {
         body: { action: "status" },
@@ -46,7 +47,7 @@ export function PlaudIntegrationSection() {
     if (oauthStatus && provider === "plaud") {
       if (oauthStatus === "success") {
         toast.success("Plaud conectado correctamente");
-        queryClient.invalidateQueries({ queryKey: ["plaud-connection"] });
+        queryClient.invalidateQueries({ queryKey: qk.plaudConnection.all });
       } else if (oauthStatus === "error") {
         const message = searchParams.get("message");
         toast.error(`Error al conectar Plaud: ${message || "Error desconocido"}`);
@@ -80,7 +81,7 @@ export function PlaudIntegrationSection() {
       });
       if (error) throw error;
       toast.success("Plaud desconectado");
-      queryClient.invalidateQueries({ queryKey: ["plaud-connection"] });
+      queryClient.invalidateQueries({ queryKey: qk.plaudConnection.all });
     } catch (err) {
       toast.error("Error al desconectar Plaud");
     }
@@ -93,7 +94,7 @@ export function PlaudIntegrationSection() {
       });
       if (error) throw error;
       toast.success(checked ? "Ingesta automática activada" : "Ingesta automática desactivada");
-      queryClient.invalidateQueries({ queryKey: ["plaud-connection"] });
+      queryClient.invalidateQueries({ queryKey: qk.plaudConnection.all });
     } catch (err) {
       toast.error("No se pudo actualizar la ingesta automática");
     }

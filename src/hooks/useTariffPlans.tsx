@@ -103,7 +103,7 @@ export function useTariffPlans() {
 
 export function useTariffPlanItems(planId: string | undefined) {
   return useQuery({
-    queryKey: ['tariff-plan-items', planId],
+    queryKey: qk.tariffPlanItems.byPlan(planId),
     queryFn: async (): Promise<TariffPlanItem[]> => {
       if (!planId) return [];
 
@@ -291,7 +291,7 @@ export function useUpsertTariffPlanItem() {
       }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['tariff-plan-items', data.tariff_plan_id] });
+      queryClient.invalidateQueries({ queryKey: qk.tariffPlanItems.byPlan(data.tariff_plan_id) });
       invalidateKeys(queryClient, TARIFF_PRICE_KEYS);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -308,7 +308,7 @@ export function useDeleteTariffPlanItem() {
       return planId;
     },
     onSuccess: (planId) => {
-      queryClient.invalidateQueries({ queryKey: ['tariff-plan-items', planId] });
+      queryClient.invalidateQueries({ queryKey: qk.tariffPlanItems.byPlan(planId) });
       invalidateKeys(queryClient, TARIFF_PRICE_KEYS);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -319,7 +319,7 @@ export function useDeleteTariffPlanItem() {
 
 export function usePatientTariffAssignment(patientId: string | undefined) {
   return useQuery({
-    queryKey: ['patient-tariff-assignment', patientId],
+    queryKey: qk.patientTariffAssignment.byPatient(patientId),
     queryFn: async (): Promise<TariffPlanAssignment | null> => {
       if (!patientId) return null;
       const today = new Date().toISOString().split('T')[0];
@@ -370,7 +370,7 @@ export function useAssignTariffPlan() {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['patient-tariff-assignment', data.patient_id] });
+      queryClient.invalidateQueries({ queryKey: qk.patientTariffAssignment.byPatient(data.patient_id) });
       queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa asignada al paciente');
     },
@@ -396,7 +396,7 @@ export function useRemoveTariffAssignment() {
       return patientId;
     },
     onSuccess: (patientId) => {
-      queryClient.invalidateQueries({ queryKey: ['patient-tariff-assignment', patientId] });
+      queryClient.invalidateQueries({ queryKey: qk.patientTariffAssignment.byPatient(patientId) });
       queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa retirada del paciente');
     },

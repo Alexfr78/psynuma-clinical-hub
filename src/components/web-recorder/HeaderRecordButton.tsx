@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -23,7 +24,7 @@ interface TodaySession {
 function useMyRecordableSessionsToday(enabled: boolean) {
   const { user, profile } = useAuth();
   return useQuery({
-    queryKey: ['sessions', 'today', 'recordable', user?.id],
+    queryKey: qk.sessions.recordableToday(user?.id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sessions')

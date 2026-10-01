@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -84,8 +85,8 @@ export function useConvertCalendarEvent() {
     },
     onSuccess: () => {
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.calendarEvents.all });
       
       toast({
         title: 'Evento convertido',

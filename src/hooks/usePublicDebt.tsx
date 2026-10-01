@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -35,7 +36,7 @@ interface BonoTemplate {
 
 export function usePublicDebt(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-debt', token],
+    queryKey: qk.publicDebt.byToken(token),
     queryFn: async (): Promise<PublicDebt | null> => {
       if (!token) return null;
 
@@ -58,7 +59,7 @@ export function usePublicDebt(token: string | undefined) {
 
 export function usePublicBonoTemplates(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-bono-templates', token],
+    queryKey: qk.publicBonoTemplates.byToken(token),
     queryFn: async (): Promise<BonoTemplate[]> => {
       if (!token) return [];
 

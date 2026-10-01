@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { usePatientPartner } from './usePatientRelationships';
@@ -14,7 +15,7 @@ export interface AssessmentResultSummary {
  */
 export function usePatientResultsByCode(patientId: string | undefined, templateCode: string) {
   return useQuery({
-    queryKey: ['patient-results-by-code', patientId, templateCode],
+    queryKey: qk.patientResultsByCode.list(patientId, templateCode),
     queryFn: async (): Promise<AssessmentResultSummary[]> => {
       if (!patientId) return [];
       const { data, error } = await supabase

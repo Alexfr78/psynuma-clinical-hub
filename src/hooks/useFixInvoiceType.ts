@@ -60,7 +60,7 @@ export interface FixInvoiceTypeResult {
 
 export function useInvoiceTypeCorrectionContext(invoiceId: string | null, enabled: boolean) {
   return useQuery({
-    queryKey: ['invoice-type-correction-context', invoiceId],
+    queryKey: qk.invoiceTypeCorrectionContext.byInvoice(invoiceId),
     enabled: enabled && !!invoiceId,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_invoice_type_correction_context', {
@@ -96,8 +96,8 @@ export function useFixInvoiceType() {
     onSuccess: async (_, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: qk.invoices.all }),
-        queryClient.invalidateQueries({ queryKey: ['invoice', variables.originalInvoiceId] }),
-        queryClient.invalidateQueries({ queryKey: ['invoice-type-correction-context', variables.originalInvoiceId] }),
+        queryClient.invalidateQueries({ queryKey: qk.invoice.byInvoice(variables.originalInvoiceId) }),
+        queryClient.invalidateQueries({ queryKey: qk.invoiceTypeCorrectionContext.byInvoice(variables.originalInvoiceId) }),
         queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.all }),
         queryClient.invalidateQueries({ queryKey: qk.debts.all }),
         queryClient.invalidateQueries({ queryKey: qk.payments.all }),

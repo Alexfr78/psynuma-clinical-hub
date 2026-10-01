@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,7 +47,7 @@ export function usePublicAutoregistro(token: string) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['public-autoregistro', token],
+    queryKey: qk.publicAutoregistro.byToken(token),
     queryFn: async (): Promise<PublicAutoregistroData> => {
       const { data: link, error: linkError } = await client
         .from('autoregistro_links')
@@ -105,7 +106,7 @@ export function usePublicAutoregistro(token: string) {
   });
 
   const entriesQuery = useQuery({
-    queryKey: ['public-autoregistro-entries', token],
+    queryKey: qk.publicAutoregistroEntries.byToken(token),
     queryFn: async (): Promise<PublicAutoregistroEntry[]> => {
       const { data, error } = await client
         .from('autoregistro_entries')
@@ -155,7 +156,7 @@ export function usePublicAutoregistro(token: string) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-autoregistro-entries', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicAutoregistroEntries.byToken(token) });
     },
   });
 

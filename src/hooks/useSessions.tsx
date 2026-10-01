@@ -84,7 +84,7 @@ function sessionListQuery(filters: SessionListFilters) {
 export function useSessionsPage(filters: SessionListFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['sessions', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.sessions.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const { data, count, error } = await sessionListQuery(filters).range(range.from, range.to);
       if (error) throw error;
@@ -108,7 +108,7 @@ export async function fetchSessionList(filters: SessionListFilters) {
 export function useSessionListStats(filters: SessionListFilters) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['sessions', 'stats', filters, profile?.center_id],
+    queryKey: qk.sessions.stats(filters, profile?.center_id),
     queryFn: async () => {
       const rows = await fetchSessionList(filters);
       return { count: rows.length, billed: rows.reduce((sum, row) => sum + Number(row.price || 0), 0) };
@@ -121,7 +121,7 @@ export function useSessions(startDate?: string, endDate?: string, professionalId
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['sessions', startDate, endDate, professionalId],
+    queryKey: qk.sessions.byDateRange(startDate, endDate, professionalId),
     queryFn: async () => {
       let query = supabase
         .from('sessions')
@@ -175,7 +175,7 @@ export function useCreateSession() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
     },
   });
 }
@@ -313,7 +313,7 @@ export function useUpdateSession() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       queryClient.invalidateQueries({ queryKey: qk.debts.all });
       queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
       queryClient.invalidateQueries({ queryKey: qk.sessionPaymentStatus.all });
@@ -377,7 +377,7 @@ export function useDeleteSession() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       invalidateKeys(queryClient, BONO_KEYS);
       queryClient.invalidateQueries({ queryKey: qk.debts.all });
       queryClient.invalidateQueries({ queryKey: qk.debtStats.all });
@@ -388,7 +388,7 @@ export function useDeleteSession() {
 
 export function useAvailability(professionalId?: string) {
   return useQuery({
-    queryKey: ['availability', professionalId],
+    queryKey: qk.availability.byProfessional(professionalId),
     queryFn: async () => {
       let query = supabase
         .from('availability')

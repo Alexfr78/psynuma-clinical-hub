@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { listSearchPattern } from '@/lib/list-search';
 import { toast } from 'sonner';
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
@@ -33,7 +34,7 @@ export function useVerifactuEvents(params: UseVerifactuEventsParams = {}) {
   const { center } = useCenter();
 
   const { data: events = [], isLoading, refetch } = useQuery({
-    queryKey: ["verifactu-events", center?.id, params],
+    queryKey: qk.verifactuEvents.list(center?.id, params),
     queryFn: async () => {
       if (!center?.id) return [];
 
@@ -167,7 +168,7 @@ function verifactuEventsListQuery(filters: UseVerifactuEventsParams, centerId: s
 export function useVerifactuEventsPage(filters: UseVerifactuEventsParams, range: { from: number; to: number }) {
   const { center } = useCenter();
   return useQuery({
-    queryKey: ['verifactu-events', 'page', filters, range.from, range.to, center?.id],
+    queryKey: qk.verifactuEvents.page(filters, range.from, range.to, center?.id),
     queryFn: async () => {
       const { data, count, error } = await verifactuEventsListQuery(filters, center!.id).range(range.from, range.to);
       if (error) throw error;
@@ -181,7 +182,7 @@ export function useVerifactuEventsPage(filters: UseVerifactuEventsParams, range:
 export function useVerifactuEventStats(filters: UseVerifactuEventsParams) {
   const { center } = useCenter();
   return useQuery({
-    queryKey: ['verifactu-events', 'stats', filters, center?.id],
+    queryKey: qk.verifactuEvents.stats(filters, center?.id),
     queryFn: async () => {
       const query = () => verifactuEventsListQuery(filters, center!.id, true);
       const today = new Date();

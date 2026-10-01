@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -27,7 +28,7 @@ const DAYS_OF_WEEK = [0, 1, 2, 3, 4, 5, 6];
 
 export function useLocationSchedules(locationId: string | undefined) {
   return useQuery({
-    queryKey: ['location-schedules', locationId],
+    queryKey: qk.locationSchedules.byLocation(locationId),
     queryFn: async () => {
       if (!locationId) return [];
       
@@ -46,7 +47,7 @@ export function useLocationSchedules(locationId: string | undefined) {
 
 export function useAllLocationSchedules(locationIds: string[]) {
   return useQuery({
-    queryKey: ['location-schedules', 'all', locationIds],
+    queryKey: qk.locationSchedules.byLocations(locationIds),
     queryFn: async () => {
       if (locationIds.length === 0) return [];
       
@@ -78,8 +79,8 @@ export function useUpsertLocationSchedule() {
       return data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['location-schedules', variables.location_id] });
-      queryClient.invalidateQueries({ queryKey: ['location-schedules', 'all'] });
+      queryClient.invalidateQueries({ queryKey: qk.locationSchedules.byLocation(variables.location_id) });
+      queryClient.invalidateQueries({ queryKey: qk.locationSchedules.allSchedules() });
     },
   });
 }
@@ -107,8 +108,8 @@ export function useInitializeLocationSchedules() {
       return data;
     },
     onSuccess: (_, locationId) => {
-      queryClient.invalidateQueries({ queryKey: ['location-schedules', locationId] });
-      queryClient.invalidateQueries({ queryKey: ['location-schedules', 'all'] });
+      queryClient.invalidateQueries({ queryKey: qk.locationSchedules.byLocation(locationId) });
+      queryClient.invalidateQueries({ queryKey: qk.locationSchedules.allSchedules() });
     },
   });
 }

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -84,7 +85,7 @@ export function useSessionTypes() {
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['session-types', centerId],
+    queryKey: qk.sessionTypes.byCenter(centerId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('session_types')
@@ -105,7 +106,7 @@ export function useAllSessionTypes() {
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['session-types-all', centerId],
+    queryKey: qk.sessionTypesAll.byCenter(centerId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('session_types')
@@ -163,8 +164,8 @@ export function useCreateSessionType() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
-      queryClient.invalidateQueries({ queryKey: ['session-types-all'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypes.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypesAll.all });
       toast.success('Tipo de sesión creado');
     },
     onError: (error) => {
@@ -190,8 +191,8 @@ export function useUpdateSessionType() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
-      queryClient.invalidateQueries({ queryKey: ['session-types-all'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypes.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypesAll.all });
       toast.success('Tipo de sesión actualizado');
     },
     onError: (error) => {
@@ -215,8 +216,8 @@ export function useDeleteSessionType() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
-      queryClient.invalidateQueries({ queryKey: ['session-types-all'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypes.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypesAll.all });
       toast.success('Tipo de sesión eliminado');
     },
     onError: (error) => {
@@ -244,8 +245,8 @@ export function useReorderSessionTypes() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['session-types'] });
-      queryClient.invalidateQueries({ queryKey: ['session-types-all'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypes.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionTypesAll.all });
     },
     onError: (error) => {
       toast.error('Error al reordenar tipos de sesión');

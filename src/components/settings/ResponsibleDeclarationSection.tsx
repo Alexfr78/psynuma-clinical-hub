@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ export function ResponsibleDeclarationSection() {
   // solo desde el centro proveedor del software — cada centro la lee aquí
   // vía RPC en lugar de su propia fila de `centers`.
   const { data: softwareData } = useQuery({
-    queryKey: ['platform-verifactu-software-info'],
+    queryKey: qk.platformVerifactuSoftwareInfo.all,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_platform_verifactu_software_info');
       if (error) throw error;

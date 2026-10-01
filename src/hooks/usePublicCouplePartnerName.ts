@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 export function usePublicCouplePartnerName(tokens: { sessionToken?: string; debtToken?: string }) {
   const { sessionToken, debtToken } = tokens;
   return useQuery({
-    queryKey: ['public-couple-partner', sessionToken ?? null, debtToken ?? null],
+    queryKey: qk.publicCouplePartner.list(sessionToken ?? null, debtToken ?? null),
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_public_couple_partner_first_name', {
         p_session_token: sessionToken,

@@ -23,7 +23,7 @@ export type UpdateInvoiceSeriesInput = Partial<CreateInvoiceSeriesInput>;
 
 export function useInvoiceSeriesUsage(seriesId?: string) {
   return useQuery({
-    queryKey: ['invoice-series-usage', seriesId],
+    queryKey: qk.invoiceSeriesUsage.bySeries(seriesId),
     queryFn: async () => {
       if (!seriesId) return 0;
       const { count, error } = await supabase

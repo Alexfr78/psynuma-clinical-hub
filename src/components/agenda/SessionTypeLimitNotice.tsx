@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQueries } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,7 +34,7 @@ export function SessionTypeLimitNotice({ patientIds, sessionTypeId, sessionDate,
 
   const results = useQueries({
     queries: ids.map((patientId) => ({
-      queryKey: ['session-type-limit', patientId, sessionTypeId, date, excludeSessionId ?? null],
+      queryKey: qk.sessionTypeLimit.list(patientId, sessionTypeId, date, excludeSessionId ?? null),
       enabled: !!sessionTypeId,
       staleTime: 30_000,
       queryFn: async () => {

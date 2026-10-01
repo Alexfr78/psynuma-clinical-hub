@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -56,8 +57,8 @@ export function useMMPI2RFInterpretation() {
       return data.interpretation as MMPI2RFInterpretation;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['assessments'] });
-      queryClient.invalidateQueries({ queryKey: ['assessment-detail', variables.assessmentId] });
+      queryClient.invalidateQueries({ queryKey: qk.assessments.all });
+      queryClient.invalidateQueries({ queryKey: qk.assessmentDetail.byAssessment(variables.assessmentId) });
       toast.success('Interpretación MMPI-2-RF generada correctamente');
     },
     onError: (error) => {

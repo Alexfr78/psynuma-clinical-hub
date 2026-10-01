@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -23,7 +24,7 @@ export function useAutoregistroEntries(opts?: { patientId?: string; templateId?:
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['autoregistro-entries', centerId, opts?.patientId, opts?.templateId],
+    queryKey: qk.autoregistroEntries.list(centerId, opts?.patientId, opts?.templateId),
     queryFn: async () => {
       // Todas las entradas filtradas (las alertas clínicas y las gráficas necesitan el conjunto
       // completo), leídas por tramos para no cortarse en 1.000 filas. La tabla pagina en pantalla.
@@ -96,7 +97,7 @@ export function useDeleteAutoregistroEntries() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autoregistro-entries'] });
+      queryClient.invalidateQueries({ queryKey: qk.autoregistroEntries.all });
       toast.success('Todos los registros han sido eliminados');
     },
     onError: () => {

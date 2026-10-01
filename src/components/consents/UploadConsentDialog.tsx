@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 
 import { format } from 'date-fns';
@@ -111,7 +112,7 @@ export function UploadConsentDialog({
 
       if (insertError) throw insertError;
 
-      queryClient.invalidateQueries({ queryKey: ['consents'] });
+      queryClient.invalidateQueries({ queryKey: qk.consents.all });
       toast.success('Consentimiento subido correctamente');
       onSuccess();
       onOpenChange(false);

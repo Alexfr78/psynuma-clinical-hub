@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -81,7 +82,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
   // in analyze-session-transcription / send-notification is the one that
   // actually matters — this is only for a clearer UX.
   const { data: consentPatientId } = useQuery({
-    queryKey: ['transcription-analysis-patient-id', sessionId],
+    queryKey: qk.transcriptionAnalysisPatientId.bySession(sessionId),
     queryFn: async () => {
       const { data } = await supabase
         .from('sessions')
@@ -95,7 +96,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
   });
 
   const { data: consentResults, isLoading: isConsentLoading } = useQuery({
-    queryKey: ['patient-consent-status', consentPatientId, sessionId, ...CONSENT_PURPOSES],
+    queryKey: qk.patientConsentStatus.bySessionPurposes(consentPatientId, sessionId, CONSENT_PURPOSES),
     queryFn: async () => {
       // IA e informes exigen el consentimiento de TODOS los participantes (sesiones de
       // pareja); los canales de envío siguen siendo los del titular.

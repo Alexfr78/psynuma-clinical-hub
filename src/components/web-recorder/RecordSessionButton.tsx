@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, type MouseEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -25,7 +26,7 @@ interface RecordSessionButtonProps {
  */
 function useRecordingConsentGranted(patientId: string, sessionId: string, enabled: boolean) {
   const { data } = useQuery({
-    queryKey: ['consents', 'recording-ready', patientId, sessionId],
+    queryKey: qk.consents.recordingReady(patientId, sessionId),
     queryFn: async () => {
       // En sesiones de pareja cuenta el consentimiento de los dos miembros.
       const result = await checkSessionConsent(supabase, sessionId, ['recording', 'ai_processing'], patientId);

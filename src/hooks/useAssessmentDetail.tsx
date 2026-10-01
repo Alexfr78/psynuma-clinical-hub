@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -49,7 +50,7 @@ export interface AssessmentDetail {
 
 export function useAssessmentDetail(assessmentId: string | undefined) {
   return useQuery({
-    queryKey: ['assessment-detail', assessmentId],
+    queryKey: qk.assessmentDetail.byAssessment(assessmentId),
     queryFn: async () => {
       if (!assessmentId) throw new Error('Assessment ID requerido');
 

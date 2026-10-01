@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -26,7 +27,7 @@ export function PatientBonos({ patientId }: PatientBonosProps) {
   const [selectedBono, setSelectedBono] = useState<{ id: string; name: string; total: number } | null>(null);
 
   const { data: bonos, isLoading } = useQuery({
-    queryKey: ['patient-bonos', patientId],
+    queryKey: qk.patientBonos.byPatient(patientId),
     queryFn: async () => {
       // Propios y los que su pareja comparte con este contacto.
       const { data, error } = await supabase

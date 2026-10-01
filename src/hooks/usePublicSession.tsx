@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { isLateChangeRequiredError, toPatientChangeError } from '@/lib/late-change';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,7 +59,7 @@ export interface PublicSessionData {
 
 export function usePublicSession(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-session', token],
+    queryKey: qk.publicSession.byToken(token),
     queryFn: async () => {
       if (!token) throw new Error('No token provided');
 
@@ -125,7 +126,7 @@ export interface PublicBonoTemplate {
 
 export function usePublicBonoTemplatesForSession(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-bono-templates-session', token],
+    queryKey: qk.publicBonoTemplatesSession.byToken(token),
     queryFn: async (): Promise<PublicBonoTemplate[]> => {
       if (!token) return [];
 
@@ -186,7 +187,7 @@ export function useUpdatePublicSession() {
 
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['public-session', variables.token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicSession.byToken(variables.token) });
       
       const messages: Record<string, string> = {
         confirmed: '¡Tu cita ha sido confirmada!',
@@ -392,7 +393,7 @@ export function usePublicSessionReschedule(token: string | undefined) {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['public-session', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicSession.byToken(token) });
       toast.success(data.message || '¡Cita reprogramada!');
     },
     onError: (error: Error) => {
@@ -429,16 +430,16 @@ export function usePublicSessionReschedule(token: string | undefined) {
     },
     onSuccess: (data) => {
       const couple = data?.couple_cancellation as { kind: string; message?: string } | undefined;
-      queryClient.invalidateQueries({ queryKey: ['public-couple-members', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicCoupleMembers.byToken(token) });
       // Sesión de pareja: si el otro miembro aún tiene que responder, la cita sigue en pie.
       if (couple?.kind === 'pending') {
         toast.success(couple.message || 'Hemos avisado a tu pareja para que confirme.');
         return;
       }
-      queryClient.setQueryData<PublicSessionData | undefined>(['public-session', token], (current) => (
+      queryClient.setQueryData<PublicSessionData | undefined>(qk.publicSession.byToken(token), (current) => (
         current ? { ...current, status: 'cancelled' } : current
       ));
-      queryClient.invalidateQueries({ queryKey: ['public-session', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicSession.byToken(token) });
       toast.success(couple?.message || data.message || 'Cita cancelada');
     },
     onError: (error: Error) => {
@@ -481,7 +482,7 @@ export interface PublicCoupleMembers {
 /** Miembros de una sesión de pareja (para elegir quién cancela en /cita/:token). */
 export function usePublicCoupleMembers(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-couple-members', token],
+    queryKey: qk.publicCoupleMembers.byToken(token),
     queryFn: async (): Promise<PublicCoupleMembers> => {
       const { data, error } = await supabase.functions.invoke('couple-cancellation', {
         body: { action: 'members', session_access_token: token },

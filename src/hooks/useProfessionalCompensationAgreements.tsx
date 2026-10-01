@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -45,7 +46,7 @@ export interface VariableCompensationPreview {
 /** The professional's currently active agreement (effective_to IS NULL), if any. */
 export function useCompensationAgreement(professionalId: string | undefined) {
   return useQuery({
-    queryKey: ['compensation-agreement', professionalId],
+    queryKey: qk.compensationAgreement.byProfessional(professionalId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('professional_compensation_agreements')
@@ -64,7 +65,7 @@ export function useCompensationAgreement(professionalId: string | undefined) {
 
 export function useCompensationAgreementHistory(professionalId: string | undefined) {
   return useQuery({
-    queryKey: ['compensation-agreement-history', professionalId],
+    queryKey: qk.compensationAgreementHistory.byProfessional(professionalId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('professional_compensation_agreements')
@@ -127,8 +128,8 @@ export function useCreateCompensationAgreement() {
       return data as CompensationAgreement;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['compensation-agreement', variables.professional_id] });
-      queryClient.invalidateQueries({ queryKey: ['compensation-agreement-history', variables.professional_id] });
+      queryClient.invalidateQueries({ queryKey: qk.compensationAgreement.byProfessional(variables.professional_id) });
+      queryClient.invalidateQueries({ queryKey: qk.compensationAgreementHistory.byProfessional(variables.professional_id) });
       toast.success('Acuerdo de compensación guardado');
     },
     onError: (error: Error) => {
@@ -143,7 +144,7 @@ export function usePreviewVariableCompensation(
   periodEnd: string | undefined,
 ) {
   return useQuery({
-    queryKey: ['compensation-preview', professionalId, periodStart, periodEnd],
+    queryKey: qk.compensationPreview.list(professionalId, periodStart, periodEnd),
     queryFn: async () => {
       const { data, error } = await supabase.rpc('calculate_professional_variable_amount', {
         p_professional_id: professionalId,

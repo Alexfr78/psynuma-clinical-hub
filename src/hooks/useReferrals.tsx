@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
@@ -42,7 +43,7 @@ export function useReferrals() {
 
   // ===== SPECIALTIES =====
   const { data: specialties = [], isLoading: specialtiesLoading } = useQuery({
-    queryKey: ['referral-specialties', centerId],
+    queryKey: qk.referralSpecialties.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return [];
       const { data, error } = await supabase
@@ -69,7 +70,7 @@ export function useReferrals() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-specialties', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralSpecialties.byCenter(centerId) });
       toast.success('Especialidad creada');
     },
     onError: (e) => toast.error('Error: ' + e.message),
@@ -87,7 +88,7 @@ export function useReferrals() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-specialties', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralSpecialties.byCenter(centerId) });
       toast.success('Especialidad actualizada');
     },
     onError: (e) => toast.error('Error: ' + e.message),
@@ -102,7 +103,7 @@ export function useReferrals() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-specialties', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralSpecialties.byCenter(centerId) });
       toast.success('Especialidad eliminada');
     },
     onError: (e) => toast.error('Error: ' + e.message),
@@ -110,7 +111,7 @@ export function useReferrals() {
 
   // ===== PARTNERS =====
   const { data: partners = [], isLoading: partnersLoading } = useQuery({
-    queryKey: ['referral-partners', centerId],
+    queryKey: qk.referralPartners.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return [];
       const { data, error } = await supabase
@@ -137,7 +138,7 @@ export function useReferrals() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-partners', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralPartners.byCenter(centerId) });
       toast.success('Profesional creado');
     },
     onError: (e) => toast.error('Error: ' + e.message),
@@ -155,7 +156,7 @@ export function useReferrals() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-partners', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralPartners.byCenter(centerId) });
       toast.success('Profesional actualizado');
     },
     onError: (e) => toast.error('Error: ' + e.message),
@@ -170,7 +171,7 @@ export function useReferrals() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['referral-partners', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.referralPartners.byCenter(centerId) });
       toast.success('Profesional eliminado');
     },
     onError: (e) => toast.error('Error: ' + e.message),

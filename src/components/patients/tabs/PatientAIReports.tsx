@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,7 +58,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   // real, fail-closed enforcement happens server-side in send-notification
   // (see isClinicalReportNotification there), which never trusts the client.
   const { data: consentResults, isLoading: isConsentLoading } = useQuery({
-    queryKey: ['patient-consent-status', patientId, 'channel_whatsapp', 'channel_email'],
+    queryKey: qk.patientConsentStatus.channels(patientId),
     queryFn: async () => {
       const [whatsapp, email] = await Promise.all([
         checkPatientConsent(supabase, patientId, 'channel_whatsapp'),
@@ -73,7 +74,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   const emailBlockReason = consentSendBlockReason('email', consentResults?.channel_email);
 
   const { data: patientContact } = useQuery({
-    queryKey: ['patient-ai-reports-contact', patientId],
+    queryKey: qk.patientAiReportsContact.byPatient(patientId),
     queryFn: async () => {
       const { data, error } = await supabase.from('patients').select('phone, email, first_name').eq('id', patientId).maybeSingle();
       if (error) throw error;
@@ -95,7 +96,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   );
 
   const { data: sessionsMeta } = useQuery({
-    queryKey: ['patient-ai-reports-sessions', patientId, sessionIds],
+    queryKey: qk.patientAiReportsSessions.list(patientId, sessionIds),
     queryFn: async () => {
       if (sessionIds.length === 0) return [] as SessionMeta[];
       const { data, error } = await supabase

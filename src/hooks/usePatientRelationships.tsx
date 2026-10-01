@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -25,7 +26,7 @@ const PARTNER_FIELDS = 'id, first_name, last_name, email, phone';
 /** Pareja vinculada a un contacto. */
 export function usePatientPartner(patientId: string | undefined) {
   return useQuery({
-    queryKey: ['patient-partner', patientId],
+    queryKey: qk.patientPartner.byPatient(patientId),
     queryFn: async (): Promise<CoupleLink | null> => {
       if (!patientId) return null;
       const { data, error } = await supabase
@@ -60,9 +61,9 @@ export function usePatientPartner(patientId: string | undefined) {
 
 function invalidateCouple(queryClient: ReturnType<typeof useQueryClient>, ids: string[]) {
   for (const id of ids) {
-    queryClient.invalidateQueries({ queryKey: ['patient-partner', id] });
+    queryClient.invalidateQueries({ queryKey: qk.patientPartner.byPatient(id) });
   }
-  queryClient.invalidateQueries({ queryKey: ['patient-sessions'] });
+  queryClient.invalidateQueries({ queryKey: qk.patientSessions.all });
 }
 
 export function useLinkPartner() {
@@ -137,7 +138,7 @@ export function useUnlinkPartner() {
 /** Participantes extra (no titulares) de una sesión. */
 export function useSessionParticipants(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ['session-participants', sessionId],
+    queryKey: qk.sessionParticipants.bySession(sessionId),
     queryFn: async (): Promise<PartnerSummary[]> => {
       if (!sessionId) return [];
       const { data, error } = await supabase
@@ -173,9 +174,9 @@ export function useSetSessionPartner() {
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
-      queryClient.invalidateQueries({ queryKey: ['session-participants', v.sessionId] });
-      queryClient.invalidateQueries({ queryKey: ['patient-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessionParticipants.bySession(v.sessionId) });
+      queryClient.invalidateQueries({ queryKey: qk.patientSessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
     },
   });
 }
@@ -193,7 +194,7 @@ export interface PendingCoupleCancellation {
 /** Cancelación de pareja pendiente de que el otro miembro responda. */
 export function usePendingCoupleCancellation(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ['couple-cancellation-pending', sessionId],
+    queryKey: qk.coupleCancellationPending.bySession(sessionId),
     queryFn: async (): Promise<PendingCoupleCancellation | null> => {
       const { data, error } = await supabase
         .from('couple_cancellation_requests')
@@ -221,10 +222,10 @@ export function useResolveCoupleCancellation() {
       return data as { status: string; message: string };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['couple-cancellation-pending'] });
-      queryClient.invalidateQueries({ queryKey: ['session-participants'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.coupleCancellationPending.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionParticipants.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.patientSessions.all });
     },
   });
 }

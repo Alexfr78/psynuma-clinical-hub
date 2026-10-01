@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -121,7 +122,7 @@ function applyExpenseFilters(query: ExpenseQuery, filters?: ExpenseFilters) {
 export function useExpensesPage(filters: ExpenseFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['expenses', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.expenses.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const query = supabase.from('expenses').select(EXPENSE_SELECT, { count: 'exact' })
         .order('expense_date', { ascending: false }).order('id', { ascending: true });
@@ -138,7 +139,7 @@ export function useExpenses(filters?: ExpenseFilters) {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['expenses', profile?.center_id, filters],
+    queryKey: qk.expenses.list(profile?.center_id, filters),
     queryFn: async () => {
       let query = supabase.from('expenses').select(EXPENSE_SELECT).order('expense_date', { ascending: false });
 
@@ -154,7 +155,7 @@ export function useExpenses(filters?: ExpenseFilters) {
 
 export function useExpense(id: string | undefined) {
   return useQuery({
-    queryKey: ['expense', id],
+    queryKey: qk.expense.by(id),
     queryFn: async () => {
       const { data, error } = await supabase.from('expenses').select(EXPENSE_SELECT).eq('id', id!).maybeSingle();
       if (error) throw error;
@@ -184,8 +185,8 @@ export function useCreateExpense() {
       return data as Expense;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['expense-stats'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenses.all });
+      queryClient.invalidateQueries({ queryKey: qk.expenseStats.all });
       toast.success('Gasto registrado');
     },
     onError: (error: Error) => {
@@ -204,9 +205,9 @@ export function useUpdateExpense() {
       return data as Expense;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['expense', variables.id] });
-      queryClient.invalidateQueries({ queryKey: ['expense-stats'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenses.all });
+      queryClient.invalidateQueries({ queryKey: qk.expense.by(variables.id) });
+      queryClient.invalidateQueries({ queryKey: qk.expenseStats.all });
       toast.success('Gasto actualizado');
     },
     onError: (error: Error) => {
@@ -243,8 +244,8 @@ export function useMarkExpensePaid() {
       return data as Expense;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['expense-stats'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenses.all });
+      queryClient.invalidateQueries({ queryKey: qk.expenseStats.all });
       toast.success('Gasto marcado como pagado');
     },
     onError: (error: Error) => {
@@ -262,8 +263,8 @@ export function useDeleteExpense() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['expense-stats'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenses.all });
+      queryClient.invalidateQueries({ queryKey: qk.expenseStats.all });
       toast.success('Gasto eliminado');
     },
     onError: (error: Error) => {
@@ -313,8 +314,8 @@ export function useUploadExpenseReceipt() {
       return { path: filePath };
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['expense', variables.expenseId] });
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: qk.expense.by(variables.expenseId) });
+      queryClient.invalidateQueries({ queryKey: qk.expenses.all });
       toast.success('Justificante subido');
 
       // Best-effort backup to the center's Google Drive (if connected) — a
@@ -323,8 +324,8 @@ export function useUploadExpenseReceipt() {
       supabase.functions
         .invoke('upload-expense-receipt-to-drive', { body: { expense_id: variables.expenseId } })
         .then(() => {
-          queryClient.invalidateQueries({ queryKey: ['expense', variables.expenseId] });
-          queryClient.invalidateQueries({ queryKey: ['expenses'] });
+          queryClient.invalidateQueries({ queryKey: qk.expense.by(variables.expenseId) });
+          queryClient.invalidateQueries({ queryKey: qk.expenses.all });
         })
         .catch((driveError) => {
           console.error('[useUploadExpenseReceipt] Drive backup failed:', driveError);
@@ -372,8 +373,8 @@ export function useExtractExpenseReceiptData() {
       return data?.extracted as ExtractedReceiptData;
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['expense', variables.expenseId] });
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: qk.expense.by(variables.expenseId) });
+      queryClient.invalidateQueries({ queryKey: qk.expenses.all });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -425,7 +426,7 @@ export function useExpenseStats(month?: string) {
   const effectiveMonth = month ?? new Date().toISOString().slice(0, 7);
 
   return useQuery({
-    queryKey: ['expense-stats', profile?.center_id, effectiveMonth],
+    queryKey: qk.expenseStats.list(profile?.center_id, effectiveMonth),
     queryFn: async () => {
       const { start, end } = monthRange(effectiveMonth);
       const todayISO = new Date().toISOString().split('T')[0];
@@ -486,7 +487,7 @@ export function useExpenseIncomeStatementData(range: QuarterRange) {
   const { start, end } = quarterToDateRange(range);
 
   return useQuery({
-    queryKey: ['expense-income-statement', profile?.center_id, start, end],
+    queryKey: qk.expenseIncomeStatement.list(profile?.center_id, start, end),
     queryFn: async () => {
       const [invoicesRes, expensesRes] = await Promise.all([
         supabase
@@ -543,7 +544,7 @@ export function useExpensesForVatBook(range: QuarterRange) {
   const { start, end } = quarterToDateRange(range);
 
   return useQuery({
-    queryKey: ['expenses-vat-book', profile?.center_id, start, end],
+    queryKey: qk.expensesVatBook.list(profile?.center_id, start, end),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
@@ -564,7 +565,7 @@ export function usePendingExpensesThisMonth() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['expenses-pending-this-month', profile?.center_id],
+    queryKey: qk.expensesPendingThisMonth.byCenter(profile?.center_id),
     queryFn: async () => {
       const now = new Date();
       const endOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));

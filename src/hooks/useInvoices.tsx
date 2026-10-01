@@ -247,7 +247,7 @@ export function useInvoices(filters?: {
 
 export function useInvoice(invoiceId: string | undefined) {
   return useQuery({
-    queryKey: ['invoice', invoiceId],
+    queryKey: qk.invoice.byInvoice(invoiceId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
@@ -267,7 +267,7 @@ export function useInvoice(invoiceId: string | undefined) {
 
 export function useInvoiceItems(invoiceId: string | undefined) {
   return useQuery({
-    queryKey: ['invoice-items', invoiceId],
+    queryKey: qk.invoiceItems.byInvoice(invoiceId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoice_items')
@@ -367,7 +367,7 @@ export function useCreateInvoice() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.invoices.all });
-      queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
+      queryClient.invalidateQueries({ queryKey: qk.patientInvoices.all });
       toast.success('Factura creada correctamente');
     },
     onError: (error) => {
@@ -537,7 +537,7 @@ export function useCreateInvoiceWithSeries() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.invoices.all });
-      queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
+      queryClient.invalidateQueries({ queryKey: qk.patientInvoices.all });
       queryClient.invalidateQueries({ queryKey: qk.sessionInvoiceStatus.all });
       queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.all });
       toast.success('Factura creada correctamente');
@@ -662,8 +662,8 @@ export function useUpdateInvoiceStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.invoices.all });
-      queryClient.invalidateQueries({ queryKey: ['invoice'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoice.all });
+      queryClient.invalidateQueries({ queryKey: qk.patientInvoices.all });
       queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.all });
       toast.success('Estado actualizado');
     },
@@ -735,7 +735,7 @@ export function useInvoiceStats() {
 
 export function useUnbilledSessions(patientId: string | undefined) {
   return useQuery({
-    queryKey: ['unbilled-sessions', patientId],
+    queryKey: qk.unbilledSessions.byPatient(patientId),
     queryFn: async () => {
       // Get all sessions for this patient
       const { data: sessions, error: sessionsError } = await supabase

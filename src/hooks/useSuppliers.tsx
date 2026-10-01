@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -38,7 +39,7 @@ export function useSuppliers(filters?: { search?: string; activeOnly?: boolean }
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['suppliers', profile?.center_id, filters],
+    queryKey: qk.suppliers.list(profile?.center_id, filters),
     queryFn: async () => {
       let query = supabase.from('suppliers').select('*').order('name', { ascending: true });
 
@@ -59,7 +60,7 @@ export function useSuppliers(filters?: { search?: string; activeOnly?: boolean }
 
 export function useSupplier(id: string | undefined) {
   return useQuery({
-    queryKey: ['supplier', id],
+    queryKey: qk.supplier.by(id),
     queryFn: async () => {
       const { data, error } = await supabase.from('suppliers').select('*').eq('id', id!).maybeSingle();
       if (error) throw error;
@@ -85,7 +86,7 @@ export function useCreateSupplier() {
       return data as Supplier;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      queryClient.invalidateQueries({ queryKey: qk.suppliers.all });
       toast.success('Proveedor creado');
     },
     onError: (error: Error) => {
@@ -110,7 +111,7 @@ export function useUpdateSupplier() {
       return data as Supplier;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      queryClient.invalidateQueries({ queryKey: qk.suppliers.all });
       toast.success('Proveedor actualizado');
     },
     onError: (error: Error) => {

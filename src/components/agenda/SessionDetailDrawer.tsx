@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, useEffect, useRef } from 'react';
 import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -267,7 +268,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   // server-side in send-notification (see isClinicalReportNotification
   // there), which never trusts the client.
   const { data: reportConsentResults, isLoading: isReportConsentLoading } = useQuery({
-    queryKey: ['patient-consent-status', session?.patient_id, 'channel_whatsapp', 'channel_email'],
+    queryKey: qk.patientConsentStatus.channels(session?.patient_id),
     queryFn: async () => {
       const [whatsapp, email] = await Promise.all([
         checkPatientConsent(supabase, session!.patient_id!, 'channel_whatsapp'),
@@ -427,7 +428,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       
       setEditingPatient(false);
       setLocalPatientId(null);
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
     } catch (error) {
       console.error('Error changing patient:', error);
       toast({ title: 'Error al cambiar paciente', variant: 'destructive' });
@@ -717,9 +718,9 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         startTime: dateTimeValue.startTime,
         endTime: dateTimeValue.endTime,
       });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['session', session.id] });
-      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.session.bySession(session.id) });
+      queryClient.invalidateQueries({ queryKey: qk.calendarEvents.all });
       setDetectedConflicts([]);
       setEditingDateTime(false);
     } catch (err) {
@@ -795,7 +796,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         id: session.id,
         [field]: value,
       } as SessionUpdate & { id: string });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       toast({ title: 'Guardado' });
     } catch {
       toast({ title: 'Error', variant: 'destructive' });
@@ -959,7 +960,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         toast({ title: 'Modalidad actualizada', description: 'Puedes añadir un link personalizado' });
       }
 
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
     } catch (error) {
       console.error('Error changing modality:', error);
       toast({ 

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { ListPagination } from '@/components/ListPagination';
 import { usePagination } from '@/hooks/usePagination';
 import { useRecordingsPage } from '@/hooks/useRecordings';
@@ -84,9 +85,9 @@ export default function Recordings() {
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'No se pudo borrar la grabación'),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['recordings'] });
-      void queryClient.invalidateQueries({ queryKey: ['transcription-issues'] });
-      void queryClient.invalidateQueries({ queryKey: ['ai-documents'] });
+      void queryClient.invalidateQueries({ queryKey: qk.recordings.all });
+      void queryClient.invalidateQueries({ queryKey: qk.transcriptionIssues.all });
+      void queryClient.invalidateQueries({ queryKey: qk.aiDocuments.all });
     },
   });
 

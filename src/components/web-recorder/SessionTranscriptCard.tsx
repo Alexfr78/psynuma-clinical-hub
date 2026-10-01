@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -24,7 +25,7 @@ export function SessionTranscriptCard({ sessionId, onGenerateReports }: SessionT
   const transcriptId = availability?.available ? availability.transcriptId : undefined;
 
   const { data: transcript, isLoading } = useQuery({
-    queryKey: ['transcript-text', transcriptId],
+    queryKey: qk.transcriptText.byTranscript(transcriptId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transcripts')

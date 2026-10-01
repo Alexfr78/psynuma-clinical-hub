@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -28,7 +29,7 @@ export function useExpenseCategories(includeInactive = false) {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['expense-categories', profile?.center_id, includeInactive],
+    queryKey: qk.expenseCategories.list(profile?.center_id, includeInactive),
     queryFn: async () => {
       let query = supabase
         .from('expense_categories')
@@ -64,7 +65,7 @@ export function useCreateExpenseCategory() {
       return data as ExpenseCategory;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenseCategories.all });
       toast.success('Categoría creada');
     },
     onError: (error: Error) => {
@@ -89,7 +90,7 @@ export function useUpdateExpenseCategory() {
       return data as ExpenseCategory;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenseCategories.all });
       toast.success('Categoría actualizada');
     },
     onError: (error: Error) => {
@@ -112,7 +113,7 @@ export function useDeleteExpenseCategory() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
+      queryClient.invalidateQueries({ queryKey: qk.expenseCategories.all });
       toast.success('Categoría desactivada');
     },
     onError: (error: Error) => {

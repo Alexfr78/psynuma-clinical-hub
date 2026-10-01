@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -36,7 +37,7 @@ export function useLocations() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['locations', profile?.center_id],
+    queryKey: qk.locations.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('center_locations')
@@ -55,7 +56,7 @@ export function useOnlineLocationExists() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['online-location-exists', profile?.center_id],
+    queryKey: qk.onlineLocationExists.byCenter(profile?.center_id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('center_locations')
@@ -93,8 +94,8 @@ export function useCreateLocation() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-      queryClient.invalidateQueries({ queryKey: ['online-location-exists'] });
+      queryClient.invalidateQueries({ queryKey: qk.locations.all });
+      queryClient.invalidateQueries({ queryKey: qk.onlineLocationExists.all });
     },
   });
 }
@@ -115,8 +116,8 @@ export function useUpdateLocation() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-      queryClient.invalidateQueries({ queryKey: ['online-location-exists'] });
+      queryClient.invalidateQueries({ queryKey: qk.locations.all });
+      queryClient.invalidateQueries({ queryKey: qk.onlineLocationExists.all });
     },
   });
 }
@@ -134,8 +135,8 @@ export function useDeleteLocation() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-      queryClient.invalidateQueries({ queryKey: ['online-location-exists'] });
+      queryClient.invalidateQueries({ queryKey: qk.locations.all });
+      queryClient.invalidateQueries({ queryKey: qk.onlineLocationExists.all });
     },
   });
 }

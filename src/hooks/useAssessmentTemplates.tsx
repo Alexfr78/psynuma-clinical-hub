@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -24,7 +25,7 @@ export function useAssessmentTemplates() {
   const queryClient = useQueryClient();
 
   const { data: templates = [], isLoading } = useQuery({
-    queryKey: ['assessment-templates', profile?.center_id],
+    queryKey: qk.assessmentTemplates.byCenter(profile?.center_id),
     queryFn: async () => {
       if (!profile?.center_id) return [];
 
@@ -58,7 +59,7 @@ export function useAssessmentTemplates() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessment-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessmentTemplates.all });
       toast.success('Plantilla creada correctamente');
     },
     onError: (error) => {
@@ -80,7 +81,7 @@ export function useAssessmentTemplates() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessment-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessmentTemplates.all });
       toast.success('Plantilla actualizada');
     },
     onError: (error) => {
@@ -99,7 +100,7 @@ export function useAssessmentTemplates() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assessment-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.assessmentTemplates.all });
       toast.success('Plantilla eliminada');
     },
     onError: (error) => {

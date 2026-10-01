@@ -83,7 +83,7 @@ export function useGetOrCreateBillableEvent() {
 // Get billable event for a session
 export function useSessionBillableEvent(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ['billable-event', 'session', sessionId],
+    queryKey: qk.billableEvent.bySession(sessionId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('billable_events')
@@ -101,7 +101,7 @@ export function useSessionBillableEvent(sessionId: string | undefined) {
 // Get pending billable events for a patient (replaces useUnbilledSessions)
 export function usePendingBillableEvents(patientId: string | undefined) {
   return useQuery({
-    queryKey: ['pending-billable-events', patientId],
+    queryKey: qk.pendingBillableEvents.byPatient(patientId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('billable_events')
@@ -151,7 +151,7 @@ export function useUpdateBillableEventStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
-      queryClient.invalidateQueries({ queryKey: ['pending-billable-events'] });
+      queryClient.invalidateQueries({ queryKey: qk.pendingBillableEvents.all });
     },
   });
 }
@@ -159,7 +159,7 @@ export function useUpdateBillableEventStatus() {
 // Get all invoices for a billable event
 export function useBillableEventInvoices(billableEventId: string | undefined) {
   return useQuery({
-    queryKey: ['billable-event-invoices', billableEventId],
+    queryKey: qk.billableEventInvoices.byBillableEvent(billableEventId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoice_items')
@@ -197,7 +197,7 @@ export function useBillableEventInvoices(billableEventId: string | undefined) {
 // Get all invoices for a session (via billable event)
 export function useSessionInvoices(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ['session-invoices', sessionId],
+    queryKey: qk.sessionInvoices.bySession(sessionId),
     queryFn: async () => {
       // First get the billable event for this session
       const { data: billableEvent, error: beError } = await supabase
@@ -246,7 +246,7 @@ export function useSessionInvoices(sessionId: string | undefined) {
 // Check if session can be invoiced (billable event is pending)
 export function useCanInvoiceSession(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ['can-invoice-session', sessionId],
+    queryKey: qk.canInvoiceSession.bySession(sessionId),
     queryFn: async () => {
       const { data: billableEvent, error: beError } = await supabase
         .from('billable_events')

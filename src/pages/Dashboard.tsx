@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -17,7 +18,7 @@ function useDashboardStats() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: qk.dashboardStats.all,
     queryFn: async () => {
       const now = new Date();
       const today = format(now, 'yyyy-MM-dd');
@@ -79,7 +80,7 @@ function useTodaySessions() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['sessions', 'today'],
+    queryKey: qk.sessions.today(),
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -136,7 +137,7 @@ export default function Dashboard() {
   // status, patient...) are reflected in the drawer and its actions (WhatsApp,
   // Google sync, etc.). Any invalidation of ['sessions'] refetches this too.
   const { data: selectedSession } = useQuery({
-    queryKey: ['sessions', 'detail', selectedSessionId],
+    queryKey: qk.sessions.detail(selectedSessionId),
     queryFn: async () => {
       if (!selectedSessionId) return null;
       const { data, error } = await supabase

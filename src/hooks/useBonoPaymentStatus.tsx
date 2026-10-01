@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -23,7 +24,7 @@ export interface BonoPaymentStatus {
 
 export function useBonoPaymentStatus(bonoId: string | null | undefined) {
   return useQuery({
-    queryKey: ['bono-payment-status', bonoId],
+    queryKey: qk.bonoPaymentStatus.byBono(bonoId),
     queryFn: async (): Promise<BonoPaymentStatus> => {
       if (!bonoId) {
         return {

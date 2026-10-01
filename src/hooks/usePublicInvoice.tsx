@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -68,7 +69,7 @@ interface PublicInvoice {
 
 export function usePublicInvoice(token: string | undefined) {
   return useQuery({
-    queryKey: ['public-invoice', token],
+    queryKey: qk.publicInvoice.byToken(token),
     queryFn: async (): Promise<PublicInvoice | null> => {
       if (!token) return null;
 

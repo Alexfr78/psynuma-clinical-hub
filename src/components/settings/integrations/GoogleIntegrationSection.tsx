@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -75,7 +76,7 @@ export function GoogleIntegrationSection() {
 
   // Health Dashboard data
   const { data: healthData, refetch: refetchHealth } = useQuery({
-    queryKey: ['google-calendar-health', profile?.id],
+    queryKey: qk.googleCalendarHealth.byUser(profile?.id),
     queryFn: async () => {
       if (!profile?.id) return null;
       

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { checkPatientConsent, type ConsentCheckResult, type ConsentPurpose } from '@/lib/consent-verification';
@@ -22,7 +23,7 @@ export type PatientConsentPurposeResults = Record<ConsentPurpose, ConsentCheckRe
  */
 export function usePatientConsentPurposes(patientId: string | undefined) {
   const query = useQuery({
-    queryKey: ['patient-consent-purposes', patientId],
+    queryKey: qk.patientConsentPurposes.byPatient(patientId),
     queryFn: async () => {
       const probe = await supabase
         .from('consents')

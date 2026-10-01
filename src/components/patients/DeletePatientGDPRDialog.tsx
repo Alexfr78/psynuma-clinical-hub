@@ -39,8 +39,8 @@ export function DeletePatientGDPRDialog({ patientId, patientName }: DeletePatien
       return data as { success: boolean; patient_name: string; deleted: Record<string, number> };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['patients'] });
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       queryClient.invalidateQueries({ queryKey: qk.invoices.all });
       queryClient.invalidateQueries({ queryKey: qk.bonos.all });
 

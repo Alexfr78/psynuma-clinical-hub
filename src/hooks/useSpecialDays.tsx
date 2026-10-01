@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +17,7 @@ type SpecialDayInput = Omit<
 
 export function useSpecialDays(centerId?: string) {
   return useQuery({
-    queryKey: ['special-days', centerId],
+    queryKey: qk.specialDays.byCenter(centerId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('special_days')
@@ -68,7 +69,7 @@ export function useCreateSpecialDay() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['special-days'] });
+      queryClient.invalidateQueries({ queryKey: qk.specialDays.all });
       toast({ title: 'Día especial creado' });
     },
     onError: (err: unknown) => {
@@ -100,7 +101,7 @@ export function useUpdateSpecialDay() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['special-days'] });
+      queryClient.invalidateQueries({ queryKey: qk.specialDays.all });
       toast({ title: 'Día especial actualizado' });
     },
     onError: (err: unknown) => {
@@ -123,7 +124,7 @@ export function useDeleteSpecialDay() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['special-days'] });
+      queryClient.invalidateQueries({ queryKey: qk.specialDays.all });
       toast({ title: 'Día especial eliminado' });
     },
     onError: (err: unknown) => {

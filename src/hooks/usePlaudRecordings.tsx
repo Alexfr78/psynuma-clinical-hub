@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 /**
  * Bandeja de revisión de grabaciones Plaud.
  *
@@ -215,7 +216,7 @@ export function usePlaudRecordings(scope: 'needs_review' | 'resolved', options?:
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['plaud-recordings', scope, centerId],
+    queryKey: qk.plaudRecordings.list(scope, centerId),
     queryFn: async () => {
       if (!centerId) return [];
 
@@ -256,7 +257,7 @@ export function usePlaudNeedsReviewCount() {
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['plaud-recordings-count', centerId],
+    queryKey: qk.plaudRecordingsCount.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return 0;
       // Mismo criterio que el scope 'needs_review' de usePlaudRecordings: cuenta también las
@@ -290,7 +291,7 @@ export function usePlaudPendingCount() {
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['plaud-recordings-pending-count', centerId],
+    queryKey: qk.plaudRecordingsPendingCount.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return 0;
       const { count, error } = await plaudClient
@@ -308,8 +309,8 @@ export function usePlaudPendingCount() {
 }
 
 function invalidatePlaudQueries(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({ queryKey: ['plaud-recordings'] });
-  queryClient.invalidateQueries({ queryKey: ['plaud-recordings-count'] });
+  queryClient.invalidateQueries({ queryKey: qk.plaudRecordings.all });
+  queryClient.invalidateQueries({ queryKey: qk.plaudRecordingsCount.all });
 }
 
 /**
@@ -484,7 +485,7 @@ const GENERATION_CONSENT_PURPOSES: ConsentPurpose[] = ['ai_processing', 'report_
  */
 export function usePlaudGenerationConsent(patientId: string | null, enabled: boolean) {
   return useQuery({
-    queryKey: ['plaud-generation-consent', patientId],
+    queryKey: qk.plaudGenerationConsent.byPatient(patientId),
     queryFn: async () => {
       const entries = await Promise.all(
         GENERATION_CONSENT_PURPOSES.map(
@@ -642,7 +643,7 @@ export function usePlaudSessionSearch(search: string) {
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['plaud-session-search', centerId, search],
+    queryKey: qk.plaudSessionSearch.list(centerId, search),
     queryFn: async () => {
       if (!centerId) return [];
 

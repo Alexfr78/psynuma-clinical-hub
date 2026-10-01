@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -46,7 +47,7 @@ export function usePublicConsent(token: string | undefined) {
   const queryClient = useQueryClient();
 
   const { data: consent, isLoading, error } = useQuery({
-    queryKey: ['public-consent', token],
+    queryKey: qk.publicConsent.byToken(token),
     queryFn: async () => {
       if (!token) throw new Error('No token');
       
@@ -116,7 +117,7 @@ export function usePublicConsent(token: string | undefined) {
       return data.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicConsent.byToken(token) });
     },
     onError: (error) => {
       toast.error('Error al guardar la firma');
@@ -148,7 +149,7 @@ export function usePublicConsent(token: string | undefined) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicConsent.byToken(token) });
     },
     onError: (error) => {
       toast.error('Error al guardar las autorizaciones');
@@ -184,7 +185,7 @@ export function usePublicConsent(token: string | undefined) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicConsent.byToken(token) });
     },
     onError: (error) => {
       toast.error('Error al guardar el contacto de emergencia');
@@ -220,7 +221,7 @@ export function usePublicConsent(token: string | undefined) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-consent', token] });
+      queryClient.invalidateQueries({ queryKey: qk.publicConsent.byToken(token) });
     },
     onError: (error) => {
       toast.error('Error al guardar el DNI/NIE');

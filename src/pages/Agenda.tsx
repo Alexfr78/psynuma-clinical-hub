@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addMonths } from 'date-fns';
 
@@ -430,7 +431,7 @@ export default function Agenda() {
           .eq('id', sessionId);
         
         // Invalidate queries to refresh
-        queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+        queryClient.invalidateQueries({ queryKey: qk.calendarEvents.all });
         
         toast({
           title: 'Evento movido',
@@ -553,7 +554,7 @@ export default function Agenda() {
       if (session.status === 'confirmed') {
         await supabase.from('sessions').update({ status: 'scheduled' }).eq('id', sessionId);
       }
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       try {
         await syncZoomMeetingDateTime(session, newDate, newStartTime, newEndTime);
       } catch (zoomError) {

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -187,7 +188,7 @@ export function useActiveCancellationPolicy() {
   const centerId = profile?.center_id;
 
   return useQuery({
-    queryKey: ['active-cancellation-policy', centerId],
+    queryKey: qk.activeCancellationPolicy.byCenter(centerId),
     queryFn: async () => {
       if (!centerId) return null;
       const { data, error } = await supabase
@@ -428,8 +429,8 @@ export function useCreateCancellationPolicyConsent(patient: Patient) {
       return consent;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consents'] });
-      queryClient.invalidateQueries({ queryKey: ['consent-templates'] });
+      queryClient.invalidateQueries({ queryKey: qk.consents.all });
+      queryClient.invalidateQueries({ queryKey: qk.consentTemplates.all });
       toast.success('Política de cancelación preparada para firma');
     },
     onError: (error) => {

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,7 +43,7 @@ interface JobRow {
 export function useTranscriptionIssues() {
   const { user, profile, isAdmin, isProfessional } = useAuth();
   return useQuery({
-    queryKey: ['transcription-issues', profile?.center_id, user?.id, isAdmin],
+    queryKey: qk.transcriptionIssues.list(profile?.center_id, user?.id, isAdmin),
     queryFn: async (): Promise<TranscriptionIssue[]> => {
       const { data, error } = await supabase
         .from('transcription_jobs')
@@ -105,7 +106,7 @@ export function useRetryTranscription() {
       }
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['transcription-issues'] });
+      void queryClient.invalidateQueries({ queryKey: qk.transcriptionIssues.all });
     },
   });
 }
