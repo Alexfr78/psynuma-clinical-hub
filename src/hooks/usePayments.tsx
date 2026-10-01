@@ -1,3 +1,4 @@
+import { qk, invalidateKeys, PAYMENT_INVOICE_KEYS } from '@/lib/query-keys';
 import { listSearchPattern } from '@/lib/list-search';
 import { fetchAllRows } from '@/lib/fetch-all-rows';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -79,7 +80,7 @@ function paymentsListQuery(filters: PaymentListFilters, head = false) {
 export function usePaymentsPage(filters: PaymentListFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['payments', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.payments.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const { data, count, error } = await paymentsListQuery(filters).range(range.from, range.to);
       if (error) throw error;
@@ -103,7 +104,7 @@ async function fetchPaymentsList(filters: PaymentListFilters) {
 export function usePaymentsAnalytics(filters: PaymentListFilters) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['payments', 'analytics', filters, profile?.center_id],
+    queryKey: qk.payments.analytics(filters, profile?.center_id),
     queryFn: () => fetchPaymentsList(filters),
     enabled: !!profile?.center_id,
   });
@@ -113,7 +114,7 @@ export function usePayments(filters?: { patientId?: string; startDate?: string; 
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['payments', filters],
+    queryKey: qk.payments.list(filters),
     queryFn: async () => {
       let query = supabase
         .from('payments')
@@ -203,9 +204,7 @@ export function useCreatePayment() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      invalidateKeys(queryClient, PAYMENT_INVOICE_KEYS);
       toast.success('Pago registrado correctamente');
     },
     onError: (error) => {
@@ -262,9 +261,9 @@ export function useUpdatePayment() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: qk.payments.all });
+      queryClient.invalidateQueries({ queryKey: qk.paymentStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
       toast.success('Pago actualizado correctamente');
     },
     onError: (error) => {
@@ -311,11 +310,11 @@ export function useDeletePayment() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
+      queryClient.invalidateQueries({ queryKey: qk.payments.all });
+      queryClient.invalidateQueries({ queryKey: qk.paymentStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionPaymentStatus.all });
       toast.success('Pago eliminado correctamente');
     },
     onError: (error) => {
@@ -328,7 +327,7 @@ export function usePaymentStats() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['payment-stats'],
+    queryKey: qk.paymentStats.all,
     queryFn: async () => {
       const now = new Date();
       const startOfMonth = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');

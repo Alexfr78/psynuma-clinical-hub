@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { listSearchPattern } from '@/lib/list-search';
 import { fetchAllRows } from '@/lib/fetch-all-rows';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -163,7 +164,7 @@ function invoicesListQuery(filters: InvoiceListFilters, head = false) {
 export function useInvoicesPage(filters: InvoiceListFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['invoices', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.invoices.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const { data, count, error } = await invoicesListQuery(filters).range(range.from, range.to);
       if (error) throw error;
@@ -187,7 +188,7 @@ async function fetchInvoicesList(filters: InvoiceListFilters) {
 export function useInvoicesAnalytics(filters: InvoiceListFilters) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['invoices', 'analytics', filters, profile?.center_id],
+    queryKey: qk.invoices.analytics(filters, profile?.center_id),
     queryFn: () => fetchInvoicesList(filters),
     enabled: !!profile?.center_id,
   });
@@ -196,7 +197,7 @@ export function useInvoicesAnalytics(filters: InvoiceListFilters) {
 export function useInvoiceOrphanCount(filters: InvoiceListFilters) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['invoices', 'orphan-count', filters, profile?.center_id],
+    queryKey: qk.invoices.orphanCount(filters, profile?.center_id),
     queryFn: async () => {
       const { count, error } = await invoicesListQuery(filters, true)
         .in('status', ['issued', 'paid'])
@@ -221,7 +222,7 @@ export function useInvoices(filters?: {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['invoices', filters],
+    queryKey: qk.invoices.list(filters),
     queryFn: async () => {
       const sortField = filters?.sortBy || 'invoice_number';
       const sortAsc = filters?.sortDirection === 'asc';
@@ -365,7 +366,7 @@ export function useCreateInvoice() {
       return newInvoice;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
       queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
       toast.success('Factura creada correctamente');
     },
@@ -535,10 +536,10 @@ export function useCreateInvoiceWithSeries() {
       return newInvoice;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
       queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice-series'] });
+      queryClient.invalidateQueries({ queryKey: qk.sessionInvoiceStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.all });
       toast.success('Factura creada correctamente');
     },
     onError: (error) => {
@@ -660,10 +661,10 @@ export function useUpdateInvoiceStatus() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
       queryClient.invalidateQueries({ queryKey: ['invoice'] });
       queryClient.invalidateQueries({ queryKey: ['patient-invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice-series'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.all });
       toast.success('Estado actualizado');
     },
     onError: (error) => {
@@ -676,7 +677,7 @@ export function useInvoiceStats() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['invoice-stats'],
+    queryKey: qk.invoiceStats.all,
     queryFn: async () => {
       const now = new Date();
       const y = now.getFullYear();
@@ -767,7 +768,7 @@ export function useUnbilledSessions(patientId: string | undefined) {
 // Hook to check if a session is already invoiced - now checks billable_event and is_valid
 export function useSessionInvoiceStatus(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ['session-invoice-status', sessionId],
+    queryKey: qk.sessionInvoiceStatus.bySession(sessionId),
     queryFn: async () => {
       // First check if there's a billable event for this session
       const { data: billableEvent, error: beError } = await supabase
@@ -901,11 +902,11 @@ export function useDeleteDraftInvoice() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
-      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionInvoiceStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
       toast.success('Borrador eliminado');
     },
     onError: (error: Error) => {
@@ -931,9 +932,9 @@ export function useInvalidateInvoice() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
-      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionInvoiceStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
     },
   });
 }

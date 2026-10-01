@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { listSearchPattern } from '@/lib/list-search';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -81,7 +82,7 @@ function debtsListQuery(filters: DebtListFilters, head = false) {
 export function useDebtsPage(filters: DebtListFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['debts', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.debts.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const { data, count, error } = await debtsListQuery(filters).range(range.from, range.to);
       if (error) throw error;
@@ -96,7 +97,7 @@ export function useDebts(filters?: { patientId?: string; status?: string }) {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['debts', filters],
+    queryKey: qk.debts.list(filters),
     queryFn: async () => {
       let query = supabase
         .from('debts')
@@ -154,7 +155,7 @@ export function useCreateDebt() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
       toast.success('Deuda registrada');
     },
     onError: (error) => {
@@ -179,7 +180,7 @@ export function useUpdateDebt() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
       toast.success('Deuda actualizada');
     },
     onError: (error) => {
@@ -192,7 +193,7 @@ export function useDebtStats() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['debt-stats'],
+    queryKey: qk.debtStats.all,
     queryFn: async () => {
       // La regla vive en SQL (get_receivables_summary): suma en la base, sin el tope de
       // 1.000 filas de PostgREST y con la RLS de siempre. Una factura emitida solo cuenta
@@ -225,8 +226,8 @@ export function useDeleteDebt() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.debtStats.all });
       toast.success('Deuda eliminada');
     },
     onError: (error) => {

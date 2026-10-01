@@ -1,3 +1,4 @@
+import { qk, invalidateKeys, BONO_KEYS, BONO_DEBT_KEYS } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -110,7 +111,7 @@ function applyBonoFilters<Q extends { eq: any; or: any }>(query: Q, filters?: Bo
 export function useBonosPage(filters: BonoFilters, range: { from: number; to: number }) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['bonos', 'page', filters, range.from, range.to, profile?.center_id],
+    queryKey: qk.bonos.page(filters, range.from, range.to, profile?.center_id),
     queryFn: async () => {
       const query = supabase.from('bonos').select(BONO_SELECT, { count: 'exact' })
         .order('created_at', { ascending: false }).order('id', { ascending: true });
@@ -126,7 +127,7 @@ export function useBonosPage(filters: BonoFilters, range: { from: number; to: nu
 export function useBonoListStats(patientId?: string) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ['bonos', 'stats', patientId, profile?.center_id],
+    queryKey: qk.bonos.stats(patientId, profile?.center_id),
     queryFn: async () => {
       const stats = { active: 0, exhausted: 0, expired: 0, cancelled: 0, pendingSessions: 0, monthlyRevenue: 0 };
       const now = new Date();
@@ -156,7 +157,7 @@ export function useBonos(filters?: { patientId?: string; status?: string }) {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['bonos', filters],
+    queryKey: qk.bonos.list(filters),
     queryFn: async () => {
       let query = supabase
         .from('bonos')
@@ -175,7 +176,7 @@ export function useBonos(filters?: { patientId?: string; status?: string }) {
 
 export function usePatientActiveBonos(patientId: string | undefined) {
   return useQuery({
-    queryKey: ['patient-active-bonos', patientId],
+    queryKey: qk.patientActiveBonos.byPatient(patientId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('bonos')
@@ -219,7 +220,7 @@ export function useBono(bonoId: string | null | undefined) {
 // Fetch sessions linked to a bono
 export function useBonoSessions(bonoId: string | undefined) {
   return useQuery({
-    queryKey: ['bono-sessions', bonoId],
+    queryKey: qk.bonoSessions.byBono(bonoId),
     queryFn: async () => {
       if (!bonoId) return [];
 
@@ -281,13 +282,9 @@ export function useCreateBonoWithDebt() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      invalidateKeys(queryClient, BONO_KEYS);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      invalidateKeys(queryClient, BONO_DEBT_KEYS);
     },
     onError: (error) => {
       toast.error('Error al crear el bono: ' + error.message);
@@ -325,8 +322,7 @@ export function useUpdateBono() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      invalidateKeys(queryClient, BONO_KEYS);
       toast.success('Bono actualizado correctamente');
     },
     onError: (error) => {
@@ -349,10 +345,9 @@ export function useDeleteBono() {
       return data as unknown as DeleteBonoResult;
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      invalidateKeys(queryClient, BONO_KEYS);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.bonoSessions.all });
       
       if (result.success) {
         if (result.action === 'deleted') {
@@ -488,13 +483,9 @@ export function useApplyBonoToSession() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      invalidateKeys(queryClient, BONO_KEYS);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      invalidateKeys(queryClient, BONO_DEBT_KEYS);
     },
     onError: (error) => {
       toast.error('Error al asignar bono: ' + error.message);
@@ -517,10 +508,9 @@ export function useRemoveBonoFromSession() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
+      invalidateKeys(queryClient, BONO_KEYS);
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['bono-sessions'] });
+      queryClient.invalidateQueries({ queryKey: qk.bonoSessions.all });
     },
     onError: (error) => {
       toast.error('Error al quitar bono: ' + error.message);

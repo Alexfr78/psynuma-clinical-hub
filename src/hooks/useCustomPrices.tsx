@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
@@ -176,7 +177,7 @@ export function useResolvedPrice(
   referenceDate?: string
 ) {
   return useQuery({
-    queryKey: ['resolved-price', patientId, targetType, targetId, referenceDate],
+    queryKey: qk.resolvedPrice.byPatient(patientId, targetType, targetId, referenceDate),
     queryFn: async (): Promise<ResolvedPrice | null> => {
       if (!patientId || !targetType || !targetId) return null;
       const { data, error } = await supabase.rpc('resolve_effective_price', {
@@ -222,7 +223,7 @@ export function useCreateCustomPrice() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['patient-custom-prices', variables.patient_id] });
-      queryClient.invalidateQueries({ queryKey: ['resolved-price'] });
+      queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa personalizada creada');
     },
     onError: (error: Error) => {
@@ -264,7 +265,7 @@ export function useUpdateCustomPrice() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['patient-custom-prices', data.patient_id] });
-      queryClient.invalidateQueries({ queryKey: ['resolved-price'] });
+      queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa personalizada actualizada');
     },
     onError: (error: Error) => {
@@ -295,7 +296,7 @@ export function useDeactivateCustomPrice() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['patient-custom-prices', data.patientId] });
-      queryClient.invalidateQueries({ queryKey: ['resolved-price'] });
+      queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa personalizada desactivada');
     },
     onError: () => toast.error('Error al desactivar la tarifa'),

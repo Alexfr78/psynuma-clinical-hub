@@ -1,3 +1,4 @@
+import { invalidateKeys, PAYMENT_INVOICE_KEYS } from '@/lib/query-keys';
 import { useState } from 'react';
 import { format } from 'date-fns';
 
@@ -163,9 +164,7 @@ export function CollectBonoPaymentDialog({
 
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['bono-payment-status'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      invalidateKeys(queryClient, PAYMENT_INVOICE_KEYS);
 
       setStep('complete');
     } catch (error) {
@@ -225,9 +224,7 @@ export function CollectBonoPaymentDialog({
         }
 
         queryClient.invalidateQueries({ queryKey: ['bono-payment-status'] });
-        queryClient.invalidateQueries({ queryKey: ['debts'] });
-        queryClient.invalidateQueries({ queryKey: ['payments'] });
-        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        invalidateKeys(queryClient, PAYMENT_INVOICE_KEYS);
 
         setStep('complete');
       } catch (error) {

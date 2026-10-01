@@ -1,3 +1,4 @@
+import { invalidateKeys, MONEY_KEYS } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useIssueInvoice } from '@/hooks/useIssueInvoice';
@@ -146,11 +147,7 @@ export function useCollectDebtPayment() {
       };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      invalidateKeys(queryClient, MONEY_KEYS);
       queryClient.invalidateQueries({ queryKey: ['bono-payment-status'] });
       
       if (data.invoiceIssued) {

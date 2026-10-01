@@ -1,3 +1,4 @@
+import { invalidateKeys, MONEY_KEYS } from '@/lib/query-keys';
 import { useState, useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -351,11 +352,7 @@ export function CreateRectificativaDialog({
         toast.success('Factura rectificativa creada correctamente');
       }
 
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
+      invalidateKeys(queryClient, MONEY_KEYS);
       onOpenChange(false);
     } catch (error) {
       console.error('Error creating rectificativa:', error);

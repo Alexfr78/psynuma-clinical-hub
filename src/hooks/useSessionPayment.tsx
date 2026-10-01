@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -45,7 +46,7 @@ type UntypedRpcCall = (
 
 export function useSessionPaymentStatus(sessionId: string | undefined) {
   return useQuery({
-    queryKey: ['session-payment-status', sessionId],
+    queryKey: qk.sessionPaymentStatus.bySession(sessionId),
     queryFn: async (): Promise<SessionPaymentStatus> => {
       // 1. Find the current valid invoice for this session via invoice_items
       const { data: invoiceItems } = await supabase
@@ -242,12 +243,12 @@ export function useCollectSessionPayment() {
       };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: qk.payments.all });
+      queryClient.invalidateQueries({ queryKey: qk.paymentStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.debtStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionPaymentStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
       toast.success('Pago registrado correctamente');
     },
     onError: (error) => {

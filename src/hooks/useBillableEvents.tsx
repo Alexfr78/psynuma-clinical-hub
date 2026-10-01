@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -74,7 +75,7 @@ export function useGetOrCreateBillableEvent() {
       return newEvent as BillableEvent;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
     },
   });
 }
@@ -149,7 +150,7 @@ export function useUpdateBillableEventStatus() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
       queryClient.invalidateQueries({ queryKey: ['pending-billable-events'] });
     },
   });

@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
@@ -41,7 +42,7 @@ export function useInvoiceSeries(showArchived: boolean = false) {
   const queryClient = useQueryClient();
 
   const { data: series = [], isLoading } = useQuery({
-    queryKey: ['invoice-series', centerId, showArchived],
+    queryKey: qk.invoiceSeries.list(centerId, showArchived),
     queryFn: async () => {
       if (!centerId) return [];
       
@@ -92,7 +93,7 @@ export function useInvoiceSeries(showArchived: boolean = false) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoice-series', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.byCenter(centerId) });
       toast.success('Serie creada correctamente');
     },
     onError: (error) => {
@@ -139,7 +140,7 @@ export function useInvoiceSeries(showArchived: boolean = false) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoice-series', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.byCenter(centerId) });
       toast.success('Serie actualizada correctamente');
     },
     onError: (error) => {
@@ -160,7 +161,7 @@ export function useInvoiceSeries(showArchived: boolean = false) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoice-series', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.byCenter(centerId) });
       toast.success('Serie archivada correctamente');
     },
     onError: (error) => {
@@ -180,7 +181,7 @@ export function useInvoiceSeries(showArchived: boolean = false) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoice-series', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.byCenter(centerId) });
       toast.success('Serie predeterminada actualizada');
     },
     onError: (error) => {
@@ -201,7 +202,7 @@ export function useInvoiceSeries(showArchived: boolean = false) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoice-series', centerId] });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.byCenter(centerId) });
       toast.success('Serie restaurada correctamente');
     },
     onError: (error) => {

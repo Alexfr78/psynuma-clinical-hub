@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -40,8 +41,8 @@ export function DeletePatientGDPRDialog({ patientId, patientName }: DeletePatien
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['patients'] });
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['bonos'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
+      queryClient.invalidateQueries({ queryKey: qk.bonos.all });
 
       const deleted = data?.deleted;
       const parts: string[] = [];

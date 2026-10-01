@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -41,7 +42,7 @@ export function BonoSessionsDialog({
   onOpenChange,
 }: BonoSessionsDialogProps) {
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ['bono-sessions', bonoId],
+    queryKey: qk.bonoSessions.byBono(bonoId),
     queryFn: async () => {
       if (!bonoId) return [];
       const { data, error } = await supabase

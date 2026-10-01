@@ -1,3 +1,4 @@
+import { qk, invalidateKeys, TARIFF_PRICE_KEYS } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -57,7 +58,7 @@ export function useTariffPlans() {
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['tariff-plans', profile?.center_id],
+    queryKey: qk.tariffPlans.byCenter(profile?.center_id),
     queryFn: async (): Promise<TariffPlanWithStats[]> => {
       const { data: plans, error } = await supabase
         .from('tariff_plans')
@@ -170,7 +171,7 @@ export function useCreateTariffPlan() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tariff-plans'] });
+      queryClient.invalidateQueries({ queryKey: qk.tariffPlans.all });
       toast.success('Plan tarifario creado');
     },
     onError: (e: Error) => toast.error(e.message),
@@ -193,7 +194,7 @@ export function useUpdateTariffPlan() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tariff-plans'] });
+      queryClient.invalidateQueries({ queryKey: qk.tariffPlans.all });
       toast.success('Plan tarifario actualizado');
     },
     onError: (e: Error) => toast.error(e.message),
@@ -245,7 +246,7 @@ export function useDuplicateTariffPlan() {
       return newPlan;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tariff-plans'] });
+      queryClient.invalidateQueries({ queryKey: qk.tariffPlans.all });
       toast.success('Plan tarifario duplicado');
     },
     onError: (e: Error) => toast.error(e.message),
@@ -291,8 +292,7 @@ export function useUpsertTariffPlanItem() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['tariff-plan-items', data.tariff_plan_id] });
-      queryClient.invalidateQueries({ queryKey: ['tariff-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['resolved-price'] });
+      invalidateKeys(queryClient, TARIFF_PRICE_KEYS);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -309,8 +309,7 @@ export function useDeleteTariffPlanItem() {
     },
     onSuccess: (planId) => {
       queryClient.invalidateQueries({ queryKey: ['tariff-plan-items', planId] });
-      queryClient.invalidateQueries({ queryKey: ['tariff-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['resolved-price'] });
+      invalidateKeys(queryClient, TARIFF_PRICE_KEYS);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -372,7 +371,7 @@ export function useAssignTariffPlan() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['patient-tariff-assignment', data.patient_id] });
-      queryClient.invalidateQueries({ queryKey: ['resolved-price'] });
+      queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa asignada al paciente');
     },
     onError: (e: Error) => {
@@ -398,7 +397,7 @@ export function useRemoveTariffAssignment() {
     },
     onSuccess: (patientId) => {
       queryClient.invalidateQueries({ queryKey: ['patient-tariff-assignment', patientId] });
-      queryClient.invalidateQueries({ queryKey: ['resolved-price'] });
+      queryClient.invalidateQueries({ queryKey: qk.resolvedPrice.all });
       toast.success('Tarifa retirada del paciente');
     },
     onError: () => toast.error('Error al retirar la tarifa'),

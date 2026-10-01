@@ -1,3 +1,4 @@
+import { qk } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
@@ -407,12 +408,12 @@ export function useCreateSignedInvoice() {
       return result;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice-series'] });
-      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
-      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
+      queryClient.invalidateQueries({ queryKey: qk.invoiceSeries.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionInvoiceStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionPaymentStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
     },
     onError: (error) => {
       toast.error(error.message);

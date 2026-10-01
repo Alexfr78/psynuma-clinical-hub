@@ -1,3 +1,4 @@
+import { invalidateKeys, MONEY_KEYS } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -44,11 +45,7 @@ export function useLinkPaymentToInvoice() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      invalidateKeys(queryClient, MONEY_KEYS);
       toast.success('Pago vinculado a factura correctamente');
     },
     onError: (error) => {

@@ -1,3 +1,4 @@
+import { qk, invalidateKeys, CANCELLATION_MONEY_KEYS } from '@/lib/query-keys';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -236,7 +237,7 @@ export function useCancellationCharges(status: CancellationCharge['status'] = 'p
   const { profile } = useAuth();
 
   return useQuery({
-    queryKey: ['cancellation-charges', profile?.center_id, status],
+    queryKey: qk.cancellationCharges.list(profile?.center_id, status),
     queryFn: async () => {
       if (!profile?.center_id) return [];
 
@@ -292,9 +293,7 @@ export function useChargeCancellationCard() {
       };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      invalidateKeys(queryClient, CANCELLATION_MONEY_KEYS);
       if (result?.needsCard) {
         toast.error('El paciente no tiene tarjeta guardada. Genera la deuda y envía el enlace.');
       } else if (result?.status === 'succeeded') {
@@ -345,9 +344,7 @@ export function useConfirmCancellationCharge() {
       return { id: debtId as string };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
+      invalidateKeys(queryClient, CANCELLATION_MONEY_KEYS);
       toast.success('Deuda generada desde la cancelación');
     },
     onError: (error) => {
@@ -383,7 +380,7 @@ export function useForgiveCancellationCharge() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });
+      queryClient.invalidateQueries({ queryKey: qk.cancellationCharges.all });
       toast.success('Cargo perdonado');
     },
     onError: (error) => {

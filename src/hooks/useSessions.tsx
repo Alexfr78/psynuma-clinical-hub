@@ -1,3 +1,4 @@
+import { qk, invalidateKeys, BONO_KEYS } from '@/lib/query-keys';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -313,11 +314,11 @@ export function useUpdateSession() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
-      queryClient.invalidateQueries({ queryKey: ['session-payment-status'] });
-      queryClient.invalidateQueries({ queryKey: ['session-invoice-status'] });
-      queryClient.invalidateQueries({ queryKey: ['cancellation-charges'] });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionPaymentStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionInvoiceStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.cancellationCharges.all });
     },
   });
 }
@@ -377,11 +378,10 @@ export function useDeleteSession() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['patient-active-bonos'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-stats'] });
-      queryClient.invalidateQueries({ queryKey: ['billable-events'] });
+      invalidateKeys(queryClient, BONO_KEYS);
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.debtStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
     },
   });
 }
