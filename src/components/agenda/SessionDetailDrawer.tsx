@@ -2684,6 +2684,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         patientEmail={session.patient?.email}
         patientPhone={session.patient?.phone}
         amount={paymentStatus?.isCollectable ? paymentStatus.remainingAmount : localPrice}
+        sessionPrice={localPrice}
         sessionDate={session.session_date}
         sessionType={session.session_type}
         onSuccess={(invoiceData) => {

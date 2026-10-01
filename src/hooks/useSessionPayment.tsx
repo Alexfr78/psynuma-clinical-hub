@@ -256,3 +256,59 @@ export function useCollectSessionPayment() {
     },
   });
 }
+
+export interface PaymentSplitPart {
+  method: string;
+  amount: number;
+}
+
+export interface CollectSessionPaymentSplitParams extends Omit<CollectSessionPaymentParams, 'amount' | 'paymentMethod'> {
+  parts: PaymentSplitPart[];
+}
+
+/**
+ * Collect a session payment split across several methods (e.g. part cash, part Bizum)
+ * via collect_session_payment_split. Each part becomes its own payment row; the RPC
+ * runs every part in one transaction, so either all parts are recorded or none.
+ */
+export function useCollectSessionPaymentSplit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: CollectSessionPaymentSplitParams) => {
+      const { data, error } = await (supabase.rpc as unknown as UntypedRpcCall)('collect_session_payment_split', {
+        p_session_id: params.sessionId,
+        p_patient_id: params.patientId,
+        p_parts: params.parts,
+        p_payment_date: params.paymentDate || new Date().toISOString().split('T')[0],
+        p_reference: params.reference || null,
+        p_notes: params.notes || null,
+      });
+
+      if (error) throw error;
+      return data as unknown as {
+        success: boolean;
+        payment_ids: string[];
+        debt_id: string;
+        invoice_id: string | null;
+        amount_paid: number;
+        total_paid: number;
+        debt_amount: number;
+        remaining: number;
+        status: string;
+      };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.payments.all });
+      queryClient.invalidateQueries({ queryKey: qk.paymentStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.debtStats.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessionPaymentStatus.all });
+      queryClient.invalidateQueries({ queryKey: qk.invoices.all });
+      toast.success('Pago dividido registrado correctamente');
+    },
+    onError: (error) => {
+      toast.error('Error al registrar el pago: ' + error.message);
+    },
+  });
+}
