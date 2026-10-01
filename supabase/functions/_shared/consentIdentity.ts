@@ -6,6 +6,10 @@
 // de firma pida el DNI antes de firmar, y que `update-consent-identity` lo
 // escriba en el documento.
 //
+// Todos los consentimientos piden DNI: si la plantilla no usa ninguna de las
+// dos variables, se añade al final un párrafo que identifica al paciente con
+// `{dni_paciente}`.
+//
 // Menores: el DNI que se exige es el del tutor. Si la plantilla solo usa
 // `{dni_paciente}`, se añade al final un párrafo con los datos del representante
 // legal que incluye `{dni_tutor}`.
@@ -104,6 +108,8 @@ export function guardianRelationshipLabel(value: string | null | undefined): str
 }
 
 export interface IdentityPatientData {
+  first_name: string | null;
+  last_name: string | null;
   tax_id: string | null;
   guardian_tax_id: string | null;
   guardian_name: string | null;
@@ -119,10 +125,21 @@ export function resolveIdentityPlaceholders(content: string, patient: IdentityPa
   const isMinor = Boolean(patient.is_minor);
   const patientDni = patient.tax_id?.trim() || "";
   const guardianDni = patient.guardian_tax_id?.trim() || "";
-  const usesPatientDni = content.includes(PATIENT_DNI_PLACEHOLDER);
   const usesGuardianDni = content.includes(GUARDIAN_DNI_PLACEHOLDER);
 
   let result = content;
+
+  // Plantilla que no identifica a nadie: se añade la identificación del
+  // paciente para que el DNI quede siempre en el documento firmado.
+  if (!content.includes(PATIENT_DNI_PLACEHOLDER) && !(isMinor && usesGuardianDni)) {
+    const fullName = [patient.first_name, patient.last_name]
+      .map((part) => part?.trim())
+      .filter(Boolean)
+      .join(" ");
+    result += `<p>Identificación del paciente: <strong>${fullName ? escapeHtml(fullName) : "—"}</strong>, con DNI/NIE <strong>${PATIENT_DNI_PLACEHOLDER}</strong>.</p>`;
+  }
+
+  const usesPatientDni = result.includes(PATIENT_DNI_PLACEHOLDER);
 
   if (usesPatientDni) {
     // Un menor puede no tener DNI: no se le pide, se exige el del tutor.

@@ -8,6 +8,8 @@ import {
 } from '@/lib/consent-identity';
 
 const adult = {
+  first_name: 'Luis',
+  last_name: 'Pérez',
   tax_id: null,
   guardian_tax_id: null,
   guardian_name: null,
@@ -73,13 +75,31 @@ describe('resolveIdentityPlaceholders', () => {
     expect(getPendingIdentityFields(result)).toEqual(['guardian']);
   });
 
-  it('vacía {dni_tutor} si el paciente no es menor', () => {
-    const result = resolveIdentityPlaceholders('<p>{dni_tutor}</p>', { ...adult, tax_id: '12345678Z' });
-    expect(result).toBe('<p></p>');
+  it('vacía {dni_tutor} si el paciente no es menor y pide el suyo', () => {
+    const result = resolveIdentityPlaceholders('<p>{dni_tutor}</p>', adult);
+    expect(result.startsWith('<p></p><p>Identificación del paciente')).toBe(true);
+    expect(getPendingIdentityFields(result)).toEqual(['patient']);
   });
 
-  it('no toca plantillas sin DNI', () => {
-    expect(resolveIdentityPlaceholders('<p>Hola</p>', minor)).toBe('<p>Hola</p>');
+  it('añade la identificación si la plantilla no pide DNI', () => {
+    const result = resolveIdentityPlaceholders('<p>Hola</p>', adult);
+    expect(result).toBe(
+      '<p>Hola</p><p>Identificación del paciente: <strong>Luis Pérez</strong>, con DNI/NIE <strong>{dni_paciente}</strong>.</p>',
+    );
+    expect(getPendingIdentityFields(result)).toEqual(['patient']);
+  });
+
+  it('si la plantilla no pide DNI y la ficha lo tiene, lo añade relleno', () => {
+    const result = resolveIdentityPlaceholders('<p>Hola</p>', { ...adult, tax_id: '12345678Z' });
+    expect(result).toContain('con DNI/NIE <strong>12345678Z</strong>');
+    expect(getPendingIdentityFields(result)).toEqual([]);
+  });
+
+  it('si la plantilla no pide DNI y es menor, pide el del tutor', () => {
+    const result = resolveIdentityPlaceholders('<p>Hola</p>', minor);
+    expect(result).toContain('Identificación del paciente: <strong>Luis Pérez</strong>, con DNI/NIE <strong>—</strong>');
+    expect(result).toContain('Representante legal: <strong>Ana López</strong> (madre)');
+    expect(getPendingIdentityFields(result)).toEqual(['guardian']);
   });
 
   it('escapa el nombre del tutor', () => {
