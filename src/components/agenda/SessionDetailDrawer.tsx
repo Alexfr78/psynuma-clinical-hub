@@ -66,6 +66,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useLocations } from '@/hooks/useLocations';
+import { useSessionTypes } from '@/hooks/useSessionTypes';
+import type { ResolvedPrice } from '@/hooks/useCustomPrices';
+import { SessionTypeLimitNotice } from './SessionTypeLimitNotice';
 import { usePatientActiveBonos, useBono, useApplyBonoToSession, useRemoveBonoFromSession, useUpdateBono } from '@/hooks/useBonos';
 import { CreateBonoDialog } from '@/components/bonos/CreateBonoDialog';
 import { useSessionPaymentStatus } from '@/hooks/useSessionPayment';
@@ -189,6 +192,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const removeBonoFromSession = useRemoveBonoFromSession();
   const updateBono = useUpdateBono();
   const { data: locations } = useLocations();
+  const { data: sessionTypes } = useSessionTypes();
   const { center } = useCenter();
   const whatsappDelivery = useWhatsAppDelivery();
   const sendEmailNotification = useSendSessionNotification();
@@ -199,6 +203,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const [isSendingWhatsAppNow, setIsSendingWhatsAppNow] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingModality, setIsChangingModality] = useState(false);
+  const [isChangingSessionType, setIsChangingSessionType] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingDateTime, setEditingDateTime] = useState(false);
@@ -257,6 +262,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const [localDateTime, setLocalDateTime] = useState<{ date: string; startTime: string; endTime: string } | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [localModality, setLocalModality] = useState<string | null>(null);
+  const [localSessionType, setLocalSessionType] = useState<{ id: string; name: string } | null>(null);
   const [localVideoLink, setLocalVideoLink] = useState<string | null>(null);
   const [localVideoProvider, setLocalVideoProvider] = useState<string | null>(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
@@ -318,12 +324,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
       setLocalDateTime(null);
       setLocalStatus(null);
       setLocalModality(null);
+      setLocalSessionType(null);
       setLocalVideoLink(null);
       setLocalVideoProvider(null);
       setEditingPatient(false);
       setSelectedInvoiceId(null);
     }
-  }, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, (session as SessionWithExtras)?.session_modality, (session as SessionWithExtras)?.video_call_link, open]);
+  }, [session?.id, session?.bono_id, session?.price, session?.session_date, session?.start_time, session?.end_time, session?.status, session?.session_type_id, (session as SessionWithExtras)?.session_modality, (session as SessionWithExtras)?.video_call_link, open]);
 
   useEffect(() => {
     activeSessionIdRef.current = session?.id;
@@ -356,6 +363,18 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const effectiveStatus = localStatus || session.status;
   const status = statusConfig[effectiveStatus as keyof typeof statusConfig] || statusConfig.scheduled;
   const isBlockedSession = effectiveStatus === 'blocked';
+
+  // Servicio: solo se ofrecen tipos activos del mismo formato (individual/pareja),
+  // porque pasar a pareja exige un segundo miembro que este selector no gestiona.
+  const currentSessionTypeId = localSessionType?.id ?? session.session_type_id ?? null;
+  const currentSessionType = sessionTypes?.find(st => st.id === currentSessionTypeId);
+  const currentSessionTypeName = localSessionType?.name
+    ?? currentSessionType?.name
+    ?? (sessionTypeLabels[session.session_type || 'individual'] || session.session_type || 'Sin servicio');
+  const selectableSessionTypes = (sessionTypes ?? []).filter(st =>
+    st.id === currentSessionTypeId
+    || (st.is_active !== false && !!st.is_couple === !!currentSessionType?.is_couple)
+  );
   
   // Use newPatientData if we just selected a patient, otherwise use session.patient
   const displayPatient = localPatientId && newPatientData ? newPatientData : session.patient;
@@ -527,6 +546,73 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
     } catch {
       toast({ title: 'Error', variant: 'destructive' });
     }
+  };
+
+  // Cambiar el servicio de la cita. El precio solo se recalcula si no se ha
+  // movido dinero (ni cobro, ni factura válida, ni bono): una sesión a 0 € queda
+  // con payment_status 'paid' sin cobro real, y hay que devolverla a 'pending'.
+  const handleSessionTypeChange = async (newTypeId: string) => {
+    const newType = sessionTypes?.find(st => st.id === newTypeId);
+    if (!newType || newType.id === (localSessionType?.id ?? session.session_type_id)) return;
+    setIsChangingSessionType(true);
+    try {
+      const currentPrice = Number(localPrice) || 0;
+      const hasBono = !!(localBonoId || session.bono_id);
+      const hasMoneyMovement = !!(
+        paymentStatus?.isRefunded
+        || paymentStatus?.isPartial
+        || (paymentStatus?.isPaid && currentPrice > 0)
+        || Number(paymentStatus?.activeDebt?.paid_amount ?? 0) > 0
+        || paymentStatus?.validInvoiceId
+        || invoiceStatus?.hasValidInvoice
+      );
+      const updates: SessionUpdate = { session_type: newType.name, session_type_id: newType.id };
+      let newPrice: number | null = null;
+
+      if (!hasBono && !hasMoneyMovement && session.patient_id) {
+        const { data, error } = await supabase.rpc('resolve_effective_price', {
+          p_patient_id: session.patient_id,
+          p_target_type: 'session_type',
+          p_target_id: newType.id,
+          p_reference_date: session.session_date,
+        });
+        if (error) throw error;
+        const resolved = data as unknown as ResolvedPrice | null;
+        newPrice = resolved?.applied_price ?? (Number(newType.default_price) || 0);
+        Object.assign(updates, {
+          price: newPrice,
+          base_price_snapshot: resolved?.base_price ?? newPrice,
+          pricing_source: resolved?.pricing_source ?? 'base',
+          custom_price_id: resolved?.custom_price_id ?? null,
+          tariff_plan_id_snapshot: resolved?.tariff_plan_id ?? null,
+          tariff_plan_assignment_id_snapshot: resolved?.tariff_plan_assignment_id ?? null,
+          payment_status: newPrice > 0 ? 'pending' : 'paid',
+        });
+      }
+
+      await updateSession.mutateAsync({ id: session.id, ...updates });
+      setLocalSessionType({ id: newType.id, name: newType.name });
+      if (newPrice !== null) setLocalPrice(newPrice);
+
+      if ((session as SessionWithExtras).google_calendar_event_id) {
+        try {
+          await syncToGoogle(session, {});
+        } catch (googleError) {
+          console.error('Error syncing session type to Google:', googleError);
+        }
+      }
+
+      toast({
+        title: 'Servicio actualizado',
+        description: newPrice !== null
+          ? `Ahora es «${newType.name}». Precio: ${newPrice.toFixed(2)} €.`
+          : `Ahora es «${newType.name}». El precio no se ha tocado porque la sesión ya tiene cobro, factura o bono.`,
+      });
+    } catch (error) {
+      console.error('Error changing session type:', error);
+      toast({ title: 'Error', description: 'No se pudo cambiar el servicio.', variant: 'destructive' });
+    }
+    setIsChangingSessionType(false);
   };
 
   const handleNotesSave = async () => {
@@ -1498,11 +1584,38 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
               {/* Session Type */}
               <div className="flex items-center gap-3">
                 <Icon name="description" className="h-5 w-5 text-muted-foreground" />
-                <div className="flex-1 flex items-center gap-2">
-                  <span>{sessionTypeLabels[session.session_type || 'individual'] || session.session_type}</span>
-                  <Icon name="expand_more" className="h-4 w-4 text-muted-foreground" />
-                </div>
+                {sessionTypes && sessionTypes.length > 0 && !isBlockedSession ? (
+                  <Select
+                    value={currentSessionTypeId ?? undefined}
+                    onValueChange={handleSessionTypeChange}
+                    disabled={isChangingSessionType}
+                  >
+                    <SelectTrigger className="flex-1 h-8">
+                      <SelectValue placeholder={currentSessionTypeName} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectableSessionTypes.map(st => (
+                        <SelectItem key={st.id} value={st.id}>
+                          <span className="flex items-center justify-between w-full gap-4">
+                            <span>{st.name}</span>
+                            <span className="text-muted-foreground text-xs">{Number(st.default_price).toFixed(2)} €</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="flex-1">{currentSessionTypeName}</p>
+                )}
               </div>
+              {localSessionType && (
+                <SessionTypeLimitNotice
+                  patientIds={[session.patient_id]}
+                  sessionTypeId={localSessionType.id}
+                  sessionDate={new Date(session.session_date)}
+                  excludeSessionId={session.id}
+                />
+              )}
 
               {/* Bono */}
               <div className="flex items-center gap-3">
