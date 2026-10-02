@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   buildConnectedCheckoutIdempotencyKey,
   buildConnectedCheckoutRequest,
+  buildConnectedPaymentIntentRequest,
+  buildConnectedSetupRequest,
   canReuseConnectedCheckoutSession,
   createConnectedCheckoutSession,
   expireConnectedCheckoutSession,
@@ -9,6 +11,10 @@ import {
   selectPaymentProfessionalId,
   StripeCheckoutRequestError,
 } from '../../../supabase/functions/_shared/stripeConnectedCheckout';
+import {
+  STRIPE_PLATFORM_ACCOUNT,
+  stripeAccountHeaders,
+} from '../../../supabase/functions/_shared/stripeAccount';
 
 const baseInput = {
   stripeSecretKey: 'sk_test_example',
@@ -161,5 +167,60 @@ describe('stale checkout reuse guard (60 EUR -> 1 EUR)', () => {
     await expect(expireConnectedCheckoutSession(
       'sk_test_example', 'acct_connected', 'cs_live_stale', fetcher as unknown as typeof fetch,
     )).resolves.toBe(false);
+  });
+});
+
+describe('charging on the platform account (stripe_charge_mode = platform)', () => {
+  const platformInput = { ...baseInput, connectedAccountId: STRIPE_PLATFORM_ACCOUNT };
+
+  it('sends no Stripe-Account header for the platform account', () => {
+    expect(stripeAccountHeaders(STRIPE_PLATFORM_ACCOUNT)).toEqual({});
+    expect(stripeAccountHeaders('acct_connected')).toEqual({ 'Stripe-Account': 'acct_connected' });
+    expect(stripeAccountHeaders(null)).toEqual({});
+  });
+
+  it('creates the Checkout on the platform without an application fee', () => {
+    const request = buildConnectedCheckoutRequest({ ...platformInput, applicationFeeBpsRaw: '250' });
+
+    expect(request.headers).not.toHaveProperty('Stripe-Account');
+    expect(request.applicationFeeAmount).toBe(0);
+    expect(request.body.has('payment_intent_data[application_fee_amount]')).toBe(false);
+    expect(request.body.get('metadata[platform_fee_bps]')).toBe('0');
+  });
+
+  it('saves cards and charges them off-session on the platform', () => {
+    const setup = buildConnectedSetupRequest({
+      stripeSecretKey: 'sk_test_example',
+      connectedAccountId: STRIPE_PLATFORM_ACCOUNT,
+      successUrl: 'https://example.test/ok',
+      cancelUrl: 'https://example.test/ko',
+      metadata: { purpose: 'cancellation_mandate' },
+      idempotencyKey: 'setup-1',
+    });
+    expect(setup.headers).not.toHaveProperty('Stripe-Account');
+
+    const intent = buildConnectedPaymentIntentRequest({
+      stripeSecretKey: 'sk_test_example',
+      connectedAccountId: STRIPE_PLATFORM_ACCOUNT,
+      customerId: 'cus_1',
+      paymentMethodId: 'pm_1',
+      amountInCents: 3_000,
+      applicationFeeBpsRaw: '250',
+      metadata: {},
+      idempotencyKey: 'cancel-charge-1',
+    });
+    expect(intent.headers).not.toHaveProperty('Stripe-Account');
+    expect(intent.applicationFeeAmount).toBe(0);
+    expect(intent.body.has('application_fee_amount')).toBe(false);
+  });
+
+  it('looks up and expires platform Checkouts without the connected-account header', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'cs_1' }), { status: 200 }));
+    await retrieveConnectedCheckoutSession('sk_test_example', STRIPE_PLATFORM_ACCOUNT, 'cs_1', fetcher);
+    await expireConnectedCheckoutSession('sk_test_example', STRIPE_PLATFORM_ACCOUNT, 'cs_1', fetcher);
+
+    for (const [, init] of fetcher.mock.calls) {
+      expect(init.headers).not.toHaveProperty('Stripe-Account');
+    }
   });
 });

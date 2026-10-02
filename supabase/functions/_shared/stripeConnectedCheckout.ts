@@ -2,6 +2,7 @@ import {
   calculateStripeApplicationFeeAmount,
   getStripePlatformFeeConfig,
 } from "./stripePlatformFee.ts";
+import { isStripePlatformAccount, stripeAccountHeaders } from "./stripeAccount.ts";
 
 export interface ConnectedCheckoutLineItem {
   name: string;
@@ -77,7 +78,10 @@ export function buildConnectedCheckoutRequest(
     throw new Error("Checkout amount must be a positive integer in cents");
   }
 
-  const platformFee = getStripePlatformFeeConfig(input.applicationFeeBpsRaw);
+  // Un cobro en la propia plataforma no admite comisión de plataforma.
+  const platformFee = getStripePlatformFeeConfig(
+    isStripePlatformAccount(input.connectedAccountId) ? "0" : input.applicationFeeBpsRaw,
+  );
   const applicationFeeAmount = calculateStripeApplicationFeeAmount(
     input.lineItem.amountInCents,
     platformFee.bps,
@@ -124,7 +128,7 @@ export function buildConnectedCheckoutRequest(
     headers: {
       Authorization: `Bearer ${input.stripeSecretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Stripe-Account": input.connectedAccountId,
+      ...stripeAccountHeaders(input.connectedAccountId),
       "Idempotency-Key": input.idempotencyKey,
     },
     applicationFeeAmount,
@@ -170,7 +174,7 @@ export async function retrieveConnectedCheckoutSession(
       method: "GET",
       headers: {
         Authorization: `Bearer ${stripeSecretKey}`,
-        "Stripe-Account": connectedAccountId,
+        ...stripeAccountHeaders(connectedAccountId),
       },
     },
   );
@@ -216,7 +220,7 @@ export async function expireConnectedCheckoutSession(
       method: "POST",
       headers: {
         Authorization: `Bearer ${stripeSecretKey}`,
-        "Stripe-Account": connectedAccountId,
+        ...stripeAccountHeaders(connectedAccountId),
       },
     },
   );
@@ -282,7 +286,7 @@ export function buildConnectedSetupRequest(
     headers: {
       Authorization: `Bearer ${input.stripeSecretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Stripe-Account": input.connectedAccountId,
+      ...stripeAccountHeaders(input.connectedAccountId),
       "Idempotency-Key": input.idempotencyKey,
     },
   };
@@ -357,7 +361,9 @@ export function buildConnectedPaymentIntentRequest(
     throw new Error("PaymentIntent amount must be a positive integer in cents");
   }
 
-  const platformFee = getStripePlatformFeeConfig(input.applicationFeeBpsRaw);
+  const platformFee = getStripePlatformFeeConfig(
+    isStripePlatformAccount(input.connectedAccountId) ? "0" : input.applicationFeeBpsRaw,
+  );
   const applicationFeeAmount = calculateStripeApplicationFeeAmount(
     input.amountInCents,
     platformFee.bps,
@@ -391,7 +397,7 @@ export function buildConnectedPaymentIntentRequest(
     headers: {
       Authorization: `Bearer ${input.stripeSecretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Stripe-Account": input.connectedAccountId,
+      ...stripeAccountHeaders(input.connectedAccountId),
       "Idempotency-Key": input.idempotencyKey,
     },
     applicationFeeAmount,

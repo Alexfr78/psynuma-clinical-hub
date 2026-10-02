@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { isStripePlatformAccount } from "../_shared/stripeAccount.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -99,8 +100,12 @@ serve(async (req) => {
       );
     }
 
-    // Get account details from Stripe
-    const accountResponse = await fetch(`https://api.stripe.com/v1/accounts/${connection.stripe_account_id}`, {
+    // Get account details from Stripe. A center that charges on the platform
+    // account reads the platform's own account instead of a connected one.
+    const accountUrl = isStripePlatformAccount(connection.stripe_account_id)
+      ? 'https://api.stripe.com/v1/account'
+      : `https://api.stripe.com/v1/accounts/${connection.stripe_account_id}`;
+    const accountResponse = await fetch(accountUrl, {
       headers: { Authorization: `Bearer ${stripeSecretKey}` },
     });
     const accountData = await accountResponse.json();

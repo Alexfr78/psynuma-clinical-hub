@@ -11,6 +11,7 @@ import { calculateStripeRefundProgress } from "../_shared/stripeRefundPayment.ts
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 import { assertStripeEnvironment } from "../_shared/stripeEnvironment.ts";
 import { createInvoice } from "../_shared/createInvoice.ts";
+import { STRIPE_PLATFORM_ACCOUNT, stripeAccountHeaders } from "../_shared/stripeAccount.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -159,16 +160,17 @@ async function reconcileRefundedPayment(
 
 // Resolve which professional owns a Stripe connected account, so integration
 // notices can be attributed even when a refund has no local payment to link to.
+// An event without `account` comes from the platform account itself.
 async function resolveProfessionalIdForConnectedAccount(
   supabase: SupabaseClient,
   connectedAccountId: string | null,
 ): Promise<string | null> {
-  if (!connectedAccountId) return null;
   const { data } = await supabase
     .from('oauth_connections')
     .select('professional_id')
-    .eq('stripe_account_id', connectedAccountId)
+    .eq('stripe_account_id', connectedAccountId || STRIPE_PLATFORM_ACCOUNT)
     .eq('provider', 'stripe')
+    .limit(1)
     .maybeSingle();
   return data?.professional_id ?? null;
 }
@@ -1015,16 +1017,20 @@ async function retrieveCheckoutSession(
   checkoutSessionId: string,
   connectedAccountId: string,
   secretKey: string,
-): Promise<Stripe.Checkout.Session> {
+): Promise<Stripe.Checkout.Session | null> {
   const response = await fetch(
     `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(checkoutSessionId)}`,
     {
       headers: {
         Authorization: `Bearer ${secretKey}`,
-        'Stripe-Account': connectedAccountId,
+        ...stripeAccountHeaders(connectedAccountId),
       },
     },
   );
+
+  // The Checkout lives on another Stripe account (e.g. the professional moved
+  // from a Connect account to the platform account): nothing to reconcile here.
+  if (response.status === 404) return null;
 
   if (!response.ok) {
     console.error('Stripe Checkout retrieval failed during reconciliation', {
@@ -1109,6 +1115,15 @@ async function reconcilePendingSessionCheckouts(
         connection.stripe_account_id,
         secretKey,
       );
+
+      if (!checkoutSession) {
+        console.warn('Stripe reconciliation skipped: Checkout not found on the current account', {
+          session_id: pending.id,
+          checkout_session_id: checkoutSessionId,
+        });
+        result.skipped += 1;
+        continue;
+      }
 
       if (checkoutSession.metadata?.session_id !== pending.id) {
         throw new Error('Checkout metadata does not match the pending session');
@@ -1230,7 +1245,7 @@ async function handleCancellationMandateSetup(
     {
       headers: {
         Authorization: `Bearer ${stripeSecretKey}`,
-        'Stripe-Account': connectedAccountId,
+        ...stripeAccountHeaders(connectedAccountId),
       },
     },
   );
@@ -1528,7 +1543,8 @@ serve(async (req) => {
 
         // Modo `setup`: no mueve dinero, guarda la tarjeta (mandato de cancelación).
         if (session.mode === 'setup' || metadata.purpose === 'cancellation_mandate') {
-          await handleCancellationMandateSetup(supabase, session, event.account || null);
+          // Sin `account`, la tarjeta se guardó en la propia plataforma.
+          await handleCancellationMandateSetup(supabase, session, event.account || STRIPE_PLATFORM_ACCOUNT);
           break;
         }
 

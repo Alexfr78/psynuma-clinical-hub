@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { isStripePlatformAccount } from "../_shared/stripeAccount.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -99,6 +100,14 @@ serve(async (req) => {
       .maybeSingle();
 
     let stripeAccountId = existingConnection?.stripe_account_id;
+
+    // Charging on the platform account needs no Connect onboarding.
+    if (isStripePlatformAccount(stripeAccountId)) {
+      return new Response(
+        JSON.stringify({ error: 'Este profesional cobra directamente en la cuenta principal de Stripe' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // If no account exists, create one
     if (!stripeAccountId) {

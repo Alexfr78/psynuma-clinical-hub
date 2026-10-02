@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { stripeAccountHeaders } from "../_shared/stripeAccount.ts";
 
 // Fase 2 · Incremento 1 — Gestión de la tarjeta en archivo desde el portal del
 // paciente: `list` (ver la tarjeta activa) y `remove` (quitarla: detach en la
@@ -101,7 +102,7 @@ serve(async (req) => {
               headers: {
                 Authorization: `Bearer ${stripeSecretKey}`,
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Stripe-Account": card.connected_account_id,
+                ...stripeAccountHeaders(card.connected_account_id),
               },
             },
           );

@@ -4,6 +4,7 @@ import { createConnectedSetupSession } from "../_shared/stripeConnectedCheckout.
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
+import { stripeAccountHeaders } from "../_shared/stripeAccount.ts";
 
 // Fase 2 · Incremento 1 — Crea un Checkout en modo `setup` para guardar la
 // tarjeta del paciente en la cuenta conectada del profesional. No mueve dinero;
@@ -133,7 +134,7 @@ async function getOrCreateConnectedCustomer(
     headers: {
       Authorization: `Bearer ${stripeSecretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      "Stripe-Account": args.connectedAccountId,
+      ...stripeAccountHeaders(args.connectedAccountId),
     },
     body,
   });

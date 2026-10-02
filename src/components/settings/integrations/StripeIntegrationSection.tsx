@@ -31,6 +31,9 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
   const isConnected = isProviderConnected('stripe');
   const connection = getOAuthConnection('stripe');
   const accountStatus = connection?.stripe_account_status;
+  // El centro cobra directamente en la cuenta principal de Stripe (sin Connect).
+  // Lo asigna la administración de la plataforma; no se conecta ni desconecta aquí.
+  const isPlatformAccount = connection?.stripe_account_id === 'platform';
 
   useEffect(() => {
     if (integrations) {
@@ -222,9 +225,13 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
               <div className="flex items-center gap-3">
                 <Icon name="check_circle" className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="font-medium">Cuenta conectada</p>
+                  <p className="font-medium">
+                    {isPlatformAccount ? 'Cuenta principal de Stripe' : 'Cuenta conectada'}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {connection?.provider_account_id || connection?.stripe_account_id || 'Stripe Connect'}
+                    {isPlatformAccount
+                      ? 'Los cobros entran directamente en la cuenta principal, sin Stripe Connect'
+                      : connection?.provider_account_id || connection?.stripe_account_id || 'Stripe Connect'}
                   </p>
                 </div>
               </div>
@@ -239,17 +246,19 @@ export function StripeIntegrationSection({ onOpenPaymentSettings }: StripeIntegr
                 >
                   <Icon name="refresh" className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleDisconnect}
-                  disabled={disconnectProvider.isPending}
-                >
-                  {disconnectProvider.isPending ? (
-                    <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
-                  ) : null}
-                  Desconectar
-                </Button>
+                {!isPlatformAccount && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDisconnect}
+                    disabled={disconnectProvider.isPending}
+                  >
+                    {disconnectProvider.isPending ? (
+                      <Icon name="progress_activity" className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
+                    Desconectar
+                  </Button>
+                )}
               </div>
             </div>
 
