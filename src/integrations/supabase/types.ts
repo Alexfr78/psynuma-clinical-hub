@@ -9667,10 +9667,6 @@ export type Database = {
           public_domain: string
         }[]
       }
-      get_public_couple_partner_first_name: {
-        Args: { p_debt_token?: string; p_session_token?: string }
-        Returns: string
-      }
       get_public_debt_by_token: { Args: { p_token: string }; Returns: Json }
       get_public_referral_specialties: {
         Args: { center_slug: string }
@@ -9784,6 +9780,10 @@ export type Database = {
           last_name: string
           specialty: string
         }[]
+      }
+      public_has_couple_partner: {
+        Args: { p_debt_token?: string; p_session_token?: string }
+        Returns: boolean
       }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
