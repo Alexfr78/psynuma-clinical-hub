@@ -12,7 +12,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Icon } from '@/components/ui/icon';
 import { ShareBonoWithPartnerOption } from '@/components/bonos/ShareBonoWithPartnerOption';
-import { usePublicCouplePartnerName } from '@/hooks/usePublicCouplePartnerName';
+import { usePublicHasCouplePartner } from '@/hooks/usePublicHasCouplePartner';
 
 export default function PayDebt() {
   const { token } = useParams<{ token: string }>();
@@ -24,7 +24,7 @@ export default function PayDebt() {
   
   const [selectedBono, setSelectedBono] = useState<string | null>(null);
   const [shareBonoWithPartner, setShareBonoWithPartner] = useState(false);
-  const { data: couplePartnerName } = usePublicCouplePartnerName({ debtToken: token });
+  const { data: hasCouplePartner } = usePublicHasCouplePartner({ debtToken: token });
   const [processingPayment, setProcessingPayment] = useState<'session' | 'bono' | null>(null);
   const [showBizum, setShowBizum] = useState(false);
 
@@ -74,7 +74,7 @@ export default function PayDebt() {
           patient_id: debt.patient?.first_name ? undefined : undefined, // Will be fetched from debt
           debt_id: debt.id,
           bono_template_id: templateId,
-          share_with_partner: !!couplePartnerName && shareBonoWithPartner,
+          share_with_partner: !!hasCouplePartner && shareBonoWithPartner,
           success_url: `${window.location.origin}/pago-exitoso?bono=1&debt_id=${debt.id}`,
           cancel_url: window.location.href,
         },
@@ -244,9 +244,8 @@ export default function PayDebt() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {couplePartnerName && bonoTemplates.length > 0 && (
+              {hasCouplePartner && bonoTemplates.length > 0 && (
                 <ShareBonoWithPartnerOption
-                  partnerName={couplePartnerName}
                   checked={shareBonoWithPartner}
                   onCheckedChange={setShareBonoWithPartner}
                   disabled={processingPayment !== null}

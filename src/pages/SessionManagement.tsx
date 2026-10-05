@@ -40,7 +40,7 @@ import { SESSION_STATUS_LABELS, getSessionStatusDisplay } from '@/lib/payment-st
 import { useToast } from '@/hooks/use-toast';
 import { Icon } from '@/components/ui/icon';
 import { ShareBonoWithPartnerOption } from '@/components/bonos/ShareBonoWithPartnerOption';
-import { usePublicCouplePartnerName } from '@/hooks/usePublicCouplePartnerName';
+import { usePublicHasCouplePartner } from '@/hooks/usePublicHasCouplePartner';
 
 function extractZoomInfo(videoCallLink: string | null | undefined) {
   if (!videoCallLink || !videoCallLink.includes('zoom.us')) return null;
@@ -105,7 +105,7 @@ export default function SessionManagement() {
   const confirmActionsRef = useRef<HTMLDivElement>(null);
 
   const { data: bonoTemplates = [] } = usePublicBonoTemplatesForSession(token);
-  const { data: couplePartnerName } = usePublicCouplePartnerName({ sessionToken: token });
+  const { data: hasCouplePartner } = usePublicHasCouplePartner({ sessionToken: token });
   const { data: portalSlug } = usePublicSessionPortalSlug(token);
 
   const {
@@ -280,7 +280,7 @@ export default function SessionManagement() {
         body: {
           session_access_token: token,
           bono_template_id: bonoTemplateId,
-          share_with_partner: !!couplePartnerName && shareBonoWithPartner,
+          share_with_partner: !!hasCouplePartner && shareBonoWithPartner,
         },
       });
       if (error) throw error;
@@ -826,9 +826,8 @@ export default function SessionManagement() {
                       Puedes pagar solo esta sesión o comprar un bono de sesiones.
                     </DialogDescription>
                   </DialogHeader>
-                  {couplePartnerName && bonoTemplates.length > 0 && (
+                  {hasCouplePartner && bonoTemplates.length > 0 && (
                     <ShareBonoWithPartnerOption
-                      partnerName={couplePartnerName}
                       checked={shareBonoWithPartner}
                       onCheckedChange={setShareBonoWithPartner}
                       disabled={payingBonoId !== null}

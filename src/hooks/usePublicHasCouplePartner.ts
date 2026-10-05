@@ -3,24 +3,25 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Nombre de pila de la pareja vinculada del titular de un enlace público
- * (/cita/:token o /pagar/:token). null si no tiene pareja vinculada.
+ * Si el titular de un enlace público (/cita/:token o /pagar/:token) tiene pareja
+ * vinculada. Solo un sí/no: el nombre de la pareja es un dato de otro paciente y
+ * no debe llegar a quien tenga el enlace.
  */
-export function usePublicCouplePartnerName(tokens: { sessionToken?: string; debtToken?: string }) {
+export function usePublicHasCouplePartner(tokens: { sessionToken?: string; debtToken?: string }) {
   const { sessionToken, debtToken } = tokens;
   return useQuery({
     queryKey: qk.publicCouplePartner.list(sessionToken ?? null, debtToken ?? null),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_public_couple_partner_first_name', {
+      const { data, error } = await supabase.rpc('public_has_couple_partner', {
         p_session_token: sessionToken,
         p_debt_token: debtToken,
       });
-      // Sin pareja o con error, simplemente no se ofrece compartir.
+      // Con error, simplemente no se ofrece compartir.
       if (error) {
         console.error('Error fetching couple partner:', error);
-        return null;
+        return false;
       }
-      return (data as string | null) || null;
+      return data === true;
     },
     enabled: !!(sessionToken || debtToken),
     staleTime: 5 * 60 * 1000,

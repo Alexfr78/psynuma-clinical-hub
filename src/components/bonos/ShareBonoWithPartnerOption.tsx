@@ -2,14 +2,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
 interface ShareBonoWithPartnerOptionProps {
-  partnerName: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
 }
 
+// Se muestra en páginas públicas: sin el nombre de la pareja (protección de datos).
 export function ShareBonoWithPartnerOption({
-  partnerName,
   checked,
   onCheckedChange,
   disabled,
@@ -24,7 +23,7 @@ export function ShareBonoWithPartnerOption({
       />
       <div className="space-y-1">
         <Label htmlFor="share-bono-with-partner" className="cursor-pointer">
-          Compartir el bono con {partnerName}
+          Compartir el bono en pareja
         </Label>
         <p className="text-xs text-muted-foreground">
           Cada sesión de cualquiera de los dos, individual o de pareja, descontará una sesión del bono.
