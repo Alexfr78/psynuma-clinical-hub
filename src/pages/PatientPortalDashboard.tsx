@@ -231,7 +231,7 @@ export default function PatientPortalDashboard() {
 
   const handleConfirm = async (sessionId: string) => {
     const result = await confirmSession(sessionId);
-    if (result.success) toast.success('Cita confirmada');
+    if (result.success) toast.success(result.message || 'Cita confirmada');
     else toast.error(result.error || 'Error al confirmar');
   };
 

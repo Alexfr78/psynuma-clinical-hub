@@ -690,6 +690,11 @@ export const qk = {
     bySession: (sessionId: string | null | undefined) =>
       ['session-invoices', sessionId] as const,
   },
+  sessionMemberConfirmations: {
+    all: ['session-member-confirmations'] as const,
+    bySession: (sessionId: string | null | undefined) =>
+      ['session-member-confirmations', sessionId] as const,
+  },
   sessionParticipants: {
     all: ['session-participants'] as const,
     bySession: (sessionId: string | null | undefined) =>

@@ -28,6 +28,8 @@ export interface SessionWithRelations extends Session {
   } | null;
   /** Miembro extra de una sesión de pareja (solo lo trae useSessions). */
   participants?: { patient_id: string }[] | null;
+  /** Miembros que han confirmado asistencia (solo lo trae useSessions). */
+  member_confirmations?: { patient_id: string }[] | null;
 }
 
 const SESSION_SELECT = `
@@ -38,7 +40,8 @@ const SESSION_SELECT = `
           professional:profiles!sessions_professional_id_fkey(
             id, first_name, last_name
           ),
-          participants:session_participants(patient_id)
+          participants:session_participants(patient_id),
+          member_confirmations:session_member_confirmations(patient_id)
         `;
 export interface SessionListFilters {
   startDate?: string;
@@ -319,6 +322,8 @@ export function useUpdateSession() {
       queryClient.invalidateQueries({ queryKey: qk.sessionPaymentStatus.all });
       queryClient.invalidateQueries({ queryKey: qk.sessionInvoiceStatus.all });
       queryClient.invalidateQueries({ queryKey: qk.cancellationCharges.all });
+      // Confirmar o cambiar la hora rellena / borra confirmaciones por trigger.
+      queryClient.invalidateQueries({ queryKey: qk.sessionMemberConfirmations.all });
     },
   });
 }

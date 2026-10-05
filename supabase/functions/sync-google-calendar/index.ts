@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { coupleDisplayNames, partnersFromEmbed, PARTNERS_EMBED } from "../_shared/coupleEventNames.ts";
 import {
   buildGoogleEventsListParams,
   canRequestGoogleSync,
@@ -677,9 +678,11 @@ function formatEventText(
   location?: SyncSessionLocation | null,
   bono?: SyncSessionBono | null
 ): string {
-  const patientName = patient 
+  // En pareja, {paciente} y {nombre} llevan a los dos miembros.
+  const couple = coupleDisplayNames(patient, partnersFromEmbed(session.participants));
+  const patientName = couple?.full || (patient 
     ? `${patient.first_name || ''} ${patient.last_name || ''}`.trim() 
-    : 'Paciente';
+    : 'Paciente');
   const professionalName = professional 
     ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim() 
     : 'Profesional';
@@ -704,7 +707,7 @@ function formatEventText(
   };
   const cancellationPolicy = (session.cancellation_policy ? cancellationPolicies[session.cancellation_policy] : undefined) || session.cancellation_policy || '';
   
-  const patientFirstName = (patient?.first_name || '').trim() || patientName;
+  const patientFirstName = couple?.first || (patient?.first_name || '').trim() || patientName;
 
   return template
     .replace(/{paciente}/g, patientName)
@@ -1373,7 +1376,8 @@ async function syncProfessional(
       *,
       patient:patients!sessions_patient_id_fkey(first_name, last_name, phone, email),
       location:center_locations(name, street, number_details, city, postal_code),
-      bono:bonos(name)
+      bono:bonos(name),
+      ${PARTNERS_EMBED}
     `)
     .eq('professional_id', professionalId)
     .gte('session_date', dateFrom)

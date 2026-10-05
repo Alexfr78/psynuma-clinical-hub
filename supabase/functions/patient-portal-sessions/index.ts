@@ -1,5 +1,6 @@
 import { getCoupleMembers, startCoupleCancellation } from "../_shared/coupleCancellation.ts";
 import { patientSessionFilter } from "../_shared/sessionRecipients.ts";
+import { registerMemberConfirmation } from "../_shared/memberConfirmation.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
@@ -225,6 +226,7 @@ serve(async (req) => {
           patient_id,
           payer:patients!sessions_patient_id_fkey(first_name),
           participants:session_participants(patient_id, patient:patients!session_participants_patient_id_fkey(first_name)),
+          member_confirmations:session_member_confirmations(patient_id),
           session_date,
           start_time,
           end_time,
@@ -254,7 +256,7 @@ serve(async (req) => {
         );
       }
 
-      const visibleSessions = (sessions || []).map(({ patient_id, payer, participants, ...row }) => {
+      const visibleSessions = (sessions || []).map(({ patient_id, payer, participants, member_confirmations, ...row }) => {
         const isPayer = patient_id === session.patientId;
         const payerName = Array.isArray(payer) ? payer[0]?.first_name : (payer as { first_name: string } | null)?.first_name;
         const otherNames = (participants || []).filter(p => p.patient_id !== session.patientId).map(p => {
@@ -264,6 +266,7 @@ serve(async (req) => {
         if (!isPayer) otherNames.unshift(payerName);
         return { ...row, is_payer: isPayer, is_couple: (participants || []).length > 0,
           other_member_first_names: otherNames.filter(Boolean),
+          confirmed_by_me: (member_confirmations || []).some(c => c.patient_id === session.patientId),
           payment_status: isPayer ? row.payment_status : null };
       });
 
@@ -1109,29 +1112,32 @@ serve(async (req) => {
         );
       }
 
-      if (existingSession.status !== "pending_confirmation") {
+      if (existingSession.status !== "scheduled") {
         return new Response(
           JSON.stringify({ error: "Esta cita no requiere confirmación" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Confirm session
-      const { error: updateError } = await supabase
-        .from("sessions")
-        .update({ status: "confirmed" })
-        .eq("id", sessionId);
-
-      if (updateError) {
-        console.error("Error confirming session:", updateError);
+      // Cada miembro confirma por sí mismo; en pareja la cita pasa a 'confirmed'
+      // cuando han confirmado los dos.
+      let confirmation;
+      try {
+        confirmation = await registerMemberConfirmation(supabase, {
+          sessionId,
+          patientId: session.patientId!,
+          via: "portal",
+        });
+      } catch (confirmError) {
+        console.error("Error confirming session:", confirmError);
         return new Response(
           JSON.stringify({ error: "Error al confirmar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Update Google Calendar event color to sage green (colorId "2") to signal confirmation
-      if (existingSession.google_calendar_event_id) {
+      // Update Google Calendar event color to sage green (colorId "2") once everyone confirmed
+      if (confirmation.statusChanged && existingSession.google_calendar_event_id) {
         try {
           await fetch(`${supabaseUrl}/functions/v1/update-google-calendar-event`, {
             method: "POST",
@@ -1153,7 +1159,13 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: "Cita confirmada correctamente" }),
+        JSON.stringify({
+          success: true,
+          message: confirmation.allConfirmed
+            ? "Cita confirmada correctamente"
+            : "Tu asistencia queda confirmada. Falta que confirme tu pareja.",
+          confirmation,
+        }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

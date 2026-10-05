@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_INDICATOR_VISIBILITY,
+  getPartialConfirmation,
   getSessionFlags,
   mergeIndicatorVisibility,
   parseIndicatorVisibility,
@@ -70,5 +71,23 @@ describe('getSessionFlags', () => {
 
   it('does not count imported Google block titles as notes', () => {
     expect(getSessionFlags({ notes: '[Google Calendar] Médico' }).notes).toBe(false);
+  });
+});
+
+describe('getPartialConfirmation', () => {
+  const couple = { patient_id: 'ana', status: 'scheduled', participants: [{ patient_id: 'luis' }] };
+
+  it('shows 1/2 when only one member of a couple confirmed', () => {
+    expect(getPartialConfirmation({ ...couple, member_confirmations: [{ patient_id: 'luis' }] })).toEqual({ confirmed: 1, total: 2 });
+  });
+
+  it('hides when nobody or everybody confirmed', () => {
+    expect(getPartialConfirmation({ ...couple, member_confirmations: [] })).toBeNull();
+    expect(getPartialConfirmation({ ...couple, member_confirmations: [{ patient_id: 'ana' }, { patient_id: 'luis' }] })).toBeNull();
+  });
+
+  it('ignores individual and already confirmed sessions', () => {
+    expect(getPartialConfirmation({ patient_id: 'ana', status: 'scheduled', participants: [], member_confirmations: [{ patient_id: 'ana' }] })).toBeNull();
+    expect(getPartialConfirmation({ ...couple, status: 'confirmed', member_confirmations: [{ patient_id: 'ana' }] })).toBeNull();
   });
 });

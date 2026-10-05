@@ -181,6 +181,54 @@ export function useSetSessionPartner() {
   });
 }
 
+export interface MemberConfirmation {
+  patient_id: string;
+  via: string;
+  confirmed_at: string;
+}
+
+/** Quién ha confirmado asistencia a la cita y por qué canal. */
+export function useSessionMemberConfirmations(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: qk.sessionMemberConfirmations.bySession(sessionId),
+    queryFn: async (): Promise<MemberConfirmation[]> => {
+      const { data, error } = await supabase
+        .from('session_member_confirmations')
+        .select('patient_id, via, confirmed_at')
+        .eq('session_id', sessionId!);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export type PayerSwapScope = 'single' | 'following';
+
+/** Cambia quién paga una sesión de pareja (y, si se pide, las siguientes de la serie). */
+export function useSwapCouplePayer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ sessionId, scope }: { sessionId: string; scope: PayerSwapScope }) => {
+      const { data, error } = await supabase.rpc('swap_couple_session_payer', {
+        p_session_id: sessionId,
+        p_scope: scope,
+      });
+      if (error) throw new Error(error.message);
+      return data as { changed: number; skipped: number };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.sessionParticipants.all });
+      queryClient.invalidateQueries({ queryKey: qk.sessions.all });
+      queryClient.invalidateQueries({ queryKey: qk.patientSessions.all });
+      // La deuda y el evento facturable pendientes pasan al nuevo titular.
+      queryClient.invalidateQueries({ queryKey: qk.debts.all });
+      queryClient.invalidateQueries({ queryKey: qk.billableEvents.all });
+    },
+  });
+}
+
 export interface PendingCoupleCancellation {
   id: string;
   requested_by_patient_id: string;

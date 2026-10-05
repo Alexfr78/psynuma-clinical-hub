@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyReply, normalizeWhatsAppPhone } from "../_shared/whatsapp-reply-intent.ts";
+import { findWhatsAppConfirmTarget, registerMemberConfirmation } from "../_shared/memberConfirmation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -251,25 +252,26 @@ serve(async (req) => {
 
         const patientIds = patients.map((p: { id: string }) => p.id);
 
-        // Find next scheduled session within 48h
-        const { data: sessions } = await supabase
-          .from("sessions")
-          .select("id, session_date, start_time, end_time, status, center_id, patient_id, professional_id, google_calendar_event_id")
-          .in("patient_id", patientIds)
-          .eq("center_id", receivingCenterId)
-          .eq("status", "scheduled")
-          .gte("session_date", todayDate)
-          .lte("session_date", in48h)
-          .order("session_date", { ascending: true })
-          .order("start_time", { ascending: true })
-          .limit(1);
+        // Next session within 48h where this person (titular or partner) hasn't confirmed yet
+        let target;
+        try {
+          target = await findWhatsAppConfirmTarget(supabase, {
+            patientIds,
+            centerId: receivingCenterId,
+            fromDate: todayDate,
+            toDate: in48h,
+          });
+        } catch (lookupError) {
+          console.error("Error looking up session to confirm:", lookupError);
+          break;
+        }
 
-        if (!sessions || sessions.length === 0) {
+        if (!target) {
           console.log(`No upcoming scheduled session found for patient(s) ${patientIds.join(", ")}`);
           break;
         }
 
-        const targetSession = sessions[0];
+        const targetSession = target.session;
 
         // Check if center has confirmation reply enabled
         const { data: centerData } = await supabase
@@ -283,21 +285,23 @@ serve(async (req) => {
           break;
         }
 
-        // Update session status to confirmed
-        const { error: updateError } = await supabase
-          .from("sessions")
-          .update({ status: "confirmed" })
-          .eq("id", targetSession.id);
-
-        if (updateError) {
-          console.error("Error confirming session:", updateError);
+        // Each member confirms separately; the session becomes 'confirmed' once all did
+        let confirmation;
+        try {
+          confirmation = await registerMemberConfirmation(supabase, {
+            sessionId: targetSession.id,
+            patientId: target.patientId,
+            via: "whatsapp",
+          });
+        } catch (confirmError) {
+          console.error("Error confirming session:", confirmError);
           break;
         }
 
-        console.log(`Session ${targetSession.id} confirmed by patient via WhatsApp`);
+        console.log(`Session ${targetSession.id} confirmed by patient ${target.patientId} via WhatsApp (${confirmation.confirmedCount}/${confirmation.totalMembers})`);
 
-        // Sync confirmation color (sage green) to Google Calendar if linked
-        if (targetSession.google_calendar_event_id) {
+        // Sync confirmation color (sage green) to Google Calendar once everyone confirmed
+        if (confirmation.statusChanged && targetSession.google_calendar_event_id) {
           try {
             const { error: gcalError } = await supabase.functions.invoke("update-google-calendar-event", {
               body: {
@@ -329,7 +333,7 @@ serve(async (req) => {
           type: "text",
           direction: "incoming",
           message_type: "incoming",
-          patient_id: targetSession.patient_id,
+          patient_id: target.patientId,
           session_id: targetSession.id,
           status: "delivered",
         });

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyReply, normalizeWhatsAppPhone } from "../_shared/whatsapp-reply-intent.ts";
+import { findWhatsAppConfirmTarget, registerMemberConfirmation } from "../_shared/memberConfirmation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -221,38 +222,42 @@ async function handleIncomingMessages(supabase: SupabaseClient, phoneNumberId: s
 
     const patientIds = patients.map((p: { id: string }) => p.id);
 
-    const { data: sessions } = await supabase
-      .from("sessions")
-      .select("id, session_date, start_time, end_time, status, center_id, patient_id, professional_id, google_calendar_event_id")
-      .in("patient_id", patientIds)
-      .eq("center_id", center.id)
-      .eq("status", "scheduled")
-      .gte("session_date", todayDate)
-      .lte("session_date", in48h)
-      .order("session_date", { ascending: true })
-      .order("start_time", { ascending: true })
-      .limit(1);
+    // Next session within 48h where this person (titular or partner) hasn't confirmed yet
+    let target;
+    try {
+      target = await findWhatsAppConfirmTarget(supabase, {
+        patientIds,
+        centerId: center.id,
+        fromDate: todayDate,
+        toDate: in48h,
+      });
+    } catch (lookupError) {
+      console.error("[whatsapp-meta-webhook] Error looking up session to confirm:", lookupError);
+      continue;
+    }
 
-    if (!sessions || sessions.length === 0) {
+    if (!target) {
       console.log(`[whatsapp-meta-webhook] No upcoming scheduled session found for patient(s) ${patientIds.join(", ")}`);
       continue;
     }
 
-    const targetSession = sessions[0];
+    const targetSession = target.session;
 
-    const { error: updateError } = await supabase
-      .from("sessions")
-      .update({ status: "confirmed" })
-      .eq("id", targetSession.id);
-
-    if (updateError) {
-      console.error("[whatsapp-meta-webhook] Error confirming session:", updateError);
+    let confirmation;
+    try {
+      confirmation = await registerMemberConfirmation(supabase, {
+        sessionId: targetSession.id,
+        patientId: target.patientId,
+        via: "whatsapp",
+      });
+    } catch (confirmError) {
+      console.error("[whatsapp-meta-webhook] Error confirming session:", confirmError);
       continue;
     }
 
-    console.log(`[whatsapp-meta-webhook] Session ${targetSession.id} confirmed by patient via WhatsApp (Meta)`);
+    console.log(`[whatsapp-meta-webhook] Session ${targetSession.id} confirmed by patient ${target.patientId} via WhatsApp (Meta) (${confirmation.confirmedCount}/${confirmation.totalMembers})`);
 
-    if (targetSession.google_calendar_event_id) {
+    if (confirmation.statusChanged && targetSession.google_calendar_event_id) {
       try {
         const { error: gcalError } = await supabase.functions.invoke("update-google-calendar-event", {
           body: {

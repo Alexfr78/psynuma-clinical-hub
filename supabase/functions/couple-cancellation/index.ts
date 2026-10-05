@@ -83,10 +83,15 @@ serve(async (req) => {
         .eq("session_id", session.id)
         .eq("status", "pending")
         .maybeSingle();
+      const { data: confirmations } = await supabase
+        .from("session_member_confirmations")
+        .select("patient_id")
+        .eq("session_id", session.id);
       return json({
         is_couple: true,
         // Titular primero; solo el nombre de pila (el enlace ya es de la propia cita).
         members: ids.map((id) => ({ id, first_name: patients?.find((p) => p.id === id)?.first_name ?? "" })),
+        confirmed_patient_ids: (confirmations ?? []).map((c) => c.patient_id).filter((id) => ids.includes(id)),
         pending_request: pending
           ? { requested_by_patient_id: pending.requested_by_patient_id, deadline_at: pending.deadline_at }
           : null,

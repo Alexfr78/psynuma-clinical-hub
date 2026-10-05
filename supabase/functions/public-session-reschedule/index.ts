@@ -1,4 +1,5 @@
 import { getCoupleMembers, startCoupleCancellation } from "../_shared/coupleCancellation.ts";
+import { registerMemberConfirmation } from "../_shared/memberConfirmation.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendAdminAlert, buildAlertMessage, formatDateSpanish, formatTime } from "../_shared/adminAlerts.ts";
 import { queueAndSendPatientBookingNotification } from "../_shared/bookingPatientNotifications.ts";
@@ -59,6 +60,7 @@ Deno.serve(async (req) => {
       newLocationId,
       cancellation_reason,
       cancelling_patient_id,
+      confirming_patient_id,
       acceptCancellationPolicy,
       acceptLateChange,
     } = await req.json();
@@ -340,24 +342,35 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Update session status to confirmed
-      const { data: updated, error: updateError } = await supabase
-        .from("sessions")
-        .update({ status: "confirmed" })
-        .eq("id", session.id)
-        .select()
-        .single();
+      // En pareja cada miembro confirma por separado; la cita pasa a 'confirmed'
+      // cuando han confirmado los dos.
+      const members = await getCoupleMembers(supabase, session);
+      if (members.length > 1 && !members.includes(confirming_patient_id)) {
+        return new Response(
+          JSON.stringify({ error: "Indica quién confirma la cita", code: "couple_confirmer_required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-      if (updateError) {
-        console.error("[CONFIRM] Error updating session status:", updateError);
+      let confirmation;
+      try {
+        confirmation = await registerMemberConfirmation(supabase, {
+          sessionId: session.id,
+          patientId: members.length > 1 ? confirming_patient_id : session.patient_id,
+          via: "session_link",
+        });
+      } catch (confirmError) {
+        console.error("[CONFIRM] Error registering confirmation:", confirmError);
         return new Response(
           JSON.stringify({ error: "No se pudo confirmar la cita" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Sync confirmation color (sage green) to Google Calendar if linked
-      if (session.google_calendar_event_id) {
+      const { data: updated } = await supabase.from("sessions").select().eq("id", session.id).single();
+
+      // Sync confirmation color (sage green) to Google Calendar once everyone confirmed
+      if (confirmation.statusChanged && session.google_calendar_event_id) {
         try {
           const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
           const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -391,7 +404,7 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, session: updated }),
+        JSON.stringify({ success: true, session: updated, confirmation }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

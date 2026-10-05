@@ -222,11 +222,12 @@ export default function SessionManagement() {
     && session.stripe_payment_status !== 'paid'
     && !['cancelled', 'completed', 'no_show'].includes(status);
 
-  const handleConfirm = () => {
+  const handleConfirm = (confirmingPatientId?: string) => {
     if (token) {
-      updateSession.mutate({ token, status: 'confirmed' });
+      updateSession.mutate({ token, status: 'confirmed', confirming_patient_id: confirmingPatientId });
     }
   };
+  const confirmedMemberIds = coupleMembers?.confirmed_patient_ids ?? [];
 
   const handleCancel = () => {
     const args = {
@@ -917,12 +918,33 @@ export default function SessionManagement() {
 
           {canTakeAction ? (
             <div className="space-y-3">
-              {/* Confirm Button */}
-              {status !== 'confirmed' && status !== 'reschedule_requested' && (
-                <Button 
-                  className="w-full" 
+              {/* Confirm Button — en pareja, uno por miembro */}
+              {isCoupleSession && status !== 'confirmed' && status !== 'reschedule_requested' && (
+                <div className="space-y-2">
+                  {coupleMembers?.members.map((member) => confirmedMemberIds.includes(member.id) ? (
+                    <div key={member.id} className="flex min-h-11 items-center justify-center gap-2 rounded-md border text-sm text-muted-foreground">
+                      <Icon name="check_circle" className="h-4 w-4 text-primary" />
+                      {member.first_name} ha confirmado
+                    </div>
+                  ) : (
+                    <Button
+                      key={member.id}
+                      className="w-full"
+                      size="lg"
+                      onClick={() => handleConfirm(member.id)}
+                      disabled={updateSession.isPending || pendingCoupleRequest?.requested_by_patient_id === member.id}
+                    >
+                      <Icon name="check_circle" className="h-4 w-4 mr-2" />
+                      Confirmar asistencia de {member.first_name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              {!isCoupleSession && status !== 'confirmed' && status !== 'reschedule_requested' && (
+                <Button
+                  className="w-full"
                   size="lg"
-                  onClick={handleConfirm}
+                  onClick={() => handleConfirm()}
                   disabled={updateSession.isPending}
                 >
                   {updateSession.isPending ? (

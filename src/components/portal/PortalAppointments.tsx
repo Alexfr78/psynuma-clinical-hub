@@ -138,7 +138,8 @@ export function PortalAppointments({
       {sessions.map((session) => {
         const status = statusConfig[session.status] || statusConfig.scheduled;
         const canCancel = !isPast && !isCancelled && ['scheduled', 'confirmed', 'pending_approval', 'draft'].includes(session.status);
-        const canConfirm = !isPast && !isCancelled && session.status === 'scheduled';
+        const canConfirm = !isPast && !isCancelled && session.status === 'scheduled' && !session.confirmed_by_me;
+        const waitingPartner = session.is_couple && session.status === 'scheduled' && !!session.confirmed_by_me;
         const canReschedule = !isPast && !isCancelled && ['scheduled', 'confirmed'].includes(session.status);
         const canSaveCard = session.is_payer !== false && !isPast && !isCancelled && session.status === 'draft' && !!onSaveCard;
         const canJoinVideo = !isPast
@@ -191,6 +192,11 @@ export function PortalAppointments({
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <Badge variant="outline">{session.is_couple ? 'Sesión de pareja' : session.session_type}</Badge>
               {session.is_couple && !!session.other_member_first_names?.length && <span>Con {session.other_member_first_names.join(', ')}</span>}
+              {waitingPartner && (
+                <Badge variant="secondary">
+                  Has confirmado · falta {session.other_member_first_names?.join(', ') || 'tu pareja'}
+                </Badge>
+              )}
               {session.location && (
                 mapsUrl ? (
                   <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

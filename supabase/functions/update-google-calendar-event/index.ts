@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { partnersFromEmbed, withPartnerNames } from "../_shared/coupleEventNames.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -229,7 +230,7 @@ serve(async (req) => {
       session_date,
       start_time,
       end_time,
-      title,
+      title: requestedTitle,
       description,
       location, // optional: human-readable location string
       status, // 'cancelled' to cancel the event
@@ -248,6 +249,16 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Sesión de pareja: el título lleva también el nombre del otro miembro.
+    let title = requestedTitle;
+    if (requestedTitle && psycma_session_id) {
+      const { data: participants } = await supabase
+        .from('session_participants')
+        .select('patient:patients!session_participants_patient_id_fkey(first_name, last_name)')
+        .eq('session_id', psycma_session_id);
+      title = withPartnerNames(requestedTitle, partnersFromEmbed(participants));
+    }
 
     // Get OAuth connection
     const { data: connection, error: connError } = await supabase

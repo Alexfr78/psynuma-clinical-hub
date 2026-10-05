@@ -402,6 +402,20 @@ async function convertToIndividual(supabase: SupabaseClient, session: SessionRow
     .eq("patient_id", leaverId);
   if (removeError) throw removeError;
 
+  // La confirmación de quien se va se borra por trigger. Si quien asiste ya había
+  // confirmado, la cita (ahora individual) queda confirmada.
+  if (session.status === "scheduled") {
+    const { data: attendeeConfirmation } = await supabase
+      .from("session_member_confirmations")
+      .select("id")
+      .eq("session_id", session.id)
+      .eq("patient_id", attendeeId)
+      .maybeSingle();
+    if (attendeeConfirmation) {
+      await supabase.from("sessions").update({ status: "confirmed" }).eq("id", session.id).eq("status", "scheduled");
+    }
+  }
+
   const individualType = await resolveIndividualType(supabase, session);
 
   // Solo se recalcula el precio si aún no hay nada cobrado, facturado ni bono que

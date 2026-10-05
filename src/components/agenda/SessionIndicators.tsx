@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Icon } from '@/components/ui/icon';
 import { SessionWithRelations } from '@/hooks/useSessions';
 import { useVisibleIndicators } from '@/hooks/useAgendaPreferences';
-import { getSessionFlags, MODALITY_LABELS } from '@/lib/agenda-indicators';
+import { getPartialConfirmation, getSessionFlags, MODALITY_LABELS } from '@/lib/agenda-indicators';
 import { PaymentStatusIndicator } from './PaymentStatusIndicator';
 import { CancellationPolicyIndicator } from './CancellationPolicyIndicator';
 
@@ -50,11 +50,29 @@ interface SessionIndicatorsProps {
 export function SessionIndicators({ session, compact = false, className }: SessionIndicatorsProps) {
   const visible = useVisibleIndicators();
   const flags = getSessionFlags(session);
+  const partial = getPartialConfirmation(session);
   const modalityLabel = MODALITY_LABELS[session.session_modality ?? ''] ?? 'Online';
 
   return (
     <TooltipProvider>
       <div className={cn('flex shrink-0 items-center gap-1', className)}>
+        {partial && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-0.5 rounded-sm border border-current px-0.5 font-medium leading-none opacity-80',
+                  compact ? 'text-[9px]' : 'text-[10px]',
+                )}
+                aria-label={`Confirmada por ${partial.confirmed} de ${partial.total}`}
+              >
+                <Icon name="check" className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
+                {partial.confirmed}/{partial.total}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>Confirmada por {partial.confirmed} de {partial.total} · falta confirmar</TooltipContent>
+          </Tooltip>
+        )}
         {visible.modality && flags.online && <FlagIcon icon="videocam" label={modalityLabel} compact={compact} />}
         {visible.couple && flags.couple && <FlagIcon icon="group" label="Sesión de pareja" compact={compact} />}
         {visible.notes && flags.notes && <FlagIcon icon="sticky_note_2" label="Tiene notas" compact={compact} />}

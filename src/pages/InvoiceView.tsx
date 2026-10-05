@@ -199,7 +199,8 @@ export default function InvoiceView() {
               </div>
             </div>
 
-            {/* Client Info */}
+            {/* Client Info — las simplificadas no identifican al destinatario */}
+            {!documentType.flags.isSimplified && (
             <div className="border rounded-lg p-4 bg-muted/30">
               <h3 className="font-semibold mb-2">Datos del cliente</h3>
               {hasClientData ? (
@@ -221,6 +222,7 @@ export default function InvoiceView() {
                 </p>
               )}
             </div>
+            )}
 
             {/* Items Table */}
             <div className="overflow-x-auto">

@@ -5,21 +5,33 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { PatientSelector } from './PatientSelector';
 import { useToast } from '@/hooks/use-toast';
-import { useUpdateSession } from '@/hooks/useSessions';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   usePatientPartner,
   usePendingCoupleCancellation,
   useResolveCoupleCancellation,
+  useSessionMemberConfirmations,
   useSessionParticipants,
   useSetSessionPartner,
+  useSwapCouplePayer,
+  type PayerSwapScope,
 } from '@/hooks/usePatientRelationships';
+
+const CONFIRMATION_VIA_LABELS: Record<string, string> = {
+  session_link: 'por el enlace de la cita',
+  portal: 'desde el portal',
+  whatsapp: 'por WhatsApp',
+  professional: 'desde la agenda',
+  system: 'automáticamente',
+};
 
 interface SessionCouplePanelProps {
   session: {
     id: string;
     patient_id: string | null;
+    status?: string | null;
+    recurring_series_id?: string | null;
     payment_status?: string | null;
     patient?: { first_name: string; last_name: string } | null;
   };
@@ -35,16 +47,18 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
   const { data: participants } = useSessionParticipants(session.id);
   const { data: link } = usePatientPartner(session.patient_id ?? undefined);
   const setPartner = useSetSessionPartner();
-  const updateSession = useUpdateSession();
+  const swapPayer = useSwapCouplePayer();
+  const { data: confirmations } = useSessionMemberConfirmations(session.id);
   const { data: pendingCancellation } = usePendingCoupleCancellation(session.id);
   const resolveCancellation = useResolveCoupleCancellation();
   const [choosing, setChoosing] = useState(false);
+  const [choosingPayerScope, setChoosingPayerScope] = useState(false);
 
   if (!session.patient_id || participants === undefined) return null;
 
   const partner = participants[0];
   const payerName = session.patient ? `${session.patient.first_name} ${session.patient.last_name}` : '';
-  // Cambiar el titular reasigna la deuda y la factura: solo mientras no esté pagada.
+  // El servidor bloquea además si ya hay factura o cobros registrados.
   const canSwapPayer = session.payment_status !== 'paid';
 
   const onError = (error: unknown) =>
@@ -106,6 +120,39 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
   const memberName = (id: string) =>
     id === partner.id ? partner.first_name : session.patient?.first_name ?? 'El titular';
 
+  const swap = (scope: PayerSwapScope) =>
+    swapPayer
+      .mutateAsync({ sessionId: session.id, scope })
+      .then(({ changed, skipped }) => {
+        setChoosingPayerScope(false);
+        toast({
+          title: `Ahora paga ${partner.first_name}`,
+          description: scope === 'following'
+            ? `${changed} ${changed === 1 ? 'cita actualizada' : 'citas actualizadas'}${skipped ? `; ${skipped} sin cambiar porque ya están facturadas o cobradas` : ''}.`
+            : undefined,
+        });
+      })
+      .catch(onError);
+
+  const members = [
+    { id: session.patient_id, name: session.patient?.first_name ?? 'Titular' },
+    { id: partner.id, name: partner.first_name },
+  ];
+  const showConfirmations = ['scheduled', 'confirmed'].includes(session.status ?? '');
+  const memberState = (id: string) => {
+    if (pendingCancellation?.requested_by_patient_id === id) return { icon: 'cancel', tone: 'text-destructive', text: 'Ha cancelado' };
+    const confirmation = confirmations?.find((c) => c.patient_id === id);
+    if (confirmation) {
+      return {
+        icon: 'check_circle',
+        tone: 'text-primary',
+        text: `Confirmado ${CONFIRMATION_VIA_LABELS[confirmation.via] ?? ''} · ${format(new Date(confirmation.confirmed_at), "d MMM, HH:mm", { locale: es })}`,
+      };
+    }
+    if (session.status === 'confirmed') return { icon: 'check_circle', tone: 'text-primary', text: 'Confirmado' };
+    return { icon: 'schedule', tone: 'text-muted-foreground', text: 'Pendiente de confirmar' };
+  };
+
   const resolve = (decision: 'cancel_both' | 'attend_alone') =>
     pendingCancellation &&
     resolveCancellation
@@ -152,21 +199,44 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
           </Link>
         </span>
       </div>
+      {showConfirmations && (
+        <ul className="space-y-1 text-sm" aria-label="Confirmación de asistencia">
+          {members.map((member) => {
+            const state = memberState(member.id);
+            return (
+              <li key={member.id} className="flex items-center gap-2">
+                <Icon name={state.icon} className={`h-4 w-4 shrink-0 ${state.tone}`} />
+                <span className="font-medium">{member.name}</span>
+                <span className="text-muted-foreground">{state.text}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <p className="text-xs text-muted-foreground">
         Paga y recibe la factura: {payerName}. Los avisos de la cita llegan a los dos.
       </p>
+      {choosingPayerScope && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2 text-sm">
+          <span>¿A qué citas aplicar el cambio?</span>
+          <Button size="sm" variant="outline" disabled={swapPayer.isPending} onClick={() => swap('single')}>
+            Solo esta
+          </Button>
+          <Button size="sm" variant="outline" disabled={swapPayer.isPending} onClick={() => swap('following')}>
+            Esta y las siguientes
+          </Button>
+          <Button size="sm" variant="ghost" disabled={swapPayer.isPending} onClick={() => setChoosingPayerScope(false)}>
+            Cancelar
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
           size="sm"
-          disabled={!canSwapPayer || updateSession.isPending}
+          disabled={!canSwapPayer || swapPayer.isPending || choosingPayerScope}
           title={canSwapPayer ? undefined : 'La sesión ya está pagada'}
-          onClick={() =>
-            updateSession
-              .mutateAsync({ id: session.id, patient_id: partner.id })
-              .then(() => toast({ title: `Ahora paga ${partner.first_name}` }))
-              .catch(onError)
-          }
+          onClick={() => (session.recurring_series_id ? setChoosingPayerScope(true) : swap('single'))}
         >
           Que pague {partner.first_name}
         </Button>

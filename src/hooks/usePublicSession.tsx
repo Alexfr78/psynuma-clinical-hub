@@ -148,21 +148,24 @@ export function useUpdatePublicSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      token, 
+    mutationFn: async ({
+      token,
       status,
-      cancellation_reason 
-    }: { 
-      token: string; 
+      cancellation_reason,
+      confirming_patient_id,
+    }: {
+      token: string;
       status: string;
       cancellation_reason?: string;
+      /** Sesión de pareja: qué miembro confirma. */
+      confirming_patient_id?: string;
     }) => {
       // Confirmations must go through the edge function so Google Calendar
       // gets the sage-green color update. Other statuses keep the direct
       // token-authenticated write.
       if (status === 'confirmed') {
         const { data, error } = await supabase.functions.invoke('public-session-reschedule', {
-          body: { action: 'confirm', token },
+          body: { action: 'confirm', token, confirming_patient_id },
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
@@ -186,9 +189,16 @@ export function useUpdatePublicSession() {
       return data;
 
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: qk.publicSession.byToken(variables.token) });
-      
+      if (variables.confirming_patient_id) {
+        queryClient.invalidateQueries({ queryKey: qk.publicCoupleMembers.byToken(variables.token) });
+        if (result?.status !== 'confirmed') {
+          toast.success('Asistencia confirmada. Falta que confirme tu pareja.');
+          return;
+        }
+      }
+
       const messages: Record<string, string> = {
         confirmed: '¡Tu cita ha sido confirmada!',
         cancelled: 'Tu cita ha sido cancelada.',
@@ -476,6 +486,8 @@ export function usePublicSessionReschedule(token: string | undefined) {
 export interface PublicCoupleMembers {
   is_couple: boolean;
   members: { id: string; first_name: string }[];
+  /** Miembros que ya han confirmado asistencia. */
+  confirmed_patient_ids?: string[];
   pending_request: { requested_by_patient_id: string; deadline_at: string } | null;
 }
 

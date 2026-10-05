@@ -63,6 +63,8 @@ export interface PortalSession {
   is_payer: boolean;
   is_couple: boolean;
   other_member_first_names: string[];
+  /** En pareja: si este miembro ya ha confirmado (el otro puede faltar). */
+  confirmed_by_me?: boolean;
   id: string;
   session_date: string;
   start_time: string;
@@ -399,7 +401,7 @@ export function usePatientPortal(centerSlug?: string) {
     }
   };
 
-  const confirmSession = async (sessionId: string): Promise<{ success: boolean; error?: string }> => {
+  const confirmSession = async (sessionId: string): Promise<{ success: boolean; error?: string; message?: string }> => {
     if (!state.sessionToken) {
       return { success: false, error: 'Sesión no válida' };
     }
@@ -414,7 +416,7 @@ export function usePatientPortal(centerSlug?: string) {
       }
 
       await fetchSessions();
-      return { success: true };
+      return { success: true, message: data?.message };
     } catch (error) {
       console.error('Error confirming session:', error);
       return { success: false, error: 'Error de conexión' };

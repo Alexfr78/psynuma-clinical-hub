@@ -99,6 +99,27 @@ export function getSessionFlags(session: IndicatorSessionFields) {
   };
 }
 
+export interface CoupleConfirmationFields {
+  patient_id?: string | null;
+  status?: string | null;
+  participants?: { patient_id: string }[] | null;
+  member_confirmations?: { patient_id: string }[] | null;
+}
+
+/**
+ * Confirmación parcial de una cita de pareja: cuántos miembros han confirmado
+ * mientras la cita sigue pendiente. null si no es de pareja, si nadie ha
+ * confirmado o si ya está confirmada del todo.
+ */
+export function getPartialConfirmation(session: CoupleConfirmationFields): { confirmed: number; total: number } | null {
+  const participants = session.participants ?? [];
+  if (!session.patient_id || participants.length === 0 || session.status !== 'scheduled') return null;
+  const members = new Set([session.patient_id, ...participants.map((p) => p.patient_id)]);
+  const confirmed = new Set((session.member_confirmations ?? []).map((c) => c.patient_id).filter((id) => members.has(id))).size;
+  if (confirmed === 0 || confirmed >= members.size) return null;
+  return { confirmed, total: members.size };
+}
+
 export const MODALITY_LABELS: Record<string, string> = {
   zoom: 'Online (Zoom)',
   google_meet: 'Online (Google Meet)',

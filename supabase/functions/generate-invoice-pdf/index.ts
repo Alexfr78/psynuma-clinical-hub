@@ -270,33 +270,36 @@ async function generateInvoicePdfBytes(
   }
 
   // ---- Client info box ----
-  const recipient = invoice.recipient_snapshot || {
-    name: `${invoice.patients.first_name} ${invoice.patients.last_name}`.trim(),
-    tax_id: invoice.patients.tax_id,
-    address: invoice.patients.address,
-    city: invoice.patients.city,
-    postal_code: invoice.patients.postal_code,
-    email: invoice.patients.email,
-  };
-  const clientLines = [
-    recipient.name || 'Cliente',
-    recipient.tax_id ? `NIF/CIF: ${recipient.tax_id}` : null,
-    recipient.address || null,
-    [recipient.postal_code, recipient.city].filter(Boolean).join(' ') || null,
-    recipient.email || null,
-  ].filter(Boolean) as string[];
+  // Las facturas simplificadas no identifican al destinatario: no se muestran sus datos.
+  if (!isSimplified) {
+    const recipient = invoice.recipient_snapshot || {
+      name: `${invoice.patients.first_name} ${invoice.patients.last_name}`.trim(),
+      tax_id: invoice.patients.tax_id,
+      address: invoice.patients.address,
+      city: invoice.patients.city,
+      postal_code: invoice.patients.postal_code,
+      email: invoice.patients.email,
+    };
+    const clientLines = [
+      recipient.name || 'Cliente',
+      recipient.tax_id ? `NIF/CIF: ${recipient.tax_id}` : null,
+      recipient.address || null,
+      [recipient.postal_code, recipient.city].filter(Boolean).join(' ') || null,
+      recipient.email || null,
+    ].filter(Boolean) as string[];
 
-  const clientBoxHeight = 22 + clientLines.length * 13;
-  page.drawRectangle({ x: MARGIN, y: currentY - clientBoxHeight, width: contentRight - MARGIN, height: clientBoxHeight, color: BOX_BG, borderColor: BORDER, borderWidth: 1 });
-  page.drawText('Datos del cliente', { x: MARGIN + 10, y: currentY - 15, size: 10, font: helveticaBold, color: TEXT_DARK });
-  let clientY = currentY - 30;
-  clientLines.forEach((line, i) => {
-    page.drawText(sanitizeForPdf(line), {
-      x: MARGIN + 10, y: clientY, size: i === 0 ? 10 : 9, font: i === 0 ? helveticaBold : helvetica, color: i === 0 ? TEXT_DARK : TEXT_MUTED,
+    const clientBoxHeight = 22 + clientLines.length * 13;
+    page.drawRectangle({ x: MARGIN, y: currentY - clientBoxHeight, width: contentRight - MARGIN, height: clientBoxHeight, color: BOX_BG, borderColor: BORDER, borderWidth: 1 });
+    page.drawText('Datos del cliente', { x: MARGIN + 10, y: currentY - 15, size: 10, font: helveticaBold, color: TEXT_DARK });
+    let clientY = currentY - 30;
+    clientLines.forEach((line, i) => {
+      page.drawText(sanitizeForPdf(line), {
+        x: MARGIN + 10, y: clientY, size: i === 0 ? 10 : 9, font: i === 0 ? helveticaBold : helvetica, color: i === 0 ? TEXT_DARK : TEXT_MUTED,
+      });
+      clientY -= 13;
     });
-    clientY -= 13;
-  });
-  currentY -= clientBoxHeight + 20;
+    currentY -= clientBoxHeight + 20;
+  }
 
   // ---- Items table ----
   const col = {
