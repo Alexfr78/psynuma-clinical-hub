@@ -24,11 +24,18 @@ export async function resolveCaller(req: Request, admin: SupabaseClient): Promis
   // El claim leído aquí no está verificado: se confirma pidiendo a Auth algo
   // que solo la service role puede leer.
   if (unverifiedJwtRole(jwt) === "service_role") {
-    return (await isServiceRoleToken(jwt)) ? { kind: "service" } : null;
+    if (await hasVerifiedServiceRoleClaim(admin, jwt)) return { kind: "service" };
+    const probeStatus = await serviceRoleProbeStatus(jwt);
+    if (probeStatus === 200) return { kind: "service" };
+    console.warn("[requireCaller] service_role no verificado", { ...describeToken(jwt), probeStatus });
+    return null;
   }
 
   const { data, error } = await admin.auth.getUser(jwt);
-  if (error || !data?.user) return null;
+  if (error || !data?.user) {
+    console.warn("[requireCaller] token rechazado", { ...describeToken(jwt), error: error?.message });
+    return null;
+  }
 
   const { data: profile } = await admin
     .from("profiles")
@@ -40,32 +47,60 @@ export async function resolveCaller(req: Request, admin: SupabaseClient): Promis
   return { kind: "user", userId: data.user.id, centerId: profile.center_id as string };
 }
 
-function unverifiedJwtRole(jwt: string): string | null {
-  const payload = jwt.split(".")[1];
-  if (!payload) return null;
+function decodeJwtPart(jwt: string, index: 0 | 1): Record<string, unknown> | null {
+  const part = jwt.split(".")[index];
+  if (!part) return null;
   try {
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payload.length / 4) * 4, "="));
-    const role = (JSON.parse(json) as { role?: unknown }).role;
-    return typeof role === "string" ? role : null;
+    const json = atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="));
+    const value = JSON.parse(json);
+    return value && typeof value === "object" ? value as Record<string, unknown> : null;
   } catch {
     return null;
   }
 }
 
-// El endpoint de administración de Auth solo responde 200 a un token de service role
-// válido (firma comprobada por Auth), así que sirve de verificación.
-async function isServiceRoleToken(jwt: string): Promise<boolean> {
+function unverifiedJwtRole(jwt: string): string | null {
+  const role = decodeJwtPart(jwt, 1)?.role;
+  return typeof role === "string" ? role : null;
+}
+
+// Para el registro: forma del token, nunca su contenido secreto.
+function describeToken(jwt: string) {
+  const header = decodeJwtPart(jwt, 0);
+  return {
+    tokenFormat: jwt.startsWith("sb_") ? jwt.split("_").slice(0, 2).join("_") : header ? "jwt" : "other",
+    alg: header?.alg ?? null,
+    hasKid: !!header?.kid,
+    role: unverifiedJwtRole(jwt),
+    envKeyFormat: (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").startsWith("sb_") ? "sb_secret" : "jwt",
+  };
+}
+
+// Tokens firmados con clave asimétrica (los que emite la plataforma con las claves
+// nuevas): getClaims comprueba la firma contra el JWKS del proyecto.
+async function hasVerifiedServiceRoleClaim(admin: SupabaseClient, jwt: string): Promise<boolean> {
+  try {
+    const { data, error } = await admin.auth.getClaims(jwt);
+    return !error && (data?.claims as { role?: string } | undefined)?.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
+// Plan B: el endpoint de administración de Auth solo responde 200 a un token de
+// service role válido (firma comprobada por Auth).
+async function serviceRoleProbeStatus(jwt: string): Promise<number | null> {
   const url = Deno.env.get("SUPABASE_URL");
   const apikey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!url || !apikey) return false;
+  if (!url || !apikey) return null;
   try {
     const res = await fetch(`${url}/auth/v1/admin/users?page=1&per_page=1`, {
       headers: { Authorization: `Bearer ${jwt}`, apikey },
     });
     await res.body?.cancel();
-    return res.ok;
+    return res.status;
   } catch {
-    return false;
+    return null;
   }
 }
 

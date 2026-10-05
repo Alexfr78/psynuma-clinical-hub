@@ -296,9 +296,15 @@ serve(async (req) => {
       ? { templateName: 'aviso_psycma', bodyParams: [message] }
       : undefined;
 
+    // Si lo pide un profesional, send-notification recibe su propia sesión: así
+    // comprueba el centro con el mismo usuario en vez de depender de la service role.
+    const forwardedAuth = caller.kind === 'user' ? req.headers.get('Authorization') : null;
     const { data: sendResult, error: sendError } = await supabase.functions.invoke(
       'send-notification',
-      { body: { notificationId: notification.id, templateParams } }
+      {
+        body: { notificationId: notification.id, templateParams },
+        ...(forwardedAuth ? { headers: { Authorization: forwardedAuth } } : {}),
+      }
     );
 
     const firstResult = sendResult?.results?.[0];

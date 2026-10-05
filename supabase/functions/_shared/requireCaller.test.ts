@@ -3,9 +3,12 @@ import { canActOnCenter, resolveCaller } from './requireCaller';
 
 const SERVICE_KEY = 'service-key';
 
-function admin({ userId = null as string | null, centerId = null as string | null } = {}) {
+function admin({ userId = null as string | null, centerId = null as string | null, claimsRole = null as string | null } = {}) {
   return {
     auth: {
+      getClaims: vi.fn(async () =>
+        claimsRole ? { data: { claims: { role: claimsRole } }, error: null } : { data: null, error: new Error('no verificable') },
+      ),
       getUser: vi.fn(async () =>
         userId ? { data: { user: { id: userId } }, error: null } : { data: { user: null }, error: new Error('bad jwt') },
       ),
@@ -47,6 +50,13 @@ describe('resolveCaller', () => {
 
   it('rechaza un JWT inválido (p. ej. la anon key)', async () => {
     expect(await resolveCaller(request('anon'), admin())).toBeNull();
+  });
+
+  it('acepta un JWT service_role con firma verificable sin consultar Auth', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await resolveCaller(request(fakeJwt({ role: 'service_role' })), admin({ claimsRole: 'service_role' }))).toEqual({ kind: 'service' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('acepta un JWT service_role del formato nuevo si Auth lo valida', async () => {
