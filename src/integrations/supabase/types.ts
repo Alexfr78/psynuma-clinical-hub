@@ -7112,6 +7112,76 @@ export type Database = {
           },
         ]
       }
+      session_member_confirmations: {
+        Row: {
+          center_id: string
+          confirmed_at: string
+          id: string
+          patient_id: string
+          session_id: string
+          via: string
+        }
+        Insert: {
+          center_id: string
+          confirmed_at?: string
+          id?: string
+          patient_id: string
+          session_id: string
+          via: string
+        }
+        Update: {
+          center_id?: string
+          confirmed_at?: string
+          id?: string
+          patient_id?: string
+          session_id?: string
+          via?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_member_confirmations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_member_confirmations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "centers_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_member_confirmations_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "portal_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_member_confirmations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_member_confirmations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_member_confirmations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_participants: {
         Row: {
           center_id: string
@@ -7169,48 +7239,6 @@ export type Database = {
           },
           {
             foreignKeyName: "session_participants_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      session_member_confirmations: {
-        Row: {
-          center_id: string
-          confirmed_at: string
-          id: string
-          patient_id: string
-          session_id: string
-          via: string
-        }
-        Insert: {
-          center_id: string
-          confirmed_at?: string
-          id?: string
-          patient_id: string
-          session_id: string
-          via: string
-        }
-        Update: {
-          center_id?: string
-          confirmed_at?: string
-          id?: string
-          patient_id?: string
-          session_id?: string
-          via?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "session_member_confirmations_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "session_member_confirmations_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
@@ -9336,6 +9364,10 @@ export type Database = {
             }
             Returns: string
           }
+      couple_payer_swap_blocker: {
+        Args: { p_session_id: string }
+        Returns: string
+      }
       create_bono_with_debt: {
         Args: {
           p_center_id?: string
@@ -9619,10 +9651,6 @@ export type Database = {
         }[]
       }
       get_session_token: { Args: never; Returns: string }
-      swap_couple_session_payer: {
-        Args: { p_scope?: string; p_session_id: string }
-        Returns: Json
-      }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
       handle_google_webhook_debounce: {
         Args: {
@@ -9789,6 +9817,10 @@ export type Database = {
         Args: { p_center_id: string; p_ordered_ids: string[] }
         Returns: Json
       }
+      reprice_future_sessions: {
+        Args: { p_apply?: boolean; p_patient_id: string }
+        Returns: Json
+      }
       resolve_applicable_price: {
         Args: {
           p_patient_id: string
@@ -9878,6 +9910,10 @@ export type Database = {
         }
       }
       set_patient_discharged: { Args: { p_patient_id: string }; Returns: Json }
+      swap_couple_session_payer: {
+        Args: { p_scope?: string; p_session_id: string }
+        Returns: Json
+      }
       try_acquire_google_sync_lock: {
         Args: {
           p_lease_seconds?: number
