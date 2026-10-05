@@ -46,15 +46,22 @@ function reloadedRecently(): boolean {
 }
 
 /**
- * Quita el service worker antes de recargar. Si sigue controlando la pestaña, la recarga
- * recibe el `index.html` viejo de su precaché, que vuelve a pedir el chunk que ya no
- * existe, y la recarga no arregla nada. Se vuelve a registrar solo al cargar la página.
+ * Quita el service worker y vacía su precaché antes de recargar. Si siguiera controlando la
+ * pestaña, la recarga recibiría el `index.html` viejo de su precaché, que vuelve a pedir el
+ * chunk que ya no existe, y la recarga no arreglaría nada. Vaciar el precaché cubre el caso
+ * en que el service worker aún atiende esa navegación: sin entradas, va a la red. Se vuelve
+ * a registrar y a llenar solo al cargar la página.
  */
 async function unregisterServiceWorkers(): Promise<void> {
-  if (!('serviceWorker' in navigator)) return;
   try {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((r) => r.unregister().catch(() => false)));
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister().catch(() => false)));
+    }
+    if ('caches' in window) {
+      const names = await caches.keys();
+      await Promise.all(names.filter((n) => n.startsWith('workbox-precache')).map((n) => caches.delete(n)));
+    }
   } catch {
     // Si falla, se recarga igual.
   }
