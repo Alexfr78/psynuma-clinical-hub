@@ -46,17 +46,33 @@ function reloadedRecently(): boolean {
 }
 
 /**
- * Recarga la página para traer la versión nueva, salvo que haya una grabación en curso o
- * se haya recargado hace muy poco. Devuelve si va a recargar.
+ * Quita el service worker antes de recargar. Si sigue controlando la pestaña, la recarga
+ * recibe el `index.html` viejo de su precaché, que vuelve a pedir el chunk que ya no
+ * existe, y la recarga no arregla nada. Se vuelve a registrar solo al cargar la página.
  */
-export function reloadForNewVersion(): boolean {
-  if (isPwaReloadBlocked() || reloadedRecently()) return false;
+async function unregisterServiceWorkers(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((r) => r.unregister().catch(() => false)));
+  } catch {
+    // Si falla, se recarga igual.
+  }
+}
+
+/**
+ * Recarga la página para traer la versión nueva, salvo que haya una grabación en curso o
+ * se haya recargado hace muy poco (`force` se salta esto último: lo pide el usuario).
+ * Devuelve si va a recargar.
+ */
+export function reloadForNewVersion({ force = false }: { force?: boolean } = {}): boolean {
+  if (isPwaReloadBlocked() || (!force && reloadedRecently())) return false;
   try {
     sessionStorage.setItem(RELOAD_AT_KEY, String(Date.now()));
   } catch {
-    return false;
+    if (!force) return false;
   }
-  window.location.reload();
+  void unregisterServiceWorkers().finally(() => window.location.reload());
   return true;
 }
 

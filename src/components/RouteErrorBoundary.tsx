@@ -2,7 +2,7 @@ import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { isChunkLoadError } from '@/lib/lazy-page';
+import { isChunkLoadError, reloadForNewVersion } from '@/lib/lazy-page';
 
 export function PageLoader({ fullScreen = false }: { fullScreen?: boolean }) {
   return (
@@ -32,9 +32,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
     if (!error) return this.props.children;
 
     // `React.lazy` guarda el fallo de descarga: volver a montar no reintenta nada, así que
-    // con un chunk que no carga la única salida real es recargar.
+    // con un chunk que no carga la única salida real es recargar, quitando antes el service
+    // worker para que la página nueva venga del servidor y no de su caché.
     const chunkError = isChunkLoadError(error);
-    const retry = chunkError ? () => window.location.reload() : () => this.setState({ error: null });
+    const reload = () => {
+      if (!reloadForNewVersion({ force: true })) window.location.reload();
+    };
+    const retry = chunkError ? reload : () => this.setState({ error: null });
 
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
@@ -53,7 +57,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
           <Button variant="outline" onClick={retry}>
             Reintentar
           </Button>
-          <Button onClick={() => window.location.reload()}>Recargar página</Button>
+          <Button onClick={chunkError ? reload : () => window.location.reload()}>Recargar página</Button>
         </div>
       </div>
     );
