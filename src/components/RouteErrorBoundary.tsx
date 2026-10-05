@@ -2,6 +2,7 @@ import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { isChunkLoadError } from '@/lib/lazy-page';
 
 export function PageLoader({ fullScreen = false }: { fullScreen?: boolean }) {
   return (
@@ -27,7 +28,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
   }
 
   render() {
-    if (!this.state.error) return this.props.children;
+    const { error } = this.state;
+    if (!error) return this.props.children;
+
+    // `React.lazy` guarda el fallo de descarga: volver a montar no reintenta nada, así que
+    // con un chunk que no carga la única salida real es recargar.
+    const chunkError = isChunkLoadError(error);
+    const retry = chunkError ? () => window.location.reload() : () => this.setState({ error: null });
 
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
@@ -38,9 +45,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, BoundaryState> {
             Puede deberse a una versión nueva de la aplicación. Si estás grabando una sesión,
             la grabación sigue en marcha.
           </p>
+          <p className="mx-auto mt-3 max-w-xl break-words font-mono text-xs text-muted-foreground/70">
+            {chunkError ? 'No se pudo descargar la página' : 'Error'}: {error.message || String(error)}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => this.setState({ error: null })}>
+          <Button variant="outline" onClick={retry}>
             Reintentar
           </Button>
           <Button onClick={() => window.location.reload()}>Recargar página</Button>
