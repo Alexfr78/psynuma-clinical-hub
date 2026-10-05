@@ -5890,6 +5890,39 @@ export type Database = {
           },
         ]
       }
+      pending_signups: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          token_hash: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          token_hash: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          token_hash?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       plaud_oauth_states: {
         Row: {
           center_id: string
@@ -9254,6 +9287,7 @@ export type Database = {
         Args: { p_invoice_id: string; p_operation: string }
         Returns: undefined
       }
+      auth_email_exists: { Args: { p_email: string }; Returns: boolean }
       auto_apply_bono_to_pending_sessions: {
         Args: { p_bono_id: string }
         Returns: Json
@@ -9436,6 +9470,16 @@ export type Database = {
         Args: { p_payment_id: string }
         Returns: string
       }
+      find_patient_centers_by_email: {
+        Args: { p_email: string }
+        Returns: {
+          center_id: string
+          center_name: string
+          patient_first_name: string
+          portal_enabled: boolean
+          portal_slug: string
+        }[]
+      }
       find_portal_patient_by_identifier: {
         Args: { p_center_id: string; p_channel: string; p_identifier: string }
         Returns: {
@@ -9569,6 +9613,7 @@ export type Database = {
           reschedule_slot_duration: number
         }[]
       }
+      get_portal_slug_for_session_token: { Args: never; Returns: string }
       get_professional_for_session_token: {
         Args: { p_session_id: string }
         Returns: Json
