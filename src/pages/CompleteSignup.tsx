@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCompleteProfessionalSignup, usePendingSignup } from '@/hooks/useAccountAccess';
 
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 72;
 
 export default function CompleteSignup() {
   const { token } = useParams<{ token: string }>();
@@ -23,8 +24,8 @@ export default function CompleteSignup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setFormError(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+    if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+      setFormError(`La contraseña debe tener entre ${MIN_PASSWORD_LENGTH} y ${MAX_PASSWORD_LENGTH} caracteres.`);
       return;
     }
     if (password !== confirm) {

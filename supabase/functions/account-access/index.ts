@@ -8,19 +8,25 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { checkIpRateLimit, getClientIp } from "../_shared/rateLimiter.ts";
-import { isValidEmail, isValidName } from "../_shared/validation.ts";
+import { isValidEmail } from "../_shared/validation.ts";
 
 const SIGNUP_EXPIRY_MS = 24 * 60 * 60 * 1000;
-const MIN_RESPONSE_MS = 900;
+const NEUTRAL_RESPONSE_MS = 700;
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 72;
+// Como mucho 3 emails de este flujo por dirección y hora, pase lo que pase con la IP.
+const MAX_EMAILS_PER_ADDRESS = 3;
+const EMAIL_WINDOW_MINUTES = 60;
+const NAME_PATTERN = /^[\p{L}][\p{L} '.-]{0,49}$/u;
 
 interface PatientCenter {
   center_id: string;
   center_name: string;
   portal_slug: string | null;
   portal_enabled: boolean;
-  patient_first_name: string | null;
 }
+
+class LookupError extends Error {}
 
 function json(body: unknown, status: number, cors: Record<string, string>) {
   return new Response(JSON.stringify(body), {
@@ -50,11 +56,32 @@ function randomToken(): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function waitMinimum(startedAt: number) {
+// "register" y "patient-access" responden tras un tiempo fijo con algo de ruido,
+// sin esperar a las consultas ni al email, que van en segundo plano.
+async function neutralDelay(startedAt: number) {
+  const target = NEUTRAL_RESPONSE_MS + Math.floor(Math.random() * 300);
   const elapsed = Date.now() - startedAt;
-  if (elapsed < MIN_RESPONSE_MS) {
-    await new Promise((resolve) => setTimeout(resolve, MIN_RESPONSE_MS - elapsed));
-  }
+  if (elapsed < target) await new Promise((resolve) => setTimeout(resolve, target - elapsed));
+}
+
+function runInBackground(task: Promise<unknown>) {
+  const guarded = task.catch((error) =>
+    console.error("[account-access] Background task failed", error instanceof Error ? error.message : "unknown")
+  );
+  const edgeRuntime = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } })
+    .EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(guarded);
+}
+
+async function emailQuotaAvailable(supabase: SupabaseClient, email: string): Promise<boolean> {
+  const rate = await checkIpRateLimit(
+    supabase,
+    `email:${await sha256Hex(email)}`,
+    "account-access-mail",
+    MAX_EMAILS_PER_ADDRESS,
+    EMAIL_WINDOW_MINUTES,
+  );
+  return rate.allowed;
 }
 
 function layout(title: string, body: string): string {
@@ -99,15 +126,13 @@ async function findPatientCenters(supabase: SupabaseClient, email: string): Prom
   const { data, error } = await supabase.rpc("find_patient_centers_by_email", { p_email: email });
   if (error) {
     console.error("[account-access] Patient lookup failed", error.message);
-    return [];
+    throw new LookupError("patient lookup failed");
   }
   return (data || []) as PatientCenter[];
 }
 
 async function sendPatientAccessEmail(email: string, centers: PatientCenter[]) {
   const base = appBaseUrl();
-  const firstName = centers.find((c) => c.patient_first_name)?.patient_first_name;
-  const greeting = firstName ? `Hola ${escapeHtml(firstName)},` : "Hola,";
   const blocks = centers.map((center) => {
     const name = escapeHtml(center.center_name);
     if (center.portal_enabled && center.portal_slug) {
@@ -123,32 +148,40 @@ async function sendPatientAccessEmail(email: string, centers: PatientCenter[]) {
     "Acceso a tu área de paciente",
     layout(
       "Tu acceso como paciente",
-      `<p>${greeting}</p>
+      `<p>Hola,</p>
        <p>Hemos recibido una solicitud de acceso con este email. Las cuentas de Psycma con contraseña son para profesionales; como paciente no necesitas crear ninguna.</p>
        ${blocks}`,
     ),
   );
 }
 
-async function handleRegister(supabase: SupabaseClient, params: Record<string, unknown>) {
+type HandlerResult = { status: number; body: Record<string, unknown> };
+const NEUTRAL_OK: HandlerResult = { status: 200, body: { success: true } };
+
+// Solo valida el formato (no depende de quién es el email) y deja el resto en
+// segundo plano. La respuesta es la misma en todos los casos.
+function handleRegister(supabase: SupabaseClient, params: Record<string, unknown>): HandlerResult {
   const email = String(params.email ?? "").trim().toLowerCase();
   const firstName = String(params.firstName ?? "").trim();
   const lastName = String(params.lastName ?? "").trim();
-  if (!isValidEmail(email) || !isValidName(firstName) || !isValidName(lastName)) {
+  if (!isValidEmail(email) || !NAME_PATTERN.test(firstName) || !NAME_PATTERN.test(lastName)) {
     return { status: 400, body: { error: "Revisa el nombre, los apellidos y el email." } };
   }
+  runInBackground(processRegister(supabase, email, firstName, lastName));
+  return NEUTRAL_OK;
+}
+
+async function processRegister(supabase: SupabaseClient, email: string, firstName: string, lastName: string) {
+  if (!(await emailQuotaAvailable(supabase, email))) return;
 
   const patientCenters = await findPatientCenters(supabase, email);
   if (patientCenters.length > 0) {
     await sendPatientAccessEmail(email, patientCenters);
-    return { status: 200, body: { success: true } };
+    return;
   }
 
   const { data: exists, error: existsError } = await supabase.rpc("auth_email_exists", { p_email: email });
-  if (existsError) {
-    console.error("[account-access] Account lookup failed", existsError.message);
-    return { status: 200, body: { success: true } };
-  }
+  if (existsError) throw new LookupError(`account lookup failed: ${existsError.message}`);
   if (exists) {
     await sendEmail(
       email,
@@ -160,8 +193,12 @@ async function handleRegister(supabase: SupabaseClient, params: Record<string, u
          ${button(`${appBaseUrl()}/auth`, "Iniciar sesión")}`,
       ),
     );
-    return { status: 200, body: { success: true } };
+    return;
   }
+
+  // Un enlace nuevo anula los anteriores para el mismo email.
+  const now = new Date().toISOString();
+  await supabase.from("pending_signups").update({ used_at: now }).eq("email", email).is("used_at", null);
 
   const token = randomToken();
   const { error: insertError } = await supabase.from("pending_signups").insert({
@@ -171,32 +208,30 @@ async function handleRegister(supabase: SupabaseClient, params: Record<string, u
     token_hash: await sha256Hex(token),
     expires_at: new Date(Date.now() + SIGNUP_EXPIRY_MS).toISOString(),
   });
-  if (insertError) {
-    console.error("[account-access] Could not store pending signup", insertError.message);
-    return { status: 200, body: { success: true } };
-  }
+  if (insertError) throw new Error(`could not store pending signup: ${insertError.message}`);
 
   await sendEmail(
     email,
     "Completa tu alta en Psycma",
     layout(
       "Completa tu alta",
-      `<p>Hola ${escapeHtml(firstName)},</p>
-       <p>Para terminar de crear tu cuenta de profesional en Psycma, elige tu contraseña desde este enlace. Caduca en 24 horas.</p>
+      `<p>Para terminar de crear tu cuenta de profesional en Psycma, elige tu contraseña desde este enlace. Caduca en 24 horas.</p>
        ${button(`${appBaseUrl()}/auth/completar/${token}`, "Crear mi contraseña")}`,
     ),
   );
-  return { status: 200, body: { success: true } };
 }
 
-async function handlePatientAccess(supabase: SupabaseClient, params: Record<string, unknown>) {
+function handlePatientAccess(supabase: SupabaseClient, params: Record<string, unknown>): HandlerResult {
   const email = String(params.email ?? "").trim().toLowerCase();
   if (!isValidEmail(email)) {
     return { status: 400, body: { error: "Introduce un email válido." } };
   }
-  const centers = await findPatientCenters(supabase, email);
-  if (centers.length > 0) await sendPatientAccessEmail(email, centers);
-  return { status: 200, body: { success: true } };
+  runInBackground((async () => {
+    if (!(await emailQuotaAvailable(supabase, email))) return;
+    const centers = await findPatientCenters(supabase, email);
+    if (centers.length > 0) await sendPatientAccessEmail(email, centers);
+  })());
+  return NEUTRAL_OK;
 }
 
 async function loadPendingSignup(supabase: SupabaseClient, token: unknown) {
@@ -221,15 +256,25 @@ async function handlePeek(supabase: SupabaseClient, params: Record<string, unkno
 
 async function handleComplete(supabase: SupabaseClient, params: Record<string, unknown>) {
   const password = typeof params.password === "string" ? params.password : "";
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return { status: 400, body: { error: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.` } };
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    return {
+      status: 400,
+      body: { error: `La contraseña debe tener entre ${MIN_PASSWORD_LENGTH} y ${MAX_PASSWORD_LENGTH} caracteres.` },
+    };
   }
 
   const pending = await loadPendingSignup(supabase, params.token);
   if (!pending) return { status: 404, body: { error: "El enlace no es válido o ha caducado." } };
 
-  // Pudo darse de alta como paciente o crear la cuenta por otra vía mientras tanto.
-  if ((await findPatientCenters(supabase, pending.email)).length > 0) {
+  // Pudo darse de alta como paciente mientras tanto. Si la consulta falla, no se
+  // crea la cuenta (mejor reintentar que dar cuenta de profesional a un paciente).
+  let patientCenters: PatientCenter[];
+  try {
+    patientCenters = await findPatientCenters(supabase, pending.email);
+  } catch {
+    return { status: 503, body: { error: "No se pudo completar el alta ahora mismo. Inténtalo en unos minutos." } };
+  }
+  if (patientCenters.length > 0) {
     await supabase.from("pending_signups").update({ used_at: new Date().toISOString() }).eq("id", pending.id);
     return { status: 409, body: { error: "Este email está registrado como paciente. Revisa tu correo para entrar en tu área de paciente." } };
   }
@@ -300,18 +345,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    const result = action === "register"
-      ? await handleRegister(supabase, params)
-      : action === "patient-access"
-      ? await handlePatientAccess(supabase, params)
-      : action === "peek"
+    if (action === "register" || action === "patient-access") {
+      const result = action === "register"
+        ? handleRegister(supabase, params)
+        : handlePatientAccess(supabase, params);
+      await neutralDelay(startedAt);
+      return json(result.body, result.status, cors);
+    }
+
+    const result = action === "peek"
       ? await handlePeek(supabase, params)
       : await handleComplete(supabase, params);
-
-    if (action === "register" || action === "patient-access") await waitMinimum(startedAt);
     return json(result.body, result.status, cors);
   } catch (error) {
     console.error("[account-access] Unexpected error", error instanceof Error ? error.message : "unknown");
+    await neutralDelay(startedAt);
     return json({ error: "No se pudo completar la solicitud." }, 500, cors);
   }
 });

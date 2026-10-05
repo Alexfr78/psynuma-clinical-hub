@@ -30,7 +30,6 @@ interface AuthContextType {
   hasCenter: boolean;
   needsMfaVerification: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; needsMfa: boolean }>;
-  signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   verifyMfa: (code: string) => Promise<{ error: Error | null }>;
@@ -218,23 +217,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, firstName?: string, lastName?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-        },
-      },
-    });
-    return { error };
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     syncCacheOwner(null);
@@ -265,7 +247,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasCenter,
         needsMfaVerification,
         signIn,
-        signUp,
         signOut,
         refreshProfile,
         verifyMfa,
