@@ -215,6 +215,7 @@ export class WebRecorderController {
       void this.acquireWakeLock();
     } catch (error) {
       this.releaseMedia();
+      this.releasePwaReload();
       this.releaseLock?.(); this.releaseLock = undefined;
       this.set({ phase: this.record ? 'error' : 'idle', canDiscard: !!this.record && !this.record.jobId, error: this.errorMessage(error) });
       throw error;
@@ -304,7 +305,7 @@ export class WebRecorderController {
     // Start in a microtask so synchronous stop/error events see the in-flight guard.
     this.finishing = Promise.resolve().then(() => this.finishInternal()).catch((error) => {
       this.set({ phase: 'error', canDiscard: !!this.record && !this.record.jobId, error: this.errorMessage(error) });
-    }).finally(() => { this.finishing = undefined; });
+    }).finally(() => { this.finishing = undefined; this.releasePwaReload(); });
     return this.finishing;
   }
   private async finishInternal() {
@@ -479,10 +480,14 @@ export class WebRecorderController {
     }
   }
 
-  private releaseMedia() {
-    clearInterval(this.timer);
+  // Se libera al terminar la subida, no al parar el micrófono: una actualización aplazada
+  // durante la grabación recargaría la página en plena subida de los últimos trozos.
+  private releasePwaReload() {
     this.allowPwaReload?.();
     this.allowPwaReload = undefined;
+  }
+  private releaseMedia() {
+    clearInterval(this.timer);
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = undefined;
     void this.audioContext?.close().catch(() => {});
@@ -497,6 +502,7 @@ export class WebRecorderController {
     this.queue?.stop();
     if (this.active()) this.recorder!.stop(); // ondataavailable still durably saves the final chunk.
     this.releaseMedia();
+    this.releasePwaReload();
     clearTimeout(this.pollTimer);
     this.resolvePoll?.();
     clearInterval(this.reportTimer);
