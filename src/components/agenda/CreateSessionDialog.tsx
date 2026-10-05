@@ -166,11 +166,12 @@ export function CreateSessionDialog({
   const watchSessionTypeId = form.watch('session_type_id');
   const watchSessionDate = form.watch('session_date');
 
-  // Resolver precio automáticamente cuando cambia paciente + tipo de sesión
+  // Resolver precio con la fecha de la cita: las tarifas tienen vigencia
   const { data: resolvedPrice } = useResolvedPrice(
     watchPatientId || undefined,
     'session_type',
     watchSessionTypeId || undefined,
+    watchSessionDate ? format(watchSessionDate, 'yyyy-MM-dd') : undefined,
   );
   const { data: patientBonos, refetch: refetchBonos } = usePatientActiveBonos(watchPatientId || undefined);
 

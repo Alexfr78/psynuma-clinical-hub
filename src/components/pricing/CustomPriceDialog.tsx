@@ -75,6 +75,8 @@ interface CustomPriceDialogProps {
   /** Pre-selecciona el tipo al abrir (útil desde ficha de servicio/bono) */
   defaultTargetType?: CustomPriceTargetType;
   defaultTargetId?: string;
+  /** Se llama tras guardar con éxito */
+  onSaved?: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -86,6 +88,7 @@ export function CustomPriceDialog({
   existingPrice,
   defaultTargetType,
   defaultTargetId,
+  onSaved,
 }: CustomPriceDialogProps) {
   const { data: sessionTypes } = useSessionTypes();
   const { data: bonoTemplates } = useBonoTemplates();
@@ -178,6 +181,7 @@ export function CustomPriceDialog({
     }
     onOpenChange(false);
     form.reset();
+    onSaved?.();
   };
 
   const isPending = createPrice.isPending || updatePrice.isPending;

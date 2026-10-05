@@ -574,7 +574,7 @@ export function QuickCreateSessionDialog({
         ).length;
         const omittedCount = originalTotal - occurrences.length;
 
-        await createRecurringSeries.mutateAsync({
+        const recurringResult = await createRecurringSeries.mutateAsync({
           seriesData: {
             patient_id: roles.titularId,
             professional_id: values.professional_id,
@@ -594,6 +594,13 @@ export function QuickCreateSessionDialog({
           occurrences,
           sessionTypeId: values.session_type,
         });
+
+        if (recurringResult.bonoApplication && recurringResult.bonoApplication.notApplied > 0) {
+          toast({
+            title: 'Serie creada con bono parcial',
+            description: `${recurringResult.bonoApplication.applied} cita${recurringResult.bonoApplication.applied !== 1 ? 's' : ''} descontada${recurringResult.bonoApplication.applied !== 1 ? 's' : ''} del bono. ${recurringResult.bonoApplication.notApplied} quedan sin bono.`,
+          });
+        }
 
         if (omittedCount > 0) {
           toast({

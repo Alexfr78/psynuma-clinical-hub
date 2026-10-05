@@ -72,10 +72,12 @@ function AssignDialog({
   open,
   onOpenChange,
   patientId,
+  onAssigned,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   patientId: string;
+  onAssigned?: () => void;
 }) {
   const { data: plans } = useTariffPlans();
   const assign = useAssignTariffPlan();
@@ -95,6 +97,7 @@ function AssignDialog({
     });
     onOpenChange(false);
     form.reset();
+    onAssigned?.();
   };
 
   const activePlans = (plans ?? []).filter(p => p.is_active);
@@ -242,9 +245,11 @@ function AssignDialog({
 
 interface PatientTariffAssignmentProps {
   patientId: string;
+  /** Se llama tras asignar o retirar la tarifa */
+  onChanged?: () => void;
 }
 
-export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentProps) {
+export function PatientTariffAssignment({ patientId, onChanged }: PatientTariffAssignmentProps) {
   const { isAdmin, isProfessional } = useAuth();
   const canManage = isAdmin || isProfessional;
 
@@ -371,7 +376,7 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
       )}
 
       {/* Dialogs */}
-      <AssignDialog open={assignOpen} onOpenChange={setAssignOpen} patientId={patientId} />
+      <AssignDialog open={assignOpen} onOpenChange={setAssignOpen} patientId={patientId} onAssigned={onChanged} />
 
       <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
         <AlertDialogContent>
@@ -386,7 +391,7 @@ export function PatientTariffAssignment({ patientId }: PatientTariffAssignmentPr
             <AlertDialogAction
               onClick={() => {
                 if (assignment) {
-                  remove.mutate({ id: assignment.id, patientId });
+                  remove.mutate({ id: assignment.id, patientId }, { onSuccess: () => onChanged?.() });
                   setConfirmRemove(false);
                 }
               }}

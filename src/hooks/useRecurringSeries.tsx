@@ -30,6 +30,101 @@ interface CancelRecurringSessionParams {
   occurrenceIndex: number;
 }
 
+interface CreatedRecurringSession {
+  id: string;
+  session_date: string;
+  start_time: string;
+}
+
+interface RecurringBonoApplicationResult {
+  requested: number;
+  applied: number;
+  notApplied: number;
+  failed: number;
+  exhausted: boolean;
+  errors: string[];
+}
+
+const EXHAUSTED_BONO_MESSAGES = [
+  'Bono sin sesiones disponibles',
+  'Bono no está activo',
+  'Bono no esta activo',
+];
+
+async function applyBonoToCreatedSessions(
+  bonoId: string | null | undefined,
+  sessions: CreatedRecurringSession[]
+): Promise<RecurringBonoApplicationResult | null> {
+  if (!bonoId || sessions.length === 0) return null;
+
+  const orderedSessions = [...sessions].sort((a, b) => {
+    const aDate = `${a.session_date}T${a.start_time}`;
+    const bDate = `${b.session_date}T${b.start_time}`;
+    return aDate.localeCompare(bDate);
+  });
+
+  const result: RecurringBonoApplicationResult = {
+    requested: orderedSessions.length,
+    applied: 0,
+    notApplied: 0,
+    failed: 0,
+    exhausted: false,
+    errors: [],
+  };
+
+  const { data: bono, error: bonoError } = await supabase
+    .from('bonos')
+    .select('total_sessions, used_sessions, status')
+    .eq('id', bonoId)
+    .single();
+
+  if (bonoError || !bono) {
+    result.notApplied = orderedSessions.length;
+    result.failed = orderedSessions.length;
+    result.errors.push(bonoError?.message || 'Bono no encontrado');
+    return result;
+  }
+
+  let remaining = bono.status === 'active'
+    ? Math.max((bono.total_sessions || 0) - (bono.used_sessions || 0), 0)
+    : 0;
+
+  if (remaining <= 0) {
+    result.notApplied = orderedSessions.length;
+    result.exhausted = true;
+    return result;
+  }
+
+  for (const session of orderedSessions) {
+    if (remaining <= 0) {
+      result.exhausted = true;
+      break;
+    }
+
+    const { error } = await supabase.rpc('apply_bono_to_session', {
+      p_bono_id: bonoId,
+      p_session_id: session.id,
+    });
+
+    if (!error) {
+      result.applied += 1;
+      remaining -= 1;
+      continue;
+    }
+
+    if (EXHAUSTED_BONO_MESSAGES.some((message) => error.message.includes(message))) {
+      result.exhausted = true;
+      break;
+    }
+
+    result.failed += 1;
+    result.errors.push(error.message);
+  }
+
+  result.notApplied = orderedSessions.length - result.applied;
+  return result;
+}
+
 export function useRecurringSeries(seriesId?: string) {
   const { center } = useCenter();
 
@@ -95,29 +190,42 @@ export function useCreateRecurringSeries() {
         session_modality: seriesData.session_modality,
         location_id: seriesData.location_id,
         notes: seriesData.notes_default,
-        bono_id: seriesData.bono_id,
+        // Sin bono_id: lo pone apply_bono_to_session solo en las que quepan
         status: 'scheduled' as const,
         recurring_series_id: series.id,
         occurrence_index: index + 1,
         is_exception: false,
       }));
 
+      let createdSessions: CreatedRecurringSession[] = [];
+
       if (sessionsToCreate.length > 0) {
-        const { error: sessionsError } = await supabase
+        const { data, error: sessionsError } = await supabase
           .from('sessions')
-          .insert(sessionsToCreate);
+          .insert(sessionsToCreate)
+          .select('id, session_date, start_time');
 
         if (sessionsError) throw sessionsError;
+        createdSessions = data || [];
       }
+
+      const bonoApplication = await applyBonoToCreatedSessions(seriesData.bono_id, createdSessions);
 
       return {
         seriesId: series.id,
         createdCount: sessionsToCreate.length,
+        bonoApplication,
       };
     },
-    onSuccess: ({ createdCount }) => {
+    onSuccess: ({ createdCount, bonoApplication }) => {
       queryClient.invalidateQueries({ queryKey: qk.sessions.all });
       queryClient.invalidateQueries({ queryKey: qk.recurringSeries.all });
+      if (bonoApplication) {
+        queryClient.invalidateQueries({ queryKey: qk.bonos.all });
+        queryClient.invalidateQueries({ queryKey: qk.bonoSessions.all });
+        queryClient.invalidateQueries({ queryKey: qk.debts.all });
+        queryClient.invalidateQueries({ queryKey: qk.patientActiveBonos.all });
+      }
       toast.success(`Se han creado ${createdCount} citas recurrentes`);
     },
     onError: (error) => {
@@ -460,7 +568,7 @@ export function useEnsureOccurrences() {
         // Get last occurrence index
         const { data: lastSession } = await supabase
           .from('sessions')
-          .select('occurrence_index')
+          .select('occurrence_index, session_type_id')
           .eq('recurring_series_id', series.id)
           .order('occurrence_index', { ascending: false })
           .limit(1)
@@ -477,23 +585,26 @@ export function useEnsureOccurrences() {
           start_time: format(date, 'HH:mm:ss'),
           end_time: format(new Date(date.getTime() + series.duration_minutes * 60000), 'HH:mm:ss'),
           session_type: series.session_type,
+          session_type_id: lastSession?.session_type_id ?? null,
           price: series.price,
           session_modality: series.session_modality,
           location_id: series.location_id,
           notes: series.notes_default,
-          bono_id: series.bono_id,
           status: 'scheduled' as const,
           recurring_series_id: series.id,
           occurrence_index: lastIndex + idx + 1,
           is_exception: false,
         }));
 
-        const { error: insertError } = await supabase
+        const { data: createdSessions, error: insertError } = await supabase
           .from('sessions')
-          .insert(sessionsToCreate);
+          .insert(sessionsToCreate)
+          .select('id, session_date, start_time');
 
         if (!insertError) {
           totalGenerated += sessionsToCreate.length;
+
+          await applyBonoToCreatedSessions(series.bono_id, createdSessions || []);
 
           // Update last_generated_until
           await supabase

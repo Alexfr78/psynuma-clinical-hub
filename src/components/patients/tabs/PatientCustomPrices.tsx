@@ -45,6 +45,7 @@ import {
 import { CustomPriceDialog } from '@/components/pricing/CustomPriceDialog';
 import { PriceBadge } from '@/components/pricing/PriceBadge';
 import { PatientTariffAssignment } from '@/components/patients/PatientTariffAssignment';
+import { RepriceFutureSessionsDialog } from '@/components/pricing/RepriceFutureSessionsDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { Icon } from '@/components/ui/icon';
 
@@ -151,6 +152,9 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [showOnlyActive, setShowOnlyActive] = useState(true);
+  // Cada cambio de tarifa revisa si hay citas futuras con el precio antiguo
+  const [repriceCheck, setRepriceCheck] = useState(0);
+  const requestRepriceCheck = () => setRepriceCheck(n => n + 1);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -184,12 +188,13 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
     if (!deactivatingId) return;
     await deactivate.mutateAsync({ id: deactivatingId, patientId });
     setDeactivatingId(null);
+    requestRepriceCheck();
   };
 
   return (
     <div className="space-y-6">
       {/* Bloque de tarifa asignada */}
-      <PatientTariffAssignment patientId={patientId} />
+      <PatientTariffAssignment patientId={patientId} onChanged={requestRepriceCheck} />
 
       {/* Header excepciones manuales */}
       <div className="flex items-center justify-between">
@@ -442,7 +447,10 @@ export function PatientCustomPrices({ patientId }: PatientCustomPricesProps) {
         }}
         patientId={patientId}
         existingPrice={editingPrice}
+        onSaved={requestRepriceCheck}
       />
+
+      <RepriceFutureSessionsDialog patientId={patientId} checkKey={repriceCheck} />
 
       {/* Confirmación desactivar */}
       <AlertDialog open={!!deactivatingId} onOpenChange={() => setDeactivatingId(null)}>
