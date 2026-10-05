@@ -116,6 +116,23 @@ export function usePublicSession(token: string | undefined) {
   });
 }
 
+/** Slug del portal del centro de la cita, o null si el centro no tiene el portal activo. */
+export function usePublicSessionPortalSlug(token: string | undefined) {
+  return useQuery({
+    queryKey: qk.publicSession.portalSlug(token),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc('get_portal_slug_for_session_token' as never)
+        .setHeader('x-session-token', token!);
+      if (error) return null;
+      return (data as unknown as string | null) ?? null;
+    },
+    enabled: !!token,
+    retry: false,
+    staleTime: Infinity,
+  });
+}
+
 export interface PublicBonoTemplate {
   id: string;
   name: string;

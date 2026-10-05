@@ -15,6 +15,7 @@ import { lazyPage } from "@/lib/lazy-page";
 // Una página = un chunk. Las rutas públicas del paciente ya no descargan la app entera.
 const Auth = lazyPage(() => import("./pages/Auth"));
 const ResetPassword = lazyPage(() => import("./pages/ResetPassword"));
+const CompleteSignup = lazyPage(() => import("./pages/CompleteSignup"));
 const Dashboard = lazyPage(() => import("./pages/Dashboard"));
 const Patients = lazyPage(() => import("./pages/Patients"));
 const PatientDetail = lazyPage(() => import("./pages/PatientDetail"));
@@ -79,6 +80,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<PublicLanding />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/completar/:token" element={<CompleteSignup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Public Routes (No Auth Required) */}

@@ -71,6 +71,8 @@ const corsHeaders = {
 interface CenterConfig {
   id: string;
   name: string;
+  portal_enabled: boolean | null;
+  portal_slug: string | null;
   logo_url: string | null;
   invoice_logo_url: string | null;
   address: string | null;
@@ -363,6 +365,9 @@ function buildReminderMessage(
   const sessionLink = sessionLinkOverride || (session.access_token
     ? `${baseUrl}/cita/${session.access_token}`
     : '');
+  const portalLink = center.portal_enabled && center.portal_slug
+    ? `${baseUrl}/portal/${encodeURIComponent(center.portal_slug)}`
+    : '';
   const videoCallLink = session.video_call_link || '';
   const zoomMeetingId = session.zoom_meeting_id || '';
   const zoomPassword = session.zoom_password || '';
@@ -398,6 +403,7 @@ function buildReminderMessage(
       .replace(/\{link_google_maps\}/g, mapsUrl)
       .replace(/\{centro_nombre\}/g, center.name)
       .replace(/\{link_sesion\}/g, sessionLink)
+      .replace(/\{link_portal\}/g, portalLink)
       .replace(/\{link_confirmar\}/g, sessionLink ? `${sessionLink}?action=confirm` : '')
       .replace(/\{link_videollamada\}/g, videoCallLink)
       .replace(/\{zoom_meeting_id\}/g, zoomMeetingId)
@@ -471,6 +477,8 @@ serve(async (req) => {
       .select(`
         id,
         name,
+        portal_enabled,
+        portal_slug,
         logo_url,
         invoice_logo_url,
         address,

@@ -1238,6 +1238,14 @@ describe('query keys de la fase 2', () => {
     expect(qk.publicSession.byToken('token-1')).toEqual(['public-session', 'token-1']);
   });
 
+  it('qk.publicSession.portalSlug cuelga de la clave de la cita', () => {
+    expect(qk.publicSession.portalSlug('token-1')).toEqual(['public-session', 'token-1', 'portal-slug']);
+  });
+
+  it('qk.pendingSignup.byToken', () => {
+    expect(qk.pendingSignup.byToken('t')).toEqual(['pending-signup', 't']);
+  });
+
   it('qk.recordings.all conserva el prefijo original', () => {
     expect(qk.recordings.all).toEqual(['recordings']);
   });

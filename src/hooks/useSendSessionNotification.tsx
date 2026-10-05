@@ -223,6 +223,9 @@ async function sendSingleSessionNotification(
     '{link_sesion}': appointmentLink,
     '{link_confirmar}': appointmentLink,
     '{link_cita}': appointmentLink,
+    '{link_portal}': center.portal_enabled && center.portal_slug
+      ? buildPublicUrl(`/portal/${encodeURIComponent(center.portal_slug)}`)
+      : '',
   };
 
   console.log('[Notification] Template variables built:', templateVars);

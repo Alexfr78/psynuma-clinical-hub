@@ -12,6 +12,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { Icon } from '@/components/ui/icon';
+import { useRequestPatientAccess, useRequestProfessionalSignup } from '@/hooks/useAccountAccess';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -20,14 +21,15 @@ const loginSchema = z.object({
 
 const signupSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
   firstName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
   lastName: z.string().min(2, 'El apellido debe tener al menos 2 caracteres'),
 });
 
+const AUDIENCE_STORAGE_KEY = 'psycma-auth-audience';
+
 export default function Auth() {
   const navigate = useNavigate();
-  const { signIn, signUp, user, needsMfaVerification, verifyMfa, isLoading: authLoading } = useAuth();
+  const { signIn, user, needsMfaVerification, verifyMfa, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -82,9 +84,31 @@ export default function Auth() {
 
   // Signup form state
   const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [signupSentTo, setSignupSentTo] = useState<string | null>(null);
+
+  // Quién entra: los pacientes no tienen cuenta con contraseña, van a su portal.
+  const [audience, setAudienceState] = useState<'choose' | 'professional' | 'patient'>(() => {
+    try {
+      return localStorage.getItem(AUDIENCE_STORAGE_KEY) === 'professional' ? 'professional' : 'choose';
+    } catch {
+      return 'choose';
+    }
+  });
+  const setAudience = (next: 'choose' | 'professional' | 'patient') => {
+    setAudienceState(next);
+    try {
+      if (next === 'professional') localStorage.setItem(AUDIENCE_STORAGE_KEY, 'professional');
+      else localStorage.removeItem(AUDIENCE_STORAGE_KEY);
+    } catch {
+      // Sin almacenamiento solo se pierde el recordatorio de la elección.
+    }
+  };
+  const [patientEmail, setPatientEmail] = useState('');
+  const [patientSentTo, setPatientSentTo] = useState<string | null>(null);
+  const requestSignup = useRequestProfessionalSignup();
+  const requestPatientAccess = useRequestPatientAccess();
 
   // Redirect if already logged in (and not waiting for MFA or active sign-in)
   if (user && !needsMfaVerification && !authLoading && !isSigningIn) {
@@ -178,11 +202,10 @@ export default function Auth() {
     try {
       const result = signupSchema.safeParse({
         email: signupEmail,
-        password: signupPassword,
         firstName,
         lastName,
       });
-      
+
       if (!result.success) {
         const fieldErrors: Record<string, string> = {};
         result.error.errors.forEach((err) => {
@@ -195,37 +218,36 @@ export default function Auth() {
         return;
       }
 
-      const { error } = await signUp(signupEmail, signupPassword, firstName, lastName);
-      
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          toast({
-            title: 'Usuario existente',
-            description: 'Este email ya está registrado. Intenta iniciar sesión.',
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Error',
-            description: error.message,
-            variant: 'destructive',
-          });
-        }
-      } else {
-        toast({
-          title: 'Cuenta creada',
-          description: 'Tu cuenta ha sido creada exitosamente.',
-        });
-        navigate('/dashboard');
-      }
+      await requestSignup.mutateAsync({ email: signupEmail.trim(), firstName: firstName.trim(), lastName: lastName.trim() });
+      setSignupSentTo(signupEmail.trim());
     } catch (err) {
       toast({
         title: 'Error',
-        description: 'Ocurrió un error inesperado',
+        description: err instanceof Error ? err.message : 'Ocurrió un error inesperado',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePatientAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    const result = z.string().email('Email inválido').safeParse(patientEmail.trim());
+    if (!result.success) {
+      setErrors({ patientEmail: result.error.errors[0]?.message ?? 'Email inválido' });
+      return;
+    }
+    try {
+      await requestPatientAccess.mutateAsync(patientEmail.trim());
+      setPatientSentTo(patientEmail.trim());
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Ocurrió un error inesperado',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -370,6 +392,89 @@ export default function Auth() {
         <p className="mt-1 text-muted-foreground">Gestión Clínica Profesional</p>
       </div>
 
+      {audience === 'choose' && (
+        <Card className="w-full max-w-md shadow-card">
+          <CardHeader className="text-center">
+            <CardTitle>¿Cómo quieres entrar?</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button variant="outline" className="h-auto w-full justify-start gap-3 py-4 text-left" onClick={() => setAudience('professional')}>
+              <Icon name="stethoscope" className="h-6 w-6 shrink-0 text-primary" />
+              <span>
+                <span className="block font-medium">Soy profesional</span>
+                <span className="block text-sm font-normal text-muted-foreground">Psicólogos y equipo del centro</span>
+              </span>
+            </Button>
+            <Button variant="outline" className="h-auto w-full justify-start gap-3 py-4 text-left" onClick={() => setAudience('patient')}>
+              <Icon name="person" className="h-6 w-6 shrink-0 text-primary" />
+              <span>
+                <span className="block font-medium">Soy paciente</span>
+                <span className="block text-sm font-normal text-muted-foreground">Mis citas, documentos y facturas</span>
+              </span>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {audience === 'patient' && (
+        <Card className="w-full max-w-md shadow-card">
+          <CardHeader>
+            <CardTitle>Acceso para pacientes</CardTitle>
+            <CardDescription>
+              Como paciente no necesitas contraseña. Escribe el email que diste a tu profesional y te enviaremos el enlace a tu área de paciente.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {patientSentTo ? (
+              <div className="space-y-4 text-center">
+                <Icon name="mark_email_read" className="mx-auto h-10 w-10 text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  Si <strong>{patientSentTo}</strong> está registrado como paciente, recibirás en unos minutos un email con el acceso. Mira también en spam.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  También puedes gestionar cada cita desde el enlace de tus recordatorios.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handlePatientAccess} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="patient-email">Email</Label>
+                  <div className="relative">
+                    <Icon name="mail" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="patient-email"
+                      type="email"
+                      placeholder="tu@email.com"
+                      value={patientEmail}
+                      onChange={(e) => setPatientEmail(e.target.value)}
+                      className="pl-10"
+                      disabled={requestPatientAccess.isPending}
+                    />
+                  </div>
+                  {errors.patientEmail && (
+                    <p className="flex items-center gap-1 text-sm text-destructive">
+                      <Icon name="error" className="h-3 w-3" />
+                      {errors.patientEmail}
+                    </p>
+                  )}
+                </div>
+                <Button type="submit" className="w-full" disabled={requestPatientAccess.isPending}>
+                  {requestPatientAccess.isPending ? 'Enviando...' : 'Enviarme el acceso'}
+                </Button>
+              </form>
+            )}
+            <button
+              type="button"
+              onClick={() => { setAudience('choose'); setPatientSentTo(null); setErrors({}); }}
+              className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Volver
+            </button>
+          </CardContent>
+        </Card>
+      )}
+
+      {audience === 'professional' && (
       <Card className="w-full max-w-md shadow-card">
         <Tabs defaultValue="login" className="w-full">
           <CardHeader className="pb-4">
@@ -452,6 +557,18 @@ export default function Auth() {
             </TabsContent>
 
             <TabsContent value="signup" className="mt-0">
+              {signupSentTo ? (
+                <div className="space-y-4 text-center">
+                  <Icon name="mark_email_read" className="mx-auto h-10 w-10 text-primary" />
+                  <p className="font-medium">Revisa tu correo</p>
+                  <p className="text-sm text-muted-foreground">
+                    Hemos enviado a <strong>{signupSentTo}</strong> las instrucciones para continuar. Si no lo ves en unos minutos, mira en la carpeta de spam.
+                  </p>
+                  <Button variant="outline" className="w-full" onClick={() => setSignupSentTo(null)}>
+                    Volver
+                  </Button>
+                </div>
+              ) : (
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -517,43 +634,34 @@ export default function Auth() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Contraseña</Label>
-                  <div className="relative">
-                    <Icon name="lock" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
-                      className="pl-10"
-                      disabled={isLoading}
-                    />
-                  </div>
-                  {errors.password && (
-                    <p className="flex items-center gap-1 text-sm text-destructive">
-                      <Icon name="error" className="h-3 w-3" />
-                      {errors.password}
-                    </p>
-                  )}
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Te enviaremos un email para que elijas tu contraseña y termines el alta.
+                </p>
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Icon name="progress_activity" className="mr-2 h-4 w-4 animate-spin" />
-                      Creando cuenta...
+                      Enviando...
                     </>
                   ) : (
                     'Crear Cuenta'
                   )}
                 </Button>
               </form>
+              )}
             </TabsContent>
+            <button
+              type="button"
+              onClick={() => { setAudience('choose'); setErrors({}); }}
+              className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Volver
+            </button>
           </CardContent>
         </Tabs>
       </Card>
+      )}
 
       <footer className="mt-8 text-center text-sm text-muted-foreground">
         <p className="mb-2">Plataforma segura para profesionales de la salud mental</p>

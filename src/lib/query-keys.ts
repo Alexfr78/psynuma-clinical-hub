@@ -649,6 +649,12 @@ export const qk = {
     all: ['public-session'] as const,
     byToken: (token: string | null | undefined) =>
       ['public-session', token] as const,
+    portalSlug: (token: string | null | undefined) =>
+      ['public-session', token, 'portal-slug'] as const,
+  },
+  pendingSignup: {
+    byToken: (token: string | null | undefined) =>
+      ['pending-signup', token] as const,
   },
   recordings: {
     all: ['recordings'] as const,

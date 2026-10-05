@@ -30,7 +30,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule, usePublicBonoTemplatesForSession, usePublicCoupleMembers } from '@/hooks/usePublicSession';
+import { usePublicSession, useUpdatePublicSession, usePublicSessionReschedule, usePublicBonoTemplatesForSession, usePublicCoupleMembers, usePublicSessionPortalSlug } from '@/hooks/usePublicSession';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect, useRef } from 'react';
@@ -106,6 +106,7 @@ export default function SessionManagement() {
 
   const { data: bonoTemplates = [] } = usePublicBonoTemplatesForSession(token);
   const { data: couplePartnerName } = usePublicCouplePartnerName({ sessionToken: token });
+  const { data: portalSlug } = usePublicSessionPortalSlug(token);
 
   const {
     slots,
@@ -679,7 +680,7 @@ export default function SessionManagement() {
 
   // Normal view mode
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col items-center justify-center p-4">
       <LateChangeConfirmDialog
         message={lateChange?.message ?? null}
         kind={lateChange?.kind ?? 'cancel'}
@@ -1102,6 +1103,17 @@ export default function SessionManagement() {
           )}
         </CardContent>
       </Card>
+
+      {portalSlug && (
+        <div className="mt-4 w-full max-w-lg text-center">
+          <Button asChild variant="link" className="text-muted-foreground">
+            <a href={`/portal/${encodeURIComponent(portalSlug)}`}>
+              <Icon name="person" className="mr-1 h-4 w-4" />
+              Tu área de paciente: todas tus citas, documentos y facturas
+            </a>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

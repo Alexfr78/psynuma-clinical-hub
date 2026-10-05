@@ -226,6 +226,7 @@ export const TEMPLATE_VARIABLES = [
   { key: '{centro_nombre}', label: 'Nombre del centro', example: 'Centro Psynuma' },
   { key: '{link_sesion}', label: 'Link de la sesión', example: 'https://...' },
   { key: '{link_confirmar}', label: 'Link para confirmar', example: 'https://...' },
+  { key: '{link_portal}', label: 'Link al área de paciente (si el portal está activo)', example: 'https://.../portal/mi-centro' },
   { key: '{link_videollamada}', label: 'Link de videollamada', example: 'https://meet.google.com/...' },
   { key: '{link_google_maps}', label: 'Link a Google Maps (solo presencial)', example: 'https://www.google.com/maps/...' },
 ];
