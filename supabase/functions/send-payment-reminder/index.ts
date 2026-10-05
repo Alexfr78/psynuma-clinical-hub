@@ -301,8 +301,18 @@ serve(async (req) => {
       { body: { notificationId: notification.id, templateParams } }
     );
 
-    if (sendError) {
-      console.error('[send-payment-reminder] Error sending notification:', sendError);
+    const firstResult = sendResult?.results?.[0];
+    const sendStatus = (sendError as { context?: Response } | null)?.context?.status;
+    if (sendError || (!firstResult?.ok && !firstResult?.whatsappWebLink)) {
+      console.error('[send-payment-reminder] Error sending notification:', sendError ?? firstResult);
+      return new Response(
+        JSON.stringify({
+          error: firstResult?.error
+            || `No se pudo enviar el recordatorio${sendStatus ? ` (send-notification respondió ${sendStatus})` : ''}`,
+          notificationId: notification.id,
+        }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`[send-payment-reminder] Notification sent:`, sendResult);

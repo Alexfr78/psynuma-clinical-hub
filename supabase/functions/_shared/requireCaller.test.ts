@@ -20,8 +20,17 @@ function admin({ userId = null as string | null, centerId = null as string | nul
 const request = (token?: string) =>
   new Request('https://x.test', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
 
+const ENV: Record<string, string> = {
+  SUPABASE_SERVICE_ROLE_KEY: SERVICE_KEY,
+  SUPABASE_URL: 'https://proj.test',
+  SUPABASE_ANON_KEY: 'anon',
+};
+
+const b64url = (o: object) => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const fakeJwt = (payload: object) => `${b64url({ alg: 'ES256' })}.${b64url(payload)}.sig`;
+
 beforeEach(() => {
-  vi.stubGlobal('Deno', { env: { get: (k: string) => (k === 'SUPABASE_SERVICE_ROLE_KEY' ? SERVICE_KEY : undefined) } });
+  vi.stubGlobal('Deno', { env: { get: (k: string) => ENV[k] } });
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -38,6 +47,20 @@ describe('resolveCaller', () => {
 
   it('rechaza un JWT inválido (p. ej. la anon key)', async () => {
     expect(await resolveCaller(request('anon'), admin())).toBeNull();
+  });
+
+  it('acepta un JWT service_role del formato nuevo si Auth lo valida', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = admin();
+    expect(await resolveCaller(request(fakeJwt({ role: 'service_role' })), client)).toEqual({ kind: 'service' });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un JWT que dice ser service_role si Auth no lo valida', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
+    expect(await resolveCaller(request(fakeJwt({ role: 'service_role' })), admin())).toBeNull();
   });
 
   it('rechaza un usuario sin centro', async () => {

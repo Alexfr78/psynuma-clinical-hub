@@ -19,6 +19,14 @@ export async function resolveCaller(req: Request, admin: SupabaseClient): Promis
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (serviceKey && jwt === serviceKey) return { kind: "service" };
 
+  // Con el formato nuevo de claves, lo que llega de otra edge function no es
+  // literalmente SUPABASE_SERVICE_ROLE_KEY sino un JWT con role=service_role.
+  // El claim leído aquí no está verificado: se confirma pidiendo a Auth algo
+  // que solo la service role puede leer.
+  if (unverifiedJwtRole(jwt) === "service_role") {
+    return (await isServiceRoleToken(jwt)) ? { kind: "service" } : null;
+  }
+
   const { data, error } = await admin.auth.getUser(jwt);
   if (error || !data?.user) return null;
 
@@ -30,6 +38,35 @@ export async function resolveCaller(req: Request, admin: SupabaseClient): Promis
   if (!profile?.center_id) return null;
 
   return { kind: "user", userId: data.user.id, centerId: profile.center_id as string };
+}
+
+function unverifiedJwtRole(jwt: string): string | null {
+  const payload = jwt.split(".")[1];
+  if (!payload) return null;
+  try {
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payload.length / 4) * 4, "="));
+    const role = (JSON.parse(json) as { role?: unknown }).role;
+    return typeof role === "string" ? role : null;
+  } catch {
+    return null;
+  }
+}
+
+// El endpoint de administración de Auth solo responde 200 a un token de service role
+// válido (firma comprobada por Auth), así que sirve de verificación.
+async function isServiceRoleToken(jwt: string): Promise<boolean> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const apikey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!url || !apikey) return false;
+  try {
+    const res = await fetch(`${url}/auth/v1/admin/users?page=1&per_page=1`, {
+      headers: { Authorization: `Bearer ${jwt}`, apikey },
+    });
+    await res.body?.cancel();
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export function canActOnCenter(caller: Caller, centerId: string | null | undefined): boolean {

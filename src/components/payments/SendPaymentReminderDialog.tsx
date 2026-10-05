@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
 import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from '@/hooks/useCenter';
 import { 
@@ -188,7 +189,7 @@ export function SendPaymentReminderDialog({
       onOpenChange(false);
     } catch (error) {
       console.error('Error sending payment reminder:', error);
-      toast.error('Error al enviar el recordatorio');
+      toast.error(await describeEdgeFunctionError(error, 'Error al enviar el recordatorio'));
     } finally {
       setIsSending(false);
     }
