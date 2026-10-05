@@ -11,5 +11,19 @@
       "Bash(git stash:*)",
       "Bash(grep -l \"CREATE TABLE communication_templates\" /c/Users/aleja/Cursor/psynuma-clinical-hub/supabase/migrations/*.sql)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.mjs\"" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/after-edit.mjs\"", "timeout": 180 }]
+      }
+    ]
   }
 }

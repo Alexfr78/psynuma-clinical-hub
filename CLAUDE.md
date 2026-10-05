@@ -247,3 +247,15 @@ Reglas fijas:
 - Nada de lo que vuelve de Codex se da por bueno sin revisar.
 - Si Codex falla dos veces en la misma tarea, la tarea regresa a ti.
 - Delegar no es desentenderse: dime qué pediste y qué volvió.
+
+## Revisión clínica antes de commit
+
+Antes de hacer commit de cambios que toquen `supabase/functions/`, `supabase/migrations/`,
+las rutas públicas tokenizadas de `src/pages/` (`/cita`, `/pagar`, `/factura`, `/informe`,
+`/portal`, `/book`, `/consentimiento`, etc.), `src/lib/consent-*` o la lógica de pagos y
+facturación, lanza siempre el subagente `clinical-data-reviewer` sobre el diff.
+
+- Comprueba en el código cada hallazgo antes de dármelo por bueno.
+- Dime qué encontró, aunque sea "sin hallazgos".
+- Lo CRÍTICO o ALTO se arregla antes del commit; lo MEDIO o BAJO me lo consultas.
+- No hace falta para cambios solo visuales o de textos.
