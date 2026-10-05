@@ -3,6 +3,9 @@ import { runWhenPwaReloadAllowed } from "@/lib/pwa-update-guard";
 
 let hasControllerChanged = false;
 
+const UPDATE_INTERVAL_MS = 5 * 60 * 1000;
+const VISIBLE_CHECK_MIN_GAP_MS = 60 * 1000;
+
 /**
  * Detect contexts where registering a Service Worker would cause stale
  * content or break embedded usage:
@@ -78,12 +81,22 @@ export function registerPwa() {
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
 
-      // Force update check immediately and frequently
-      registration.update().catch(() => undefined);
+      // Cada comprobación que encuentra versión nueva descarga todo el precaché (~150 archivos).
+      // Comprobar muy a menudo multiplica las veces que coincide con un despliegue a medias:
+      // si falta un archivo, la instalación falla entera y la pestaña se queda en la versión
+      // vieja. Se comprueba al cargar, cada 5 minutos y al volver a la pestaña.
+      const checkForUpdate = () => registration.update().catch(() => undefined);
+      void checkForUpdate();
 
-      window.setInterval(() => {
-        registration.update().catch(() => undefined);
-      }, 10 * 1000); // 10 seconds for preview environments
+      window.setInterval(checkForUpdate, UPDATE_INTERVAL_MS);
+
+      let lastCheck = Date.now();
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState !== "visible") return;
+        if (Date.now() - lastCheck < VISIBLE_CHECK_MIN_GAP_MS) return;
+        lastCheck = Date.now();
+        void checkForUpdate();
+      });
     },
     onNeedRefresh() {
       console.log('[PWA] New version available, forcing refresh...');
