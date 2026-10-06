@@ -67,37 +67,19 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // La app NO se precachea: ni index.html ni los chunks. Con precaché, el service worker
+        // servía un index.html de una versión anterior que pedía chunks ya borrados del
+        // servidor tras cada publicación ("No se pudo mostrar esta sección"). Psycma necesita
+        // red para todo (Supabase), así que el modo sin conexión no aportaba nada. index.html
+        // llega siempre del servidor (no-cache) y los chunks, con hash, de la caché HTTP.
+        // Solo se precachean iconos e imágenes, que no cambian con cada despliegue.
+        globPatterns: ["**/*.{ico,png,svg,woff2}"],
+        navigateFallback: null,
         // Se carga al principio del service worker generado, antes de que workbox registre sus
         // rutas — por eso su listener de fetch atrapa el POST del share target primero.
         // Excluido del precaché porque no es un asset de la app: lo carga el propio SW.
         importScripts: ["/share-target-sw.js"],
         globIgnores: ["**/share-target-sw.js"],
-        // Public invoice and payment links must never be served by a stale SPA
-        // navigation fallback, especially on installed PWAs and iOS Safari.
-        // /cita/ now also drives a Stripe checkout (session + bono purchase),
-        // so it needs the same treatment as /factura/ and /pagar/.
-        // Rutas públicas que abre el paciente desde un enlace: las sirve el
-        // servidor, no el service worker. Si se cachean, un despliegue nuevo
-        // puede dejarlas en blanco mientras el SW toma el control.
-        // Toda ruta pública nueva debe añadirse aquí.
-        navigateFallbackDenylist: [
-          /^\/factura\//,
-          /^\/informe\//,
-          /^\/pagar\//,
-          /^\/cita\//,
-          /^\/pareja\//,
-          /^\/consentimiento\//,
-          /^\/evaluacion\//,
-          /^\/emo\//,
-          /^\/registro\//,
-          /^\/enlace\//,
-          /^\/portal\//,
-          /^\/book\//,
-          /^\/reservas\//,
-          /^\/derivaciones\//,
-        ],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
