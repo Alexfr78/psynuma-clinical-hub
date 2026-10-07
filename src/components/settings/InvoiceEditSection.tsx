@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Icon } from '@/components/ui/icon';
+import { InvoiceTemplateSettings } from '@/components/settings/InvoiceTemplateSettings';
 
 const invoiceEditSchema = z.object({
   invoice_footer: z.string().max(2000).optional(),
@@ -24,7 +25,7 @@ type InvoiceEditFormValues = z.infer<typeof invoiceEditSchema>;
 export function InvoiceEditSection() {
   const { center, updateCenter, centerId } = useCenter();
   const { isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState('logo');
+  const [activeTab, setActiveTab] = useState('template');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -113,7 +114,11 @@ export function InvoiceEditSection() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-lg grid-cols-4">
+            <TabsTrigger value="template" className="flex items-center gap-2">
+              <Icon name="article" className="h-4 w-4" />
+              Modelo
+            </TabsTrigger>
             <TabsTrigger value="logo" className="flex items-center gap-2">
               <Icon name="image" className="h-4 w-4" />
               Logo
@@ -127,6 +132,10 @@ export function InvoiceEditSection() {
               RGPD
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="template" className="mt-6">
+            <InvoiceTemplateSettings />
+          </TabsContent>
 
           <TabsContent value="logo" className="mt-6 space-y-4">
             <div className="space-y-4">

@@ -28,6 +28,12 @@ export interface Center {
   invoice_footer: string | null;
   invoice_logo_url: string | null;
   invoice_data_protection_text: string | null;
+  // Modelo de factura: 'standard' (el de siempre) | 'formal'
+  invoice_template: string;
+  invoice_license_line: string | null;
+  // Ruta en el bucket privado invoice-documents, no URL pública
+  invoice_signature_path: string | null;
+  invoice_tax_exemption_note: string | null;
   auto_invoicing_enabled: boolean | null;
   // WhatsApp configuration
   whatsapp_send_method: string | null;

@@ -2460,6 +2460,10 @@ export type Database = {
           include_tax_in_price: boolean | null
           invoice_data_protection_text: string | null
           invoice_footer: string | null
+          invoice_license_line: string | null
+          invoice_signature_path: string | null
+          invoice_tax_exemption_note: string | null
+          invoice_template: string
           invoice_logo_url: string | null
           invoice_next_number: number | null
           invoice_on_payment_mode: string | null
@@ -2569,6 +2573,10 @@ export type Database = {
           include_tax_in_price?: boolean | null
           invoice_data_protection_text?: string | null
           invoice_footer?: string | null
+          invoice_license_line?: string | null
+          invoice_signature_path?: string | null
+          invoice_tax_exemption_note?: string | null
+          invoice_template?: string
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
           invoice_on_payment_mode?: string | null
@@ -2678,6 +2686,10 @@ export type Database = {
           include_tax_in_price?: boolean | null
           invoice_data_protection_text?: string | null
           invoice_footer?: string | null
+          invoice_license_line?: string | null
+          invoice_signature_path?: string | null
+          invoice_tax_exemption_note?: string | null
+          invoice_template?: string
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
           invoice_on_payment_mode?: string | null

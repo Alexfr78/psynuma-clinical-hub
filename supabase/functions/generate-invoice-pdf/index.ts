@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, PDFPage, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import * as QRCode from "https://esm.sh/qrcode@1.5.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { sanitizeForPdf, wrapText, drawTextRightAligned, embedImageFromUrl } from "../_shared/pdfHelpers.ts";
+import { generateFormalInvoicePdfBytes } from "./formalTemplate.ts";
 
 // Every caller downloads or opens the PDF right away, so the link only needs
 // to live long enough for that. A leaked link must not stay usable for months.
@@ -69,6 +70,11 @@ interface InvoiceData {
     email: string | null;
     invoice_logo_url: string | null;
     invoice_footer: string | null;
+    invoice_template: string | null;
+    invoice_license_line: string | null;
+    invoice_signature_path: string | null;
+    invoice_tax_exemption_note: string | null;
+    bank_transfer_info: string | null;
   };
 }
 
@@ -150,6 +156,13 @@ const TEXT_DARK = rgb(0.06, 0.09, 0.16); // #0f172a
 const TEXT_MUTED = rgb(0.392, 0.455, 0.545); // #64748b
 const BORDER = rgb(0.886, 0.910, 0.941); // #e2e8f0
 const BOX_BG = rgb(0.973, 0.980, 0.988); // #f8fafc
+
+async function verifactuQrPng(qrContent: string): Promise<Uint8Array> {
+  const qrDataUrl: string = await (QRCode as { toDataURL: (input: string, opts: Record<string, unknown>) => Promise<string> })
+    .toDataURL(qrContent, { type: 'image/png', width: 100, margin: 1, errorCorrectionLevel: 'M' });
+  const qrBase64 = qrDataUrl.split(',')[1];
+  return Uint8Array.from(atob(qrBase64), (c) => c.charCodeAt(0));
+}
 
 async function generateInvoicePdfBytes(
   invoice: InvoiceData,
@@ -417,11 +430,7 @@ async function generateInvoicePdfBytes(
     currentY -= 16;
 
     try {
-      const qrDataUrl: string = await (QRCode as { toDataURL: (input: string, opts: Record<string, unknown>) => Promise<string> })
-        .toDataURL(invoice.verifactu_qr, { type: 'image/png', width: 100, margin: 1, errorCorrectionLevel: 'M' });
-      const qrBase64 = qrDataUrl.split(',')[1];
-      const qrBytes = Uint8Array.from(atob(qrBase64), (c) => c.charCodeAt(0));
-      const qrImage = await pdfDoc.embedPng(qrBytes);
+      const qrImage = await pdfDoc.embedPng(await verifactuQrPng(invoice.verifactu_qr));
       page.drawImage(qrImage, { x: MARGIN, y: currentY - 90, width: 90, height: 90 });
 
       page.drawText('Factura registrada en Verifactu', { x: MARGIN + 100, y: currentY - 15, size: 10, font: helveticaBold, color: TEXT_DARK });
@@ -479,6 +488,109 @@ async function generateInvoicePdfBytes(
   return await pdfDoc.save();
 }
 
+// Modelo "formal" (centers.invoice_template = 'formal'). Prepara los datos y
+// las imágenes; el dibujo vive en formalTemplate.ts.
+async function renderFormalInvoice(
+  supabase: SupabaseClient,
+  invoice: InvoiceData,
+  items: InvoiceItem[],
+  rectifiedInvoice: RectifiedInvoice | null,
+  substitutedInvoices: RectifiedInvoice[],
+  series: InvoiceSeries | null
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const isF3 = invoice.verifactu_invoice_type === 'F3';
+  const isSimplified = (invoice.invoice_type ?? series?.invoice_type) === 'simplified' && !isF3;
+
+  const logo = invoice.centers?.invoice_logo_url
+    ? await embedImageFromUrl(pdfDoc, invoice.centers.invoice_logo_url)
+    : null;
+
+  // La firma está en el bucket privado: se descarga con la service role,
+  // nunca por URL pública.
+  let signature: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null;
+  const signaturePath = invoice.centers?.invoice_signature_path;
+  // Solo las dos rutas que escribe la pantalla de ajustes: una ruta libre
+  // (p. ej. con "..") permitiría leer archivos de otros centros con la service role.
+  const allowedSignaturePaths = ['png', 'jpg'].map((ext) => `${invoice.center_id}/branding/invoice-signature.${ext}`);
+  if (signaturePath && allowedSignaturePaths.includes(signaturePath)) {
+    const { data: blob, error } = await supabase.storage.from("invoice-documents").download(signaturePath);
+    if (error || !blob) {
+      console.error('[generate-invoice-pdf] Signature download failed:', error);
+    } else {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      try {
+        signature = await pdfDoc.embedPng(bytes);
+      } catch {
+        try {
+          signature = await pdfDoc.embedJpg(bytes);
+        } catch (embedError) {
+          console.error('[generate-invoice-pdf] Signature embed failed:', embedError);
+        }
+      }
+    }
+  }
+
+  let qrImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null;
+  if (invoice.verifactu_qr) {
+    try {
+      qrImage = await pdfDoc.embedPng(await verifactuQrPng(invoice.verifactu_qr));
+    } catch (qrError) {
+      console.error('[generate-invoice-pdf] Error generating QR:', qrError);
+    }
+  }
+
+  const notices: string[] = [];
+  if (rectifiedInvoice) {
+    notices.push(`Factura rectificada: ${rectifiedInvoice.invoice_number} del ${formatDate(rectifiedInvoice.issue_date)}`);
+  }
+  if (substitutedInvoices.length > 0) {
+    const label = substitutedInvoices.length > 1 ? 'Facturas simplificadas sustituidas' : 'Factura simplificada sustituida';
+    notices.push(`${label}: ${substitutedInvoices.map((s) => `${s.invoice_number} del ${formatDate(s.issue_date)}`).join(', ')}`);
+  }
+
+  const recipient = isSimplified ? null : (invoice.recipient_snapshot || {
+    name: `${invoice.patients.first_name} ${invoice.patients.last_name}`.trim(),
+    tax_id: invoice.patients.tax_id,
+    address: invoice.patients.address,
+    city: invoice.patients.city,
+    postal_code: invoice.patients.postal_code,
+  });
+
+  const c = invoice.centers;
+  return await generateFormalInvoicePdfBytes(pdfDoc, {
+    documentLabel: getInvoiceDocumentTypeLabel(invoice, series),
+    invoiceNumber: invoice.invoice_number,
+    issueDate: invoice.issue_date,
+    dueDate: invoice.due_date,
+    subtotal: Number(invoice.subtotal) || 0,
+    total: Number(invoice.total) || 0,
+    headerTax: { rate: Number(invoice.tax_rate) || 0, amount: Number(invoice.tax_amount) || 0 },
+    headerRetention: { rate: Number(invoice.retention_rate) || 0, amount: Number(invoice.retention_amount) || 0 },
+    notes: invoice.notes,
+    recipient,
+    notices,
+    items,
+    center: {
+      name: c?.name || 'Centro',
+      tax_id: c?.tax_id ?? null,
+      address: c?.address ?? null,
+      city: c?.city ?? null,
+      postal_code: c?.postal_code ?? null,
+      phone: c?.phone ?? null,
+      email: c?.email ?? null,
+      license_line: c?.invoice_license_line ?? null,
+      bank_transfer_info: c?.bank_transfer_info ?? null,
+      tax_exemption_note: c?.invoice_tax_exemption_note ?? null,
+      footer: c?.invoice_footer ?? null,
+      data_protection_text: c?.invoice_data_protection_text ?? null,
+    },
+    logo,
+    signature,
+    qrImage,
+  });
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
@@ -508,7 +620,7 @@ serve(async (req) => {
       .select(`
         *,
         patients (first_name, last_name, tax_id, address, city, postal_code, email),
-        centers (name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text)
+        centers (name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text, invoice_template, invoice_license_line, invoice_signature_path, invoice_tax_exemption_note, bank_transfer_info)
       `)
       .eq("id", invoice_id)
       .single();
@@ -624,7 +736,9 @@ serve(async (req) => {
 
     const invoiceItems = (items || []) as InvoiceItem[];
 
-    const pdfBytes = await generateInvoicePdfBytes(invoiceData, invoiceItems, rectifiedInvoice, substitutedInvoices, series);
+    const pdfBytes = invoiceData.centers?.invoice_template === 'formal'
+      ? await renderFormalInvoice(supabase, invoiceData, invoiceItems, rectifiedInvoice, substitutedInvoices, series)
+      : await generateInvoicePdfBytes(invoiceData, invoiceItems, rectifiedInvoice, substitutedInvoices, series);
 
     const { error: uploadError } = await supabase.storage
       .from("invoice-documents")
