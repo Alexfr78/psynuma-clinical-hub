@@ -46,6 +46,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePaymentsAnalytics } from '@/hooks/usePayments';
 import { downloadPdfFromUrl } from '@/lib/download-pdf';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
+import { useIssueInvoice } from '@/hooks/useIssueInvoice';
 import { Icon } from '@/components/ui/icon';
 
 const getCurrentMonthRange = (): InvoiceDateRange => {
@@ -174,6 +176,7 @@ export default function Invoices() {
   };
   const pagination = usePagination('invoices', [filters]);
   const { data: invoicePage, isLoading, isFetching, refetch } = useInvoicesPage(filters, pagination);
+  const issueInvoice = useIssueInvoice();
   const filteredInvoices = invoicePage?.rows ?? [];
   const { data: orphanCount = 0 } = useInvoiceOrphanCount({ ...filters, search: undefined });
   const { data: analyticsInvoices, isLoading: analyticsInvoicesLoading } = useInvoicesAnalytics({
@@ -249,49 +252,49 @@ export default function Invoices() {
     }
   };
 
+  // Registra en la AEAT. sign-invoice-verifactu es idempotente: si ya está
+  // aceptada devuelve already_registered sin volver a enviar.
+  const signWithVerifactu = async (invoiceId: string) => {
+    const { data, error } = await supabase.functions.invoke('sign-invoice-verifactu', {
+      body: { invoice_id: invoiceId },
+    });
+
+    if (error) throw new Error(await describeEdgeFunctionError(error, 'Error al registrar en AEAT'));
+
+    if (data.success) {
+      toast.success(`Factura ${data.invoice_number} registrada en AEAT correctamente`);
+    } else if (data.pending) {
+      toast.warning(data.message || 'Factura pendiente de registro en AEAT');
+    } else {
+      throw new Error(data.error || 'Error desconocido');
+    }
+  };
+
   const handleSealVerifactu = async (invoiceId: string) => {
     try {
-      // First, get invoice status to determine which function to call
       const { data: invoice } = await supabase
         .from('invoices')
         .select('status, verifactu_registration_id')
         .eq('id', invoiceId)
         .single();
 
-      // If invoice is already issued but not registered with AEAT, call sign directly
-      if (invoice?.status === 'issued' && !invoice?.verifactu_registration_id) {
-        toast.info('Firmando factura con Verifactu...');
-        
-        const { data, error } = await supabase.functions.invoke('sign-invoice-verifactu', {
-          body: { invoice_id: invoiceId },
-        });
-
-        if (error) throw error;
-
-        if (data.success) {
-          toast.success(`Factura ${data.invoice_number} registrada en AEAT correctamente`);
-        } else if (data.pending) {
-          toast.warning(data.message || 'Factura pendiente de registro en AEAT');
-        } else {
-          throw new Error(data.error || 'Error desconocido');
+      if (invoice?.status === 'draft') {
+        // Emitir con numeración de serie y después registrar en la AEAT.
+        toast.info('Emitiendo factura...');
+        const issued = await issueInvoice.mutateAsync(invoiceId);
+        if (issued.verifactuPending) {
+          toast.warning(issued.verifactuError || 'Factura emitida, pendiente de registro en AEAT');
+          return;
         }
-      } else {
-        // For draft invoices, seal first then sign
-        toast.info('Sellando factura con Verifactu...');
-        
-        const { data, error } = await supabase.functions.invoke('seal-invoice-verifactu', {
-          body: { invoice_id: invoiceId },
-        });
-
-        if (error) throw error;
-
-        toast.success(`Factura ${data.invoice_number} sellada correctamente`);
       }
-      
-      refetch();
+
+      toast.info('Registrando factura en Verifactu...');
+      await signWithVerifactu(invoiceId);
     } catch (error) {
-      console.error('Error sealing/signing invoice:', error);
-      toast.error('Error al procesar la factura en Verifactu');
+      console.error('Error issuing/signing invoice:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al procesar la factura en Verifactu');
+    } finally {
+      refetch();
     }
   };
 
@@ -358,6 +361,14 @@ export default function Invoices() {
         }
 
         throw new Error(message);
+      }
+
+      if (data?.pending) {
+        toast.warning(data.message || 'No se pudo confirmar la anulación con la AEAT');
+        return;
+      }
+      if (!data?.success) {
+        throw new Error(data?.error || 'La AEAT no confirmó la anulación');
       }
 
       toast.success(`Factura ${data.invoice_number} anulada correctamente en AEAT`);

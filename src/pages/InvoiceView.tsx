@@ -297,20 +297,24 @@ export default function InvoiceView() {
             {/* Verifactu QR */}
             {invoice.verifactu_qr && (
               <div className="border-t pt-4 flex items-center gap-4">
-                <div className="w-24 h-24 bg-white p-1 rounded border flex items-center justify-center">
-                  <QRCodeSVG
-                    value={invoice.verifactu_qr}
-                    size={88}
-                    level="M"
-                    includeMargin={false}
-                    bgColor="hsl(0 0% 100%)"
-                    fgColor="hsl(0 0% 0%)"
-                    title="QR Verifactu"
-                  />
+                <div>
+                  <p className="text-xs font-medium mb-1">QR tributario:</p>
+                  <div className="w-24 h-24 bg-white p-1 rounded border flex items-center justify-center">
+                    <QRCodeSVG
+                      value={invoice.verifactu_qr}
+                      size={88}
+                      level="M"
+                      includeMargin={false}
+                      bgColor="hsl(0 0% 100%)"
+                      fgColor="hsl(0 0% 0%)"
+                      title="QR tributario"
+                    />
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  <p className="font-medium">Factura registrada en Verifactu</p>
-                  <p>Puede verificar la autenticidad de esta factura escaneando el código QR</p>
+                {/* Frase obligatoria (art. 20.1.b Orden HAC/1177/2024), tamaño similar al resto de datos. */}
+                <div className="text-sm">
+                  <p className="font-semibold">VERI*FACTU</p>
+                  <p>Factura verificable en la sede electrónica de la AEAT</p>
                 </div>
               </div>
             )}

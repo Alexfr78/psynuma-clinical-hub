@@ -7,7 +7,7 @@ import { logAuditEvent } from "../_shared/auditLogger.ts";
 import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 import { encode as encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { sanitizeForPdf, wrapText, drawTextRightAligned, embedImageFromUrl } from "../_shared/pdfHelpers.ts";
-import { generateFormalInvoicePdfBytes } from "./formalTemplate.ts";
+import { generateFormalInvoicePdfBytes, VERIFACTU_LEGEND_LONG, VERIFACTU_LEGEND_SHORT } from "./formalTemplate.ts";
 import { darken, isHexColor, parseHexColor, readableOnWhite, toPdf } from "./colors.ts";
 
 // Every caller downloads or opens the PDF right away, so the link only needs
@@ -439,7 +439,7 @@ async function generateInvoicePdfBytes(
 
   // ---- Verifactu QR ----
   if (invoice.verifactu_qr) {
-    if (currentY < 120) {
+    if (currentY < 134) {
       newPage();
       currentY = pageHeight - MARGIN;
     }
@@ -448,16 +448,18 @@ async function generateInvoicePdfBytes(
 
     try {
       const qrImage = await pdfDoc.embedPng(await verifactuQrPng(invoice.verifactu_qr));
-      page.drawImage(qrImage, { x: MARGIN, y: currentY - 90, width: 90, height: 90 });
+      // Texto y frase según art. 20 Orden HAC/1177/2024 y especificaciones AEAT del QR.
+      page.drawText('QR tributario:', { x: MARGIN, y: currentY - 8, size: 8, font: helveticaBold, color: TEXT_DARK });
+      page.drawImage(qrImage, { x: MARGIN, y: currentY - 102, width: 90, height: 90 });
 
-      page.drawText('Factura registrada en Verifactu', { x: MARGIN + 100, y: currentY - 15, size: 10, font: helveticaBold, color: TEXT_DARK });
-      const qrLines = wrapText('Puede verificar la autenticidad de esta factura escaneando el código QR', helvetica, 8, contentRight - MARGIN - 110);
-      let qrY = currentY - 30;
+      page.drawText(VERIFACTU_LEGEND_SHORT, { x: MARGIN + 100, y: currentY - 27, size: 10, font: helveticaBold, color: TEXT_DARK });
+      const qrLines = wrapText(VERIFACTU_LEGEND_LONG, helvetica, 9, contentRight - MARGIN - 110);
+      let qrY = currentY - 41;
       for (const line of qrLines) {
-        page.drawText(line, { x: MARGIN + 100, y: qrY, size: 8, font: helvetica, color: theme.muted });
-        qrY -= 11;
+        page.drawText(line, { x: MARGIN + 100, y: qrY, size: 9, font: helvetica, color: TEXT_DARK });
+        qrY -= 12;
       }
-      currentY -= 100;
+      currentY -= 112;
     } catch (qrError) {
       console.error('[generate-invoice-pdf] Error generating QR:', qrError);
       currentY -= 10;

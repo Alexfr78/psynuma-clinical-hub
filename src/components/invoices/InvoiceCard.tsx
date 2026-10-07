@@ -185,7 +185,7 @@ export function InvoiceCard({
                     {invoice.status === 'draft' && !isFiscalLocked && !isPendingVerifactu && (
                       <DropdownMenuItem onClick={() => { setMenuOpen(false); onSealVerifactu?.(); }} className="text-green-600">
                         <Icon name="verified_user" className="h-4 w-4 mr-2" />
-                        Sellar con Verifactu
+                        Emitir y registrar en Verifactu
                       </DropdownMenuItem>
                     )}
 

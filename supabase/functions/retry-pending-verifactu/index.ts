@@ -112,6 +112,21 @@ serve(async (req) => {
 
             results.push({ id: invoice.id, success: true });
           } else {
+            if (signResult.permanent === true) {
+              console.log(`[retry-pending-verifactu] Invoice ${invoice.invoice_number} was permanently rejected by AEAT; automatic retries disabled`);
+              await supabase
+                .from("invoices")
+                .update({
+                  verifactu_pending: false,
+                  verifactu_error_permanent: true,
+                })
+                .eq("id", invoice.id);
+
+              results.push({ id: invoice.id, success: false, error: signResult.error || 'Permanent AEAT rejection' });
+              console.log(`[retry-pending-verifactu] STOPPING center ${centerId} - ${invoice.invoice_number} requires manual correction`);
+              break;
+            }
+
             // Failed - increment retry count
             const newRetryCount = (invoice.verifactu_retry_count || 0) + 1;
             const maxRetriesReached = newRetryCount >= MAX_RETRIES;

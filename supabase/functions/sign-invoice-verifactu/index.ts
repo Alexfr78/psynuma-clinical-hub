@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
+import { classifyAeatAltaResponse, type AeatAltaOutcome } from "../_shared/verifactuAeatResponse.ts";
+import { loadVerifactuSoftwareIdentity } from "../_shared/verifactuSoftware.ts";
 
 // Dynamic import of node-forge with bundle for Deno compatibility
 const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
@@ -630,11 +632,11 @@ function buildRegistroAltaXML(
 
   // Software info
   // NombreRazon del fabricante: debe coincidir con censo AEAT
-  const softwareNombreRazon = center.verifactu_software_name || nombreEmisor;
+  const softwareNombreRazon = center.verifactu_software_name!;
   // NombreSistemaInformatico: nombre comercial del producto, max 30 chars, sin caracteres especiales
   const softwareSistemaInfo = sanitizeNombreSistemaInformatico(center.verifactu_sistema_informatico || 'PSYCMA');
-  const softwareVersion = center.verifactu_software_version || '1.0.0';
-  const softwareNif = normalizeNifForAEAT(center.verifactu_software_nif || nifEmisor);
+  const softwareVersion = center.verifactu_software_version!;
+  const softwareNif = normalizeNifForAEAT(center.verifactu_software_nif!);
   // NumeroInstalacion: identifies the installation, can be incremented to start a new chain
   const numeroInstalacion = String(center.verifactu_numero_instalacion || 1);
 
@@ -933,36 +935,13 @@ ${signedInfo}
   }
 }
 
-// Extract CSV from AEAT response
-function extractCSV(responseXml: string): string | null {
-  const csvMatch = responseXml.match(/<[^>]*CSV[^>]*>([^<]+)<\/[^>]*CSV[^>]*>/i);
-  return csvMatch?.[1] || null;
-}
-
-// Extract response code from AEAT response
-function extractResponseCode(responseXml: string): string | null {
-  const codeMatch = responseXml.match(/<[^>]*CodigoErrorRegistro[^>]*>([^<]+)<\/[^>]*CodigoErrorRegistro[^>]*>/i);
-  return codeMatch?.[1] || null;
-}
-
-function extractXmlValue(responseXml: string, tagName: string): string | null {
-  const match = responseXml.match(new RegExp(`<[^>]*${tagName}[^>]*>([^<]+)<\\/[^>]*${tagName}[^>]*>`, 'i'));
-  return match?.[1]?.trim() || null;
-}
-
-function isExplicitAEATSuccess(responseXml: string): boolean {
-  const estadoEnvio = extractXmlValue(responseXml, 'EstadoEnvio');
-  const estadoRegistro = extractXmlValue(responseXml, 'EstadoRegistro');
-  return estadoEnvio === 'Correcto' || estadoRegistro === 'Correcto';
-}
-
 // Send XML to AEAT with mTLS authentication
 async function sendToAEAT(
   signedXml: string, 
   environment: string,
   privateKey: ForgePrivateKey,
   certificate: ForgeCertificate
-): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
+): Promise<{ success: boolean; outcome?: AeatAltaOutcome; response?: string; error?: string; httpStatus?: number; code?: string | null; message?: string; csv?: string | null }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
   try {
@@ -995,97 +974,20 @@ async function sendToAEAT(
     console.log("AEAT Response status:", response.status);
     console.log("AEAT Response (first 2000 chars):", responseText.substring(0, 2000));
 
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
-    }
-
-    // Detect HTML error page
-    if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
-      const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
-      const errorCode = titleMatch?.[1] || 'HTML';
-      console.error(`AEAT returned HTML error page with code ${errorCode}`);
-      return { 
-        success: false, 
-        error: `AEAT devolvió página de error ${errorCode}`, 
-        response: responseText, 
-        httpStatus: response.status 
-      };
-    }
-
-    const estadoEnvio = extractXmlValue(responseText, 'EstadoEnvio');
-    const estadoRegistro = extractXmlValue(responseText, 'EstadoRegistro');
-    
-    // Extract error code and description (support multiple namespaces)
-    const errorCodePatterns = [
-      /<(?:sifac|tikR):CodigoErrorRegistro>(\d+)<\/(?:sifac|tikR):CodigoErrorRegistro>/,
-      /<CodigoErrorRegistro>(\d+)<\/CodigoErrorRegistro>/
-    ];
-    const errorDescPatterns = [
-      /<(?:sifac|tikR):DescripcionErrorRegistro>([^<]+)<\/(?:sifac|tikR):DescripcionErrorRegistro>/,
-      /<DescripcionErrorRegistro>([^<]+)<\/DescripcionErrorRegistro>/
-    ];
-    
-    let errorCode: string | null = null;
-    let errorDesc: string | null = null;
-    
-    for (const pattern of errorCodePatterns) {
-      const match = responseText.match(pattern);
-      if (match) { errorCode = match[1]; break; }
-    }
-    for (const pattern of errorDescPatterns) {
-      const match = responseText.match(pattern);
-      if (match) { errorDesc = match[1]; break; }
-    }
-    
-    // Check for SOAP faults
-    const faultMatch = responseText.match(/<faultstring>([^<]+)<\/faultstring>/);
-    
-    // If there's an error code or status is Incorrecto, return error with details
-    if (errorCode || estadoEnvio === 'Incorrecto' || estadoRegistro === 'Incorrecto' || faultMatch) {
-      const errorMessage = errorDesc || faultMatch?.[1] || 'Registro rechazado por AEAT';
-      console.log(`AEAT rejected invoice: Code ${errorCode || 'N/A'}, Message: ${errorMessage}`);
-      return { 
-        success: false, 
-        error: errorCode ? `Error ${errorCode}: ${errorMessage}` : errorMessage, 
-        response: responseText, 
-        httpStatus: response.status 
-      };
-    }
-
-    // Check for successful response (CSV in response indicates success)
-    const csv = extractCSV(responseText);
-    if (csv) {
-      console.log("AEAT returned CSV:", csv);
-      return { success: true, response: responseText, httpStatus: response.status };
-    }
-
-    // Accept only explicit AEAT success states, not generic text matches.
-    if (isExplicitAEATSuccess(responseText)) {
-      return { success: true, response: responseText, httpStatus: response.status };
-    }
-
-    // A SOAP envelope without explicit acceptance is not a successful registration.
-    if (responseText.includes('RespuestaRegFactuSistemaFacturacion') || responseText.includes('env:Envelope')) {
-      console.warn("AEAT response received but acceptance status is unclear; not marking as success");
-      return {
-        success: false,
-        error: 'Respuesta AEAT sin aceptacion inequivoca',
-        response: responseText,
-        httpStatus: response.status
-      };
-    }
-
-    // Unknown response format
-    console.log("Unknown AEAT response format");
-    return { 
-      success: false, 
-      error: 'Respuesta inesperada de AEAT - formato no reconocido', 
-      response: responseText, 
-      httpStatus: response.status 
+    const classification = classifyAeatAltaResponse({ httpStatus: response.status, body: responseText });
+    const success = classification.outcome === 'accepted' || classification.outcome === 'accepted_with_errors';
+    return {
+      success,
+      ...classification,
+      error: success ? undefined : classification.message,
+      response: responseText,
+      httpStatus: response.status,
     };
+
   } catch (error) {
     console.error("Error sending to AEAT:", error);
-    return { success: false, error: error instanceof Error ? error.message : 'Error de conexión' };
+    const classification = classifyAeatAltaResponse({ networkError: error });
+    return { success: false, ...classification, error: classification.message };
   }
 }
 
@@ -1217,18 +1119,26 @@ serve(async (req) => {
     // desarrollador) identify Psycma as a product, not each tenant center —
     // they're maintained once on the software-provider center and apply to
     // every invoice regardless of which center issues it.
+    const softwareIdentityResult = await loadVerifactuSoftwareIdentity(supabase);
+    if (!softwareIdentityResult.ok) {
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        environment,
+        aeat_response_message: softwareIdentityResult.error,
+        error_details: softwareIdentityResult.error,
+      });
+      return new Response(
+        JSON.stringify({ error: softwareIdentityResult.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     if (center) {
-      const { data: softwareProviderCenter } = await supabase
-        .from('centers')
-        .select('verifactu_software_name, verifactu_software_nif, verifactu_sistema_informatico, verifactu_software_version')
-        .eq('is_software_provider', true)
-        .maybeSingle();
-      if (softwareProviderCenter) {
-        center.verifactu_software_name = softwareProviderCenter.verifactu_software_name;
-        center.verifactu_software_nif = softwareProviderCenter.verifactu_software_nif;
-        center.verifactu_sistema_informatico = softwareProviderCenter.verifactu_sistema_informatico;
-        center.verifactu_software_version = softwareProviderCenter.verifactu_software_version;
-      }
+      center.verifactu_software_name = softwareIdentityResult.identity.name;
+      center.verifactu_software_nif = softwareIdentityResult.identity.nif;
+      center.verifactu_sistema_informatico = softwareIdentityResult.identity.systemName;
+      center.verifactu_software_version = softwareIdentityResult.identity.version;
     }
 
     console.log("Invoice data loaded, environment:", environment);
@@ -1516,7 +1426,7 @@ serve(async (req) => {
     const qrUrl = generateQRUrl(nifEmisor, invoice.invoice_number, fechaExpedicion, fiscalTotal, environment);
 
     // Extract CSV from response
-    const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
+    const csv = aeatResult.csv || null;
 
     // Log the event
     await logVerifactuEvent(supabase, {
@@ -1524,8 +1434,10 @@ serve(async (req) => {
       center_id: invoice.center_id,
       event_type: aeatResult.success ? 'alta' : 'error',
       aeat_csv: csv,
-      aeat_response_code: aeatResult.response ? extractResponseCode(aeatResult.response) : null,
-      aeat_response_message: aeatResult.success ? 'Factura registrada correctamente' : aeatResult.error,
+      aeat_response_code: aeatResult.code || null,
+      aeat_response_message: aeatResult.outcome === 'accepted_with_errors'
+        ? aeatResult.message
+        : aeatResult.success ? 'Factura registrada correctamente' : aeatResult.error,
       aeat_response_xml: aeatResult.response,
       xml_sent: signedXml,
       environment,
@@ -1540,22 +1452,8 @@ serve(async (req) => {
          aeatResult.error?.includes('no habilitado') ||
          aeatResult.response?.includes('Desactivada temporalmente'));
 
-      // Classify error as permanent (data issue) vs transient (server issue)
-      // Permanent errors: AEAT data validation errors that won't resolve with retries
-      const PERMANENT_ERROR_CODES = [
-        '1100', // Valor o tipo incorrecto de campo
-        '1239', // Error en bloque Destinatario / NIF incorrecto
-        '1240', // Error en datos fiscales
-        '1238', // Error en desglose fiscal
-        '2005', // ImporteTotal no cuadra
-        '3001', // Factura ya registrada (duplicado)
-        '4102', // Desglose vacío
-      ];
-      
-      // Extract error code from response
-      const errorCodeMatch = aeatResult.error?.match(/Error (\d+):/);
-      const aeatErrorCode = errorCodeMatch?.[1] || null;
-      const isPermanentError = aeatErrorCode ? PERMANENT_ERROR_CODES.includes(aeatErrorCode) : false;
+      const aeatErrorCode = aeatResult.code || null;
+      const isPermanentError = aeatResult.outcome === 'rejected' || aeatResult.outcome === 'duplicate';
       
       console.log(`Error classification: code=${aeatErrorCode}, permanent=${isPermanentError}, temporary_unavailable=${isTemporaryUnavailable}`);
 

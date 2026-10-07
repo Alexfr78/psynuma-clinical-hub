@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
+import { classifyAeatAltaResponse, type AeatAltaOutcome } from "../_shared/verifactuAeatResponse.ts";
+import { loadVerifactuSoftwareIdentity } from "../_shared/verifactuSoftware.ts";
 import {
   buildVerifactuCancellationHashInput,
   buildVerifactuCancellationInvoiceIdXml,
@@ -186,12 +188,12 @@ function buildRegistroBajaXML(
   const nifEmisor = normalizeNifForAEAT(center.tax_id);
   const nombreEmisor = center.name || '';
   const fechaExpedicion = formatDateVerifactu(invoice.issue_date);
-  const softwareLegalName = center.verifactu_software_name || nombreEmisor;
+  const softwareLegalName = center.verifactu_software_name!;
   const softwareSystemName = sanitizeVerifactuSystemName(
     center.verifactu_sistema_informatico || 'PSYCMA',
   );
-  const softwareVersion = center.verifactu_software_version || '1.0.0';
-  const softwareNif = center.verifactu_software_nif || nifEmisor;
+  const softwareVersion = center.verifactu_software_version!;
+  const softwareNif = center.verifactu_software_nif!;
   const numeroInstalacion = String(center.verifactu_numero_instalacion || 1);
   const cancelledInvoiceIdXML = buildVerifactuCancellationInvoiceIdXml({
     issuerTaxId: nifEmisor,
@@ -384,12 +386,6 @@ ${signedInfo}
   }
 }
 
-// Extract CSV from AEAT response
-function extractCSV(responseXml: string): string | null {
-  const csvMatch = responseXml.match(/<[^>]*CSV[^>]*>([^<]+)<\/[^>]*CSV[^>]*>/i);
-  return csvMatch?.[1] || null;
-}
-
 function extractXmlValue(responseXml: string, tagName: string): string | null {
   const match = responseXml.match(new RegExp(`<[^>]*${tagName}[^>]*>([^<]+)<\\/[^>]*${tagName}[^>]*>`, 'i'));
   return match?.[1]?.trim() || null;
@@ -400,19 +396,13 @@ function extractAEATError(responseXml: string): string | null {
     || extractXmlValue(responseXml, 'faultstring');
 }
 
-function isExplicitAEATSuccess(responseXml: string): boolean {
-  const estadoEnvio = extractXmlValue(responseXml, 'EstadoEnvio');
-  const estadoRegistro = extractXmlValue(responseXml, 'EstadoRegistro');
-  return estadoEnvio === 'Correcto' || estadoRegistro === 'Correcto';
-}
-
 // Send XML to AEAT with mTLS authentication
 async function sendToAEAT(
   signedXml: string,
   environment: string,
   privateKey: ForgePrivateKey,
   certificate: ForgeCertificate
-): Promise<{ success: boolean; response?: string; error?: string; httpStatus?: number }> {
+): Promise<{ success: boolean; outcome?: AeatAltaOutcome; response?: string; error?: string; httpStatus?: number; code?: string | null; message?: string; csv?: string | null }> {
   const endpoint = environment === 'production' ? AEAT_ENDPOINTS.production : AEAT_ENDPOINTS.test;
   
   try {
@@ -445,61 +435,20 @@ async function sendToAEAT(
     console.log("AEAT Cancellation Response status:", response.status);
     console.log("AEAT Response (first 2000 chars):", responseText.substring(0, 2000));
 
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
-    }
-
-    // Detect HTML error page
-    if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html')) {
-      const titleMatch = responseText.match(/<title>[^<]*?(\d{3})[^<]*?<\/title>/i);
-      const errorCode = titleMatch?.[1] || 'HTML';
-      console.error(`AEAT returned HTML error page with code ${errorCode}`);
-      return { 
-        success: false, 
-        error: `AEAT devolvió página de error ${errorCode}`, 
-        response: responseText, 
-        httpStatus: response.status 
-      };
-    }
-
-    const errorCode = extractXmlValue(responseText, 'CodigoErrorRegistro');
-    const estadoEnvio = extractXmlValue(responseText, 'EstadoEnvio');
-    const estadoRegistro = extractXmlValue(responseText, 'EstadoRegistro');
-
-    if (errorCode || estadoEnvio === 'Incorrecto' || estadoRegistro === 'Incorrecto' || responseText.includes('faultstring')) {
-      const errorMessage = extractAEATError(responseText) || 'Error desconocido de AEAT';
-      return { success: false, error: errorMessage, response: responseText, httpStatus: response.status };
-    }
-
-    const csv = extractCSV(responseText);
-    if (csv) {
-      console.log("AEAT returned cancellation CSV:", csv);
-      return { success: true, response: responseText, httpStatus: response.status };
-    }
-
-    if (isExplicitAEATSuccess(responseText)) {
-      return { success: true, response: responseText, httpStatus: response.status };
-    }
-
-    if (responseText.includes('RespuestaRegFactuSistemaFacturacion') || responseText.includes('env:Envelope')) {
-      console.warn("AEAT cancellation response received but acceptance status is unclear; not marking as success");
-      return {
-        success: false,
-        error: 'Respuesta AEAT sin aceptacion inequivoca',
-        response: responseText,
-        httpStatus: response.status
-      };
-    }
-
+    const classification = classifyAeatAltaResponse({ httpStatus: response.status, body: responseText });
+    const success = classification.outcome === 'accepted' || classification.outcome === 'accepted_with_errors';
     return {
-      success: false,
-      error: 'Respuesta inesperada de AEAT - formato no reconocido',
+      success,
+      ...classification,
+      error: success ? undefined : classification.message,
       response: responseText,
-      httpStatus: response.status
+      httpStatus: response.status,
     };
+
   } catch (error) {
     console.error("Error sending to AEAT:", error);
-    return { success: false, error: error instanceof Error ? error.message : 'Error de conexión' };
+    const classification = classifyAeatAltaResponse({ networkError: error });
+    return { success: false, ...classification, error: classification.message };
   }
 }
 
@@ -701,18 +650,26 @@ serve(async (req) => {
     // desarrollador) identify Psycma as a product, not each tenant center —
     // they're maintained once on the software-provider center and apply to
     // every invoice regardless of which center issues it.
+    const softwareIdentityResult = await loadVerifactuSoftwareIdentity(supabase);
+    if (!softwareIdentityResult.ok) {
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        environment,
+        aeat_response_message: softwareIdentityResult.error,
+        error_details: softwareIdentityResult.error,
+      });
+      return new Response(
+        JSON.stringify({ error: softwareIdentityResult.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     if (center) {
-      const { data: softwareProviderCenter } = await supabase
-        .from('centers')
-        .select('verifactu_software_name, verifactu_software_nif, verifactu_sistema_informatico, verifactu_software_version')
-        .eq('is_software_provider', true)
-        .maybeSingle();
-      if (softwareProviderCenter) {
-        center.verifactu_software_name = softwareProviderCenter.verifactu_software_name;
-        center.verifactu_software_nif = softwareProviderCenter.verifactu_software_nif;
-        center.verifactu_sistema_informatico = softwareProviderCenter.verifactu_sistema_informatico;
-        center.verifactu_software_version = softwareProviderCenter.verifactu_software_version;
-      }
+      center.verifactu_software_name = softwareIdentityResult.identity.name;
+      center.verifactu_software_nif = softwareIdentityResult.identity.nif;
+      center.verifactu_sistema_informatico = softwareIdentityResult.identity.systemName;
+      center.verifactu_software_version = softwareIdentityResult.identity.version;
     }
 
     if (!center?.verifactu_certificate_base64 || !center?.verifactu_certificate_password) {
@@ -843,13 +800,10 @@ serve(async (req) => {
     const aeatResult = await sendToAEAT(signedXml, environment, certData.privateKey, certData.certificate);
 
     // Extract CSV from response
-    const csv = aeatResult.response ? extractCSV(aeatResult.response) : null;
+    const csv = aeatResult.csv || null;
 
     // Check if it's a temporary AEAT unavailability
-    const isTemporaryUnavailable = aeatResult.httpStatus === 404 && 
-      (aeatResult.error?.includes('Desactivada temporalmente') || 
-       aeatResult.error?.includes('no habilitado') ||
-       aeatResult.response?.includes('Desactivada temporalmente'));
+    const isTemporaryUnavailable = aeatResult.outcome === 'transient';
 
     // Log cancellation event
     await logVerifactuEvent(supabase, {
@@ -857,7 +811,10 @@ serve(async (req) => {
       center_id: invoice.center_id,
       event_type: aeatResult.success ? 'anulacion' : 'error',
       aeat_csv: csv,
-      aeat_response_message: aeatResult.success ? 'Factura anulada correctamente' : aeatResult.error,
+      aeat_response_code: aeatResult.code || null,
+      aeat_response_message: aeatResult.outcome === 'accepted_with_errors'
+        ? aeatResult.message
+        : aeatResult.success ? 'Factura anulada correctamente' : aeatResult.error,
       aeat_response_xml: aeatResult.response,
       xml_sent: signedXml,
       environment,
@@ -874,7 +831,7 @@ serve(async (req) => {
             pending: true,
             aeat_unavailable: true,
             invoice_number: invoice.invoice_number,
-            message: "La Agencia Tributaria no está disponible temporalmente. Reintente la anulación más tarde.",
+            message: "No se pudo confirmar la anulación con la AEAT (servicio no disponible o respuesta sin estado). Consulta su estado en AEAT antes de reintentarla.",
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -883,6 +840,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: `Error de AEAT: ${aeatResult.error}`,
+          permanent: aeatResult.outcome === 'rejected' || aeatResult.outcome === 'duplicate',
+          error_code: aeatResult.code || null,
           details: aeatResult.response,
           httpStatus: aeatResult.httpStatus
         }),

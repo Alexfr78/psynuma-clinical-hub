@@ -13,6 +13,10 @@ import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from "htt
 import { sanitizeForPdf, wrapText } from "../_shared/pdfHelpers.ts";
 import { readableOnWhite, type Rgb, textOn, toPdf } from "./colors.ts";
 
+// Frase obligatoria junto al QR (art. 20.1.b Orden HAC/1177/2024).
+export const VERIFACTU_LEGEND_SHORT = "VERI*FACTU";
+export const VERIFACTU_LEGEND_LONG = "Factura verificable en la sede electrónica de la AEAT";
+
 export interface FormalInvoiceItem {
   description: string;
   quantity: number;
@@ -496,17 +500,16 @@ export async function generateFormalInvoicePdfBytes(
   if (input.qrImage) {
     y -= 12;
     // 90 pt ≈ 32 mm, igual que el modelo estándar (la norma pide entre 30 y 40 mm).
-    ensureSpace(98);
-    page.drawImage(input.qrImage, { x: TABLE_LEFT, y: y - 90, width: 90, height: 90 });
-    page.drawText("Factura registrada en Verifactu", { x: TABLE_LEFT + 102, y: y - 18, size: 9, font: boldOblique, color: LABEL });
-    const qrLines = wrapText(
-      "Puede verificar la autenticidad de esta factura escaneando el código QR",
-      oblique, 8, TABLE_RIGHT - TABLE_LEFT - 110,
-    );
+    ensureSpace(110);
+    // Texto y frase según art. 20 Orden HAC/1177/2024 y especificaciones AEAT del QR.
+    page.drawText("QR tributario:", { x: TABLE_LEFT, y: y - 8, size: 8, font: boldOblique, color: LABEL });
+    page.drawImage(input.qrImage, { x: TABLE_LEFT, y: y - 102, width: 90, height: 90 });
+    page.drawText(VERIFACTU_LEGEND_SHORT, { x: TABLE_LEFT + 102, y: y - 30, size: 10, font: boldOblique, color: LABEL });
+    const qrLines = wrapText(VERIFACTU_LEGEND_LONG, oblique, 9, TABLE_RIGHT - TABLE_LEFT - 110);
     qrLines.forEach((line, i) => {
-      page.drawText(line, { x: TABLE_LEFT + 102, y: y - 32 - i * 10, size: 8, font: oblique, color: LABEL });
+      page.drawText(line, { x: TABLE_LEFT + 102, y: y - 44 - i * 12, size: 9, font: oblique, color: LABEL });
     });
-    y -= 98;
+    y -= 110;
   }
 
   for (const p of pages) drawFooter(p);
