@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,6 +120,16 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const caller = await resolveCaller(req, supabase as unknown as Parameters<typeof resolveCaller>[1]);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+    if (caller.kind === 'user') {
+      const { data: profile } = await supabase.from('profiles').select('center_id').eq('id', professional_id).maybeSingle();
+      const { data: centerRole } = await supabase.from('user_roles').select('user_id')
+        .eq('user_id', caller.userId).eq('center_id', caller.centerId)
+        .in('role', ['admin', 'professional']).limit(1).maybeSingle();
+      if (!profile || !centerRole || !canActOnCenter(caller, profile.center_id)) return callerErrorResponse(403, corsHeaders);
+    }
 
     // Get OAuth connection for this professional
     const { data: connection, error: connError } = await supabase

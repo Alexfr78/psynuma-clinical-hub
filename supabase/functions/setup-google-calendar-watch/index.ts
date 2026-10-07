@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -203,6 +204,15 @@ serve(async (req) => {
         JSON.stringify({ error: 'professional_id required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+    if (caller.kind === 'user') {
+      const { data: profile } = await supabase.from('profiles').select('center_id').eq('id', professional_id).maybeSingle();
+      const { data: adminRole } = await supabase.from('user_roles').select('user_id')
+        .eq('user_id', caller.userId).eq('center_id', caller.centerId).eq('role', 'admin').maybeSingle();
+      if (!profile || !canActOnCenter(caller, profile.center_id) || (!adminRole && professional_id !== caller.userId)) return callerErrorResponse(403, corsHeaders);
     }
 
     console.log(`[WATCH:START] Setting up Google Calendar watch for professional ${professional_id}`);

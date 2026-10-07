@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,10 @@ serve(async (req) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
   const supabase = createClient(supabaseUrl, serviceKey);
+  const caller = await resolveCaller(req, supabase);
+  if (!caller) return callerErrorResponse(401, corsHeaders);
+  // This operation spans every center and receives no center-scoped target.
+  if (caller.kind !== "service" || !canActOnCenter(caller, null)) return callerErrorResponse(403, corsHeaders);
 
   // Fetch all confirmed sessions that have a linked Google Calendar event
   const { data: sessions, error } = await supabase

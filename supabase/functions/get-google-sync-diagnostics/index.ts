@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,37 +76,18 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get auth header and extract user
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const professionalId = user.id;
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+    const body = await req.json().catch(() => ({}));
+    const professionalId = caller.kind === 'user' ? caller.userId : body.professional_id;
+    if (!professionalId) return callerErrorResponse(403, corsHeaders);
+    const { data: profile } = await supabase.from('profiles').select('center_id').eq('id', professionalId).maybeSingle();
+    if (!profile || !canActOnCenter(caller, profile.center_id)) return callerErrorResponse(403, corsHeaders);
 
     // Parse request body for optional limit
     let limit = 50;
-    try {
-      const body = await req.json();
-      if (body?.limit && typeof body.limit === 'number') {
-        limit = Math.min(Math.max(body.limit, 1), 200); // Clamp between 1 and 200
-      }
-    } catch {
-      // No body or invalid JSON, use defaults
+    if (body?.limit && typeof body.limit === 'number') {
+      limit = Math.min(Math.max(body.limit, 1), 200); // Clamp between 1 and 200
     }
 
     console.log(`[DIAGNOSTICS] Generating for professional ${professionalId}, limit ${limit}`);

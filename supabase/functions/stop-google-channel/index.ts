@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -119,27 +120,15 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get user from JWT
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+    const body = await req.json().catch(() => ({}));
+    const professionalId = caller.kind === 'user' ? caller.userId : body.professional_id;
+    if (!professionalId) return callerErrorResponse(403, corsHeaders);
+    if (caller.kind === 'user') {
+      const { data: profile } = await supabase.from('profiles').select('center_id').eq('id', professionalId).maybeSingle();
+      if (!profile || !canActOnCenter(caller, profile.center_id)) return callerErrorResponse(403, corsHeaders);
     }
-
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // In this project, professional_id === auth.user.id
-    const professionalId = user.id;
 
     console.log(`[STOP-CHANNEL:START] Stopping Google Calendar watch channel for professional ${professionalId}`);
 

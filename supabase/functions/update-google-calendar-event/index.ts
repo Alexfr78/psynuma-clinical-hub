@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { decryptSecret } from "../_shared/crypto.ts";
 import { partnersFromEmbed, withPartnerNames } from "../_shared/coupleEventNames.ts";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -249,6 +250,38 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const caller = await resolveCaller(req, supabase as unknown as Parameters<typeof resolveCaller>[1]);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+    if (caller.kind === 'user') {
+      const { data: profile } = await supabase.from('profiles').select('center_id').eq('id', professional_id).maybeSingle();
+      const { data: centerRole } = await supabase.from('user_roles').select('user_id')
+        .eq('user_id', caller.userId).eq('center_id', caller.centerId)
+        .in('role', ['admin', 'professional']).limit(1).maybeSingle();
+      if (!profile || !centerRole || !canActOnCenter(caller, profile.center_id)) {
+        return callerErrorResponse(403, corsHeaders);
+      }
+      let ownedSession: { center_id: string; professional_id: string; google_calendar_event_id: string | null } | null = null;
+      if (psycma_session_id) {
+        const result = await supabase.from('sessions').select('center_id, professional_id, google_calendar_event_id')
+          .eq('id', psycma_session_id).maybeSingle();
+        ownedSession = result.data;
+      } else if (event_id) {
+        const result = await supabase.from('sessions').select('center_id, professional_id, google_calendar_event_id')
+          .eq('google_calendar_event_id', event_id).maybeSingle();
+        ownedSession = result.data;
+      }
+      if (ownedSession) {
+        if (ownedSession.center_id !== profile.center_id || ownedSession.professional_id !== professional_id ||
+          (event_id && ownedSession.google_calendar_event_id !== event_id)) return callerErrorResponse(403, corsHeaders);
+      } else if (event_id && !psycma_session_id) {
+        const { data: ownedCalendarEvent } = await supabase.from('calendar_events').select('professional_id')
+          .eq('google_event_id', event_id).eq('professional_id', professional_id).maybeSingle();
+        if (!ownedCalendarEvent) return callerErrorResponse(403, corsHeaders);
+      } else {
+        return callerErrorResponse(403, corsHeaders);
+      }
+    }
 
     // Sesión de pareja: el título lleva también el nombre del otro miembro.
     let title = requestedTitle;

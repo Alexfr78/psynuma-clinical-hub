@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,6 +99,22 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+    if (caller.kind === "user") {
+      // Los ids de reunión de Zoom son solo dígitos. Se valida antes de usarlo
+      // dentro del filtro .or() de PostgREST, que se construye como texto.
+      if (!/^\d{6,15}$/.test(String(meeting_id))) return callerErrorResponse(403, corsHeaders);
+      const { data: profile } = await supabase.from("profiles").select("center_id").eq("id", professional_id).maybeSingle();
+      const { data: centerRole } = await supabase.from("user_roles").select("user_id")
+        .eq("user_id", caller.userId).eq("center_id", caller.centerId)
+        .in("role", ["admin", "professional"]).limit(1).maybeSingle();
+      const { data: session } = await supabase.from("sessions").select("center_id, professional_id")
+        .eq("center_id", caller.centerId)
+        .or(`zoom_meeting_id.eq.${String(meeting_id)},video_call_link.like.%/j/${String(meeting_id)}%`).limit(1).maybeSingle();
+      if (!profile || !centerRole || !canActOnCenter(caller, profile.center_id) ||
+        !session || session.center_id !== profile.center_id || session.professional_id !== professional_id) return callerErrorResponse(403, corsHeaders);
+    }
     const { data: connection } = await supabase
       .from("oauth_connections")
       .select("access_token, refresh_token, expires_at")

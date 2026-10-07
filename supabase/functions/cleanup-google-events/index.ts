@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptSecret } from "../_shared/crypto.ts";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -210,17 +211,28 @@ serve(async (req) => {
     );
 
     const body = await req.json();
-    const { 
-      professional_id, 
+    const {
+      professional_id: requestedProfessionalId,
       dry_run = true,  // Default to dry run for safety
       mode = 'duplicates' // 'duplicates' = only remove duplicates, 'all' = remove all psycma events
     } = body;
+
+    const caller = await resolveCaller(req, supabase);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
+    const professional_id = requestedProfessionalId ?? (caller.kind === 'user' ? caller.userId : null);
 
     if (!professional_id) {
       return new Response(
         JSON.stringify({ error: 'professional_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    if (caller.kind === 'user') {
+      const { data: profile } = await supabase.from('profiles').select('center_id').eq('id', professional_id).maybeSingle();
+      const { data: adminRole } = await supabase.from('user_roles').select('user_id')
+        .eq('user_id', caller.userId).eq('center_id', caller.centerId).eq('role', 'admin').maybeSingle();
+      if (!profile || !canActOnCenter(caller, profile.center_id) || (!adminRole && professional_id !== caller.userId)) return callerErrorResponse(403, corsHeaders);
     }
 
     console.log(`[CLEANUP:START] Professional ${professional_id}, mode=${mode}, dry_run=${dry_run}`);

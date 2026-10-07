@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { coupleDisplayNames, partnersFromEmbed, PARTNERS_EMBED } from "../_shared/coupleEventNames.ts";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -237,9 +238,6 @@ serve(async (req) => {
       location,
     } = await req.json();
 
-    console.log('Creating Google Calendar event for professional:', professional_id);
-    console.log('Session ID:', session_id, 'Patient ID:', patient_id);
-
     // Validate that event has duration (start_time != end_time)
     if (start_time === end_time) {
       console.warn('Event has zero duration (start_time === end_time), rejecting');
@@ -252,6 +250,9 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const caller = await resolveCaller(req, supabase as unknown as Parameters<typeof resolveCaller>[1]);
+    if (!caller) return callerErrorResponse(401, corsHeaders);
 
     // Get professional's center_id and name
     const { data: profile, error: profileError } = await supabase
@@ -269,6 +270,24 @@ serve(async (req) => {
     }
 
     const centerId = profile.center_id;
+
+    if (caller.kind === 'user') {
+      const { data: centerRole } = await supabase.from('user_roles').select('user_id')
+        .eq('user_id', caller.userId).eq('center_id', caller.centerId)
+        .in('role', ['admin', 'professional']).limit(1).maybeSingle();
+      if (!centerRole || !canActOnCenter(caller, centerId)) {
+        return callerErrorResponse(403, corsHeaders);
+      }
+      if (session_id) {
+        const { data: ownedSession } = await supabase.from('sessions').select('center_id, professional_id, patient_id')
+          .eq('id', session_id).maybeSingle();
+        if (!ownedSession || ownedSession.center_id !== centerId || ownedSession.professional_id !== professional_id ||
+          (patient_id && ownedSession.patient_id !== patient_id)) return callerErrorResponse(403, corsHeaders);
+      } else if (patient_id) {
+        const { data: ownedPatient } = await supabase.from('patients').select('center_id').eq('id', patient_id).maybeSingle();
+        if (!ownedPatient || ownedPatient.center_id !== centerId) return callerErrorResponse(403, corsHeaders);
+      }
+    }
 
     // Get OAuth connection for this professional
     const { data: connection, error: connError } = await supabase
@@ -377,8 +396,10 @@ serve(async (req) => {
       bonoData
     );
 
-    console.log('Formatted title:', formattedTitle);
-    console.log('Formatted description:', formattedDescription);
+    console.log('Formatted Google event text lengths:', {
+      title: formattedTitle.length,
+      description: formattedDescription.length,
+    });
 
     // Build event
     const calendarId = connection.google_calendar_id || 'primary';
