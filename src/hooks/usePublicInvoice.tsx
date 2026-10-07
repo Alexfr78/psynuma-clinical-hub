@@ -119,9 +119,10 @@ export function usePublicInvoice(token: string | undefined) {
         console.error('Error fetching invoice recipient:', patientError);
       }
 
-      // Fetch center data via safe RPC (no credentials exposed)
+      // Datos del emisor a partir del token de esta factura, no de un center_id
+      // libre (la versión por center_id dejaba leer los de cualquier centro).
       const { data: centerData } = await supabase
-        .rpc('get_center_for_invoice', { p_center_id: invoice.center_id });
+        .rpc('get_center_for_invoice_token', { p_token: token });
       const center = centerData as unknown as {
         name: string; address: string | null; city: string | null;
         postal_code: string | null; province: string | null; tax_id: string | null;

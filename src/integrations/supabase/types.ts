@@ -9621,6 +9621,7 @@ export type Database = {
       }
       get_center_for_debt: { Args: { p_center_id: string }; Returns: Json }
       get_center_for_invoice: { Args: { p_center_id: string }; Returns: Json }
+      get_center_for_invoice_token: { Args: { p_token: string }; Returns: Json }
       get_center_for_session_token: {
         Args: { p_session_id: string }
         Returns: Json
