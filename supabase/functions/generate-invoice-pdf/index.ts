@@ -4,7 +4,7 @@ import { PDFDocument, PDFPage, StandardFonts, degrees, rgb } from "https://esm.s
 import * as QRCode from "https://esm.sh/qrcode@1.5.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
-import { callerErrorResponse, resolveCaller } from "../_shared/requireCaller.ts";
+import { callerErrorResponse, canActOnCenter, resolveCaller } from "../_shared/requireCaller.ts";
 import { encode as encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { sanitizeForPdf, wrapText, drawTextRightAligned, embedImageFromUrl } from "../_shared/pdfHelpers.ts";
 import { generateFormalInvoicePdfBytes } from "./formalTemplate.ts";
@@ -772,8 +772,6 @@ serve(async (req) => {
 
     const invoice_id = body.invoice_id || body.invoiceId;
     const access_token = body.access_token;
-    const { hasAuthenticatedJWT, unauthorizedResponse } = await import("../_shared/authGuard.ts");
-    const isAuthed = await hasAuthenticatedJWT(req);
 
     if (!invoice_id) {
       return new Response(
@@ -805,8 +803,33 @@ serve(async (req) => {
     }
 
     const invoiceAccessToken = (invoice as { access_token?: string | null }).access_token;
-    if (!isAuthed && (!access_token || access_token !== invoiceAccessToken)) {
-      return unauthorizedResponse(corsHeaders);
+    const hasValidAccessToken = typeof access_token === "string"
+      && access_token.length > 0
+      && access_token === invoiceAccessToken;
+
+    if (!hasValidAccessToken) {
+      const caller = await resolveCaller(req, supabase);
+      if (!caller) return callerErrorResponse(401, corsHeaders);
+
+      if (caller.kind === "user") {
+        if (!canActOnCenter(caller, invoice.center_id)) {
+          return callerErrorResponse(403, corsHeaders);
+        }
+
+        const { data: authorizedRole, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", caller.userId)
+          .eq("center_id", caller.centerId)
+          .in("role", ["admin", "professional"])
+          .limit(1)
+          .maybeSingle();
+
+        if (roleError || !authorizedRole) {
+          if (roleError) console.error("Invoice authorization role fetch error:", roleError);
+          return callerErrorResponse(403, corsHeaders);
+        }
+      }
     }
 
     const invoiceData = invoice as InvoiceData;
