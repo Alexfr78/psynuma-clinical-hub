@@ -5643,6 +5643,9 @@ export type Database = {
           address: string | null
           assigned_professional_id: string | null
           auto_invoice_on_complete: boolean
+          booking_blocked: boolean
+          booking_blocked_at: string | null
+          booking_blocked_reason: string | null
           cancellation_policy_enabled: boolean
           center_id: string
           city: string | null
@@ -5678,6 +5681,9 @@ export type Database = {
           address?: string | null
           assigned_professional_id?: string | null
           auto_invoice_on_complete?: boolean
+          booking_blocked?: boolean
+          booking_blocked_at?: string | null
+          booking_blocked_reason?: string | null
           cancellation_policy_enabled?: boolean
           center_id: string
           city?: string | null
@@ -5713,6 +5719,9 @@ export type Database = {
           address?: string | null
           assigned_professional_id?: string | null
           auto_invoice_on_complete?: boolean
+          booking_blocked?: boolean
+          booking_blocked_at?: string | null
+          booking_blocked_reason?: string | null
           cancellation_policy_enabled?: boolean
           center_id?: string
           city?: string | null

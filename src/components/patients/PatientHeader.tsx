@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Patient } from '@/hooks/usePatients';
 import { PatientStatusBadge } from './PatientStatusBadge';
 import { PatientStatusToggle } from './PatientStatusToggle';
+import { PatientBookingBlockToggle } from './PatientBookingBlockToggle';
 import { PatientPartnerLink } from './PatientPartnerLink';
 import { Icon } from '@/components/ui/icon';
 
@@ -61,6 +62,15 @@ export function PatientHeader({ patient, onEditClick }: PatientHeaderProps) {
                   statusReason={patient.status_reason}
                   showReason
                 />
+                {patient.booking_blocked && (
+                  <Badge
+                    variant="outline"
+                    className="border-destructive text-destructive"
+                    title={patient.booking_blocked_reason || undefined}
+                  >
+                    Reservas bloqueadas
+                  </Badge>
+                )}
                 {patient.is_minor && (
                   <Badge variant="outline" className="border-warning text-warning">
                     Menor
@@ -68,11 +78,17 @@ export function PatientHeader({ patient, onEditClick }: PatientHeaderProps) {
                 )}
               </div>
             </div>
-            <PatientStatusToggle
-              patientId={patient.id}
-              currentStatus={patient.status || 'active'}
-              statusSource={patient.status_source}
-            />
+            <div className="flex flex-wrap justify-center gap-2">
+              <PatientBookingBlockToggle
+                patientId={patient.id}
+                blocked={patient.booking_blocked}
+              />
+              <PatientStatusToggle
+                patientId={patient.id}
+                currentStatus={patient.status || 'active'}
+                statusSource={patient.status_source}
+              />
+            </div>
           </div>
 
           {age !== null && (

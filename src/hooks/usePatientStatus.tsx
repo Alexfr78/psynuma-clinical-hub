@@ -90,3 +90,36 @@ export function useRecomputeAllPatientStatuses() {
     },
   });
 }
+
+/**
+ * Bloquea o desbloquea las reservas online del paciente (reserva pública,
+ * portal y /cita). No cancela sus citas existentes ni le cierra el portal.
+ */
+export function useSetPatientBookingBlock() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ patientId, blocked, reason }: { patientId: string; blocked: boolean; reason?: string | null }) => {
+      const { error } = await supabase
+        .from('patients')
+        .update({
+          booking_blocked: blocked,
+          booking_blocked_reason: blocked ? (reason?.trim() || null) : null,
+          booking_blocked_at: blocked ? new Date().toISOString() : null,
+        })
+        .eq('id', patientId);
+
+      if (error) throw error;
+      return blocked;
+    },
+    onSuccess: (blocked) => {
+      queryClient.invalidateQueries({ queryKey: qk.patients.all });
+      queryClient.invalidateQueries({ queryKey: qk.patient.all });
+      toast.success(blocked ? 'Reservas online bloqueadas' : 'Reservas online desbloqueadas');
+    },
+    onError: (error: Error) => {
+      console.error('Error updating booking block:', error);
+      toast.error('No se pudo cambiar el bloqueo de reservas');
+    },
+  });
+}

@@ -503,6 +503,23 @@ export function PortalBooking({
     );
   }
 
+  if (bookingRequirements?.bookingBlocked) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="text-center space-y-4">
+            <Icon name="info" className="h-12 w-12 mx-auto text-muted-foreground" />
+            <p className="text-muted-foreground">
+              {bookingRequirements.bookingBlockedMessage
+                || 'No es posible completar la reserva online. Por favor, contacta con el centro.'}
+            </p>
+            <Button variant="outline" onClick={onComplete}>Ver mis citas</Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (success) {
     return (
       <Card>

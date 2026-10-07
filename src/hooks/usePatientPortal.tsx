@@ -25,6 +25,9 @@ export interface PortalBookingRequirements {
     limitReached?: boolean;
     limitMessage?: string | null;
   }>;
+  /** El centro ha bloqueado las reservas online de este paciente. */
+  bookingBlocked?: boolean;
+  bookingBlockedMessage?: string | null;
 }
 
 export interface PortalCreateSessionResult {
@@ -350,6 +353,8 @@ export function usePatientPortal(centerSlug?: string) {
         hasAcceptedCancellationPolicy: Boolean(data?.hasAcceptedCancellationPolicy),
         cardOnBookingMode: data?.cardOnBookingMode || 'off',
         sessionTypes: data?.sessionTypes || [],
+        bookingBlocked: Boolean(data?.bookingBlocked),
+        bookingBlockedMessage: data?.bookingBlockedMessage || null,
       };
     } catch (error) {
       console.error('Error getting booking requirements:', error);

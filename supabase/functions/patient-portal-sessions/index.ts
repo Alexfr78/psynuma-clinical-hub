@@ -16,6 +16,7 @@ import { resolveDayAvailability } from "../_shared/availability-core.ts";
 import { APP_TZ, buildDayScheduleInput } from "../_shared/special-days-adapter.ts";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { getSessionTypeLimit, sessionTypeLimitMessage } from "../_shared/sessionTypeLimit.ts";
+import { BOOKING_BLOCKED_CODE, BOOKING_BLOCKED_MESSAGE, isPatientBookingBlocked } from "../_shared/bookingBlock.ts";
 import { resolveSessionTypePrice } from "../_shared/sessionPricing.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -315,6 +316,9 @@ serve(async (req) => {
       ]);
       if (sessionTypesResult.error) throw sessionTypesResult.error;
       const cardOnBookingMode = policyEnabled ? (centerRes.data?.card_on_booking_mode || "off") : "off";
+      // Reservas bloqueadas: el portal sigue abierto (facturas, documentos),
+      // pero no se ofrece reservar. El motivo nunca sale del servidor.
+      const bookingBlocked = await isPatientBookingBlocked(supabase, session.patientId);
 
       // Marca los servicios que el paciente ya ha agotado (a fecha de hoy; si el
       // tope es por periodo, la fecha real se vuelve a comprobar al crear).
@@ -342,6 +346,8 @@ serve(async (req) => {
           hasAcceptedCancellationPolicy: hasAcceptedPolicy,
           cardOnBookingMode,
           sessionTypes,
+          bookingBlocked,
+          bookingBlockedMessage: bookingBlocked ? BOOKING_BLOCKED_MESSAGE : null,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -357,6 +363,14 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Fecha, hora, tipo de sesión y ubicación son requeridos" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (await isPatientBookingBlocked(supabase, session.patientId)) {
+        console.log(`[portal-create] blocked patient=${session.patientId}`);
+        return new Response(
+          JSON.stringify({ error: BOOKING_BLOCKED_MESSAGE, code: BOOKING_BLOCKED_CODE }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -1201,6 +1215,13 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "Esta cita no se puede reprogramar" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (await isPatientBookingBlocked(supabase, session.patientId)) {
+        return new Response(
+          JSON.stringify({ error: BOOKING_BLOCKED_MESSAGE, code: BOOKING_BLOCKED_CODE }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 

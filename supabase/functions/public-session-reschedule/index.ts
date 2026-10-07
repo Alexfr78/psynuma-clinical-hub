@@ -17,6 +17,7 @@ import {
   type RawCalendarEvent,
 } from "../_shared/special-days-adapter.ts";
 import { isCancellationPolicyEnabled, resolveSignedCancellationPolicyVersionForSession } from "../_shared/cancellationPolicy.ts";
+import { BOOKING_BLOCKED_CODE, BOOKING_BLOCKED_MESSAGE, isAnyPatientBookingBlocked } from "../_shared/bookingBlock.ts";
 import {
   getPublicCancellationPolicy,
   hasAcceptedCancellationPolicy,
@@ -505,6 +506,13 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "New date and times are required" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (await isAnyPatientBookingBlocked(supabase, await getCoupleMembers(supabase, session))) {
+        return new Response(
+          JSON.stringify({ error: BOOKING_BLOCKED_MESSAGE, code: BOOKING_BLOCKED_CODE }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 

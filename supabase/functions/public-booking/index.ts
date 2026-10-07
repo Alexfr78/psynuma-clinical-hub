@@ -24,6 +24,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import { createZoomMeetingForSession } from "../_shared/zoomMeeting.ts";
 import { getOrCreatePublicShortLink } from "../_shared/publicShortLinks.ts";
 import { getSessionTypeLimit, sessionTypeLimitMessage } from "../_shared/sessionTypeLimit.ts";
+import { BOOKING_BLOCKED_CODE, BOOKING_BLOCKED_MESSAGE, findSuspectedBlockedPatient, isAnyPatientBookingBlocked, listBlockedPatients } from "../_shared/bookingBlock.ts";
 import { resolveSessionTypePrice } from "../_shared/sessionPricing.ts";
 import { evaluateLateChangeForSession, LATE_RESCHEDULE_STAFF_NOTE, lateChangeAckRequiredBody, SESSION_STARTED_CODE, SESSION_STARTED_MESSAGE } from "../_shared/lateChange.ts";
 
@@ -1545,7 +1546,7 @@ serve(async (req) => {
       // 1. Try to find existing patient by email
       const { data: existingByEmail } = await supabase
         .from("patients")
-        .select("id, first_name, last_name, phone, email, payment_mode, require_advance_payment_always")
+        .select("id, first_name, last_name, phone, email, payment_mode, require_advance_payment_always, booking_blocked")
         .eq("center_id", center.id)
         .ilike("email", normalizedEmail)
         .maybeSingle();
@@ -1555,12 +1556,34 @@ serve(async (req) => {
       if (!existingPatient && normalizedPhone) {
         const { data: existingByPhone } = await supabase
           .from("patients")
-          .select("id, first_name, last_name, phone, email, payment_mode, require_advance_payment_always")
+          .select("id, first_name, last_name, phone, email, payment_mode, require_advance_payment_always, booking_blocked")
           .eq("center_id", center.id)
           .eq("phone", normalizedPhone)
           .is("email", null)
           .maybeSingle();
         existingPatient = existingByPhone;
+      }
+
+      // Paciente con las reservas online bloqueadas: mensaje neutro, sin cita.
+      if (existingPatient?.booking_blocked) {
+        console.log(`[create-booking] blocked patient=${existingPatient.id}`);
+        // Sin `code`: un anónimo con el email de otra persona no debe poder
+        // deducir el motivo del rechazo.
+        return new Response(
+          JSON.stringify({ error: BOOKING_BLOCKED_MESSAGE }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ¿Coincide por teléfono o nombre completo con un paciente bloqueado
+      // (p. ej. reserva con otro email)? No se rechaza: pasa a aprobación.
+      const suspectedBlocked = findSuspectedBlockedPatient(
+        { firstName: patient.firstName, lastName: patient.lastName, phone: patient.phone },
+        await listBlockedPatients(supabase, center.id),
+        existingPatient?.id,
+      );
+      if (suspectedBlocked) {
+        console.log(`[create-booking] suspected blocked patient=${suspectedBlocked.patientId} by=${suspectedBlocked.matchedBy}`);
       }
 
       // Servicios con tope por paciente (p. ej. primera consulta una sola vez).
@@ -1701,14 +1724,24 @@ serve(async (req) => {
       // paciente NO paga por adelantado. Si es obligatoria, la cita nace en
       // 'draft' (borrador) y el webhook la promociona al guardar la tarjeta.
       const cardMode = center.cancellation_policy_enabled ? (center.card_on_booking_mode || "off") : "off";
-      const cardCaptureNeeded = !!activeCancellationPolicy
+      // Con sospecha de paciente bloqueado no se pide tarjeta: la cita queda
+      // en aprobación y el profesional decide (no hay 'draft' que caduque).
+      const cardCaptureNeeded = !suspectedBlocked
+        && !!activeCancellationPolicy
         && cardMode !== "off"
         && !paymentRules.requiresAdvancePayment;
-      const status = (cardCaptureNeeded && cardMode === "required") ? "draft" : baseStatus;
+      // La sospecha de paciente bloqueado manda la cita a aprobación aunque el
+      // centro no la exija.
+      const status = suspectedBlocked
+        ? "pending_approval"
+        : (cardCaptureNeeded && cardMode === "required") ? "draft" : baseStatus;
 
+      const suspicionNote = suspectedBlocked
+        ? `\n⚠ Posible paciente con reservas bloqueadas (coincide por ${suspectedBlocked.matchedBy === "phone" ? "teléfono" : "nombre"}). Revísala antes de aprobar.`
+        : "";
       const sessionNotes = notes
-        ? `Reserva pública web\n${notes}` 
-        : "Reserva pública web";
+        ? `Reserva pública web${suspicionNote}\n${notes}`
+        : `Reserva pública web${suspicionNote}`;
 
       const { data: newSession, error: sessionError } = await supabase
         .from("sessions")
@@ -1837,14 +1870,18 @@ serve(async (req) => {
       const professionalName = prof ? `${prof.first_name} ${prof.last_name}` : 'Sin asignar';
       const locationName = loc?.name || 'Sin especificar';
       
-      const alertSubject = status === "pending_approval"
+      const alertSubject = suspectedBlocked
+        ? `⚠ Solicitud de cita de posible paciente bloqueado — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`
+        : status === "pending_approval"
         ? `Nueva solicitud de cita — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`
         : paymentRequiredNow
           ? `Nueva reserva pendiente de pago — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`
           : `Nueva cita reservada — ${patient.firstName} ${patient.lastName} — ${sessionDate} ${startTime}`;
       
       const alertMessage = buildAlertMessage({
-        eventType: status === "pending_approval"
+        eventType: suspectedBlocked
+          ? `Solicitud de cita que coincide por ${suspectedBlocked.matchedBy === "phone" ? "teléfono" : "nombre"} con un paciente con reservas bloqueadas. Queda pendiente de tu aprobación.`
+          : status === "pending_approval"
           ? 'Nueva solicitud de cita (reserva pública)'
           : paymentRequiredNow
             ? 'Nueva reserva pendiente de pago (reserva pública)'
@@ -1950,7 +1987,7 @@ serve(async (req) => {
           cardOnBookingMode: cardMode,
           checkoutUrl,
           checkoutError,
-          message: center.portal_require_approval
+          message: status === "pending_approval"
             ? "Cita solicitada. Recibirás confirmación pronto."
             : paymentRequiredNow
               ? checkoutUrl
@@ -2395,6 +2432,13 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: "No se puede reprogramar una cita cancelada" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (await isAnyPatientBookingBlocked(supabase, await getCoupleMembers(supabase, session))) {
+        return new Response(
+          JSON.stringify({ error: BOOKING_BLOCKED_MESSAGE, code: BOOKING_BLOCKED_CODE }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
