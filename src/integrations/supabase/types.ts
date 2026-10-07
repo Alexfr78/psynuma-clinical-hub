@@ -9320,6 +9320,19 @@ export type Database = {
           variable_amount: number
         }[]
       }
+      _compute_patient_status_internal: {
+        Args: { p_patient_id: string }
+        Returns: Json
+      }
+      _resolve_effective_price_internal: {
+        Args: {
+          p_patient_id: string
+          p_reference_date?: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: Json
+      }
       acquire_verifactu_chain_lock: {
         Args: { p_center_id: string }
         Returns: boolean
@@ -9340,6 +9353,10 @@ export type Database = {
       apply_bono_to_session_service: {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
+      }
+      assert_center_access: {
+        Args: { p_center_id: string }
+        Returns: undefined
       }
       assert_invoice_items_mutable: {
         Args: { p_invoice_id: string; p_operation: string }
