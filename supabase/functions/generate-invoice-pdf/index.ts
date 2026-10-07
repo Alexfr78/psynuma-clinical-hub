@@ -1,11 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { PDFDocument, PDFPage, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import { PDFDocument, PDFPage, StandardFonts, degrees, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import * as QRCode from "https://esm.sh/qrcode@1.5.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { logAuditEvent } from "../_shared/auditLogger.ts";
+import { callerErrorResponse, resolveCaller } from "../_shared/requireCaller.ts";
+import { encode as encodeBase64 } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { sanitizeForPdf, wrapText, drawTextRightAligned, embedImageFromUrl } from "../_shared/pdfHelpers.ts";
 import { generateFormalInvoicePdfBytes } from "./formalTemplate.ts";
+import { darken, isHexColor, parseHexColor, readableOnWhite, toPdf } from "./colors.ts";
 
 // Every caller downloads or opens the PDF right away, so the link only needs
 // to live long enough for that. A leaked link must not stay usable for months.
@@ -71,6 +74,8 @@ interface InvoiceData {
     invoice_logo_url: string | null;
     invoice_footer: string | null;
     invoice_template: string | null;
+    invoice_primary_color: string | null;
+    invoice_secondary_color: string | null;
     invoice_license_line: string | null;
     invoice_signature_path: string | null;
     invoice_tax_exemption_note: string | null;
@@ -164,6 +169,17 @@ async function verifactuQrPng(qrContent: string): Promise<Uint8Array> {
   return Uint8Array.from(atob(qrBase64), (c) => c.charCodeAt(0));
 }
 
+// Sin colores configurados se usan exactamente los de siempre.
+function standardTheme(center: InvoiceData['centers'] | null | undefined) {
+  const primary = parseHexColor(center?.invoice_primary_color);
+  const secondary = parseHexColor(center?.invoice_secondary_color);
+  return {
+    accent: primary ? toPdf(readableOnWhite(primary, 3)) : ACCENT,
+    accentDark: primary ? toPdf(readableOnWhite(darken(primary))) : ACCENT_DARK,
+    muted: secondary ? toPdf(readableOnWhite(secondary)) : TEXT_MUTED,
+  };
+}
+
 async function generateInvoicePdfBytes(
   invoice: InvoiceData,
   items: InvoiceItem[],
@@ -172,6 +188,7 @@ async function generateInvoicePdfBytes(
   series: InvoiceSeries | null
 ): Promise<Uint8Array> {
   const [pageWidth, pageHeight] = PAGE_SIZE;
+  const theme = standardTheme(invoice.centers);
   const contentRight = pageWidth - MARGIN;
 
   const pdfDoc = await PDFDocument.create();
@@ -221,7 +238,7 @@ async function generateInvoicePdfBytes(
   }
 
   page.drawText(sanitizeForPdf(invoice.centers?.name || 'Centro'), {
-    x: MARGIN, y: leftY, size: 14, font: helveticaBold, color: ACCENT_DARK,
+    x: MARGIN, y: leftY, size: 14, font: helveticaBold, color: theme.accentDark,
   });
   leftY -= 16;
 
@@ -234,7 +251,7 @@ async function generateInvoicePdfBytes(
   ].filter(Boolean) as string[];
 
   for (const line of centerMetaLines) {
-    page.drawText(sanitizeForPdf(line), { x: MARGIN, y: leftY, size: 9, font: helvetica, color: TEXT_MUTED });
+    page.drawText(sanitizeForPdf(line), { x: MARGIN, y: leftY, size: 9, font: helvetica, color: theme.muted });
     leftY -= 12;
   }
 
@@ -242,23 +259,23 @@ async function generateInvoicePdfBytes(
   let rightY = headerTop - 2;
   drawTextRightAligned(page, invoiceTypeLabel, contentRight, rightY, 15, helveticaBold, TEXT_DARK);
   rightY -= 20;
-  drawTextRightAligned(page, sanitizeForPdf(invoice.invoice_number), contentRight, rightY, 14, helveticaBold, ACCENT);
+  drawTextRightAligned(page, sanitizeForPdf(invoice.invoice_number), contentRight, rightY, 14, helveticaBold, theme.accent);
   rightY -= 18;
-  drawTextRightAligned(page, `Fecha emisión: ${formatDate(invoice.issue_date)}`, contentRight, rightY, 9, helvetica, TEXT_MUTED);
+  drawTextRightAligned(page, `Fecha emisión: ${formatDate(invoice.issue_date)}`, contentRight, rightY, 9, helvetica, theme.muted);
   rightY -= 12;
   if (invoice.due_date) {
-    drawTextRightAligned(page, `Fecha vencimiento: ${formatDate(invoice.due_date)}`, contentRight, rightY, 9, helvetica, TEXT_MUTED);
+    drawTextRightAligned(page, `Fecha vencimiento: ${formatDate(invoice.due_date)}`, contentRight, rightY, 9, helvetica, theme.muted);
     rightY -= 12;
   }
   if (badges.length > 0) {
     rightY -= 4;
-    drawTextRightAligned(page, badges.join(' | '), contentRight, rightY, 8, helvetica, TEXT_MUTED);
+    drawTextRightAligned(page, badges.join(' | '), contentRight, rightY, 8, helvetica, theme.muted);
     rightY -= 12;
   }
 
   currentY = Math.min(leftY, rightY) - 15;
 
-  page.drawLine({ start: { x: MARGIN, y: currentY }, end: { x: contentRight, y: currentY }, thickness: 1.5, color: ACCENT });
+  page.drawLine({ start: { x: MARGIN, y: currentY }, end: { x: contentRight, y: currentY }, thickness: 1.5, color: theme.accent });
   currentY -= 20;
 
   // ---- Rectified / substituted invoice notice ----
@@ -307,7 +324,7 @@ async function generateInvoicePdfBytes(
     let clientY = currentY - 30;
     clientLines.forEach((line, i) => {
       page.drawText(sanitizeForPdf(line), {
-        x: MARGIN + 10, y: clientY, size: i === 0 ? 10 : 9, font: i === 0 ? helveticaBold : helvetica, color: i === 0 ? TEXT_DARK : TEXT_MUTED,
+        x: MARGIN + 10, y: clientY, size: i === 0 ? 10 : 9, font: i === 0 ? helveticaBold : helvetica, color: i === 0 ? TEXT_DARK : theme.muted,
       });
       clientY -= 13;
     });
@@ -377,25 +394,25 @@ async function generateInvoicePdfBytes(
   const avgRetentionRate = items.find((i) => (i.retention_rate || 0) > 0)?.retention_rate || 0;
 
   const totalsLabelX = col.ivaRight - 60;
-  page.drawText('Base imponible:', { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
+  page.drawText('Base imponible:', { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: theme.muted });
   drawTextRightAligned(page, formatCurrency(invoice.subtotal), col.totalRight, currentY, 9, helvetica, TEXT_DARK);
   currentY -= 14;
 
   if (totalTax > 0) {
-    page.drawText(`IVA${avgTaxRate ? ` (${avgTaxRate}%)` : ''}:`, { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
+    page.drawText(`IVA${avgTaxRate ? ` (${avgTaxRate}%)` : ''}:`, { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: theme.muted });
     drawTextRightAligned(page, formatCurrency(totalTax), col.totalRight, currentY, 9, helvetica, TEXT_DARK);
     currentY -= 14;
   }
   if (totalRetention > 0) {
-    page.drawText(`Retencion IRPF${avgRetentionRate ? ` (${avgRetentionRate}%)` : ''}:`, { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
-    drawTextRightAligned(page, `-${formatCurrency(totalRetention)}`, col.totalRight, currentY, 9, helvetica, TEXT_MUTED);
+    page.drawText(`Retencion IRPF${avgRetentionRate ? ` (${avgRetentionRate}%)` : ''}:`, { x: totalsLabelX, y: currentY, size: 9, font: helvetica, color: theme.muted });
+    drawTextRightAligned(page, `-${formatCurrency(totalRetention)}`, col.totalRight, currentY, 9, helvetica, theme.muted);
     currentY -= 14;
   }
 
   page.drawLine({ start: { x: totalsLabelX, y: currentY + 4 }, end: { x: contentRight, y: currentY + 4 }, thickness: 1, color: BORDER });
   currentY -= 12;
   page.drawText('Total:', { x: totalsLabelX, y: currentY, size: 13, font: helveticaBold, color: TEXT_DARK });
-  drawTextRightAligned(page, formatCurrency(invoice.total), col.totalRight, currentY, 13, helveticaBold, ACCENT);
+  drawTextRightAligned(page, formatCurrency(invoice.total), col.totalRight, currentY, 13, helveticaBold, theme.accent);
   currentY -= 30;
 
   // ---- Notes ----
@@ -414,7 +431,7 @@ async function generateInvoicePdfBytes(
         newPage();
         currentY = pageHeight - MARGIN;
       }
-      page.drawText(line, { x: MARGIN, y: currentY, size: 9, font: helvetica, color: TEXT_MUTED });
+      page.drawText(line, { x: MARGIN, y: currentY, size: 9, font: helvetica, color: theme.muted });
       currentY -= 12;
     }
     currentY -= 10;
@@ -437,7 +454,7 @@ async function generateInvoicePdfBytes(
       const qrLines = wrapText('Puede verificar la autenticidad de esta factura escaneando el código QR', helvetica, 8, contentRight - MARGIN - 110);
       let qrY = currentY - 30;
       for (const line of qrLines) {
-        page.drawText(line, { x: MARGIN + 100, y: qrY, size: 8, font: helvetica, color: TEXT_MUTED });
+        page.drawText(line, { x: MARGIN + 100, y: qrY, size: 8, font: helvetica, color: theme.muted });
         qrY -= 11;
       }
       currentY -= 100;
@@ -463,7 +480,7 @@ async function generateInvoicePdfBytes(
         currentY = pageHeight - MARGIN;
       }
       const width = helvetica.widthOfTextAtSize(line, 8);
-      page.drawText(line, { x: (pageWidth - width) / 2, y: currentY, size: 8, font: helvetica, color: TEXT_MUTED });
+      page.drawText(line, { x: (pageWidth - width) / 2, y: currentY, size: 8, font: helvetica, color: theme.muted });
       currentY -= 11;
     }
   }
@@ -480,7 +497,7 @@ async function generateInvoicePdfBytes(
         newPage();
         currentY = pageHeight - MARGIN;
       }
-      page.drawText(line, { x: MARGIN, y: currentY, size: 6, font: helvetica, color: TEXT_MUTED });
+      page.drawText(line, { x: MARGIN, y: currentY, size: 6, font: helvetica, color: theme.muted });
       currentY -= 9;
     }
   }
@@ -585,10 +602,158 @@ async function renderFormalInvoice(
       footer: c?.invoice_footer ?? null,
       data_protection_text: c?.invoice_data_protection_text ?? null,
     },
+    colors: {
+      primary: parseHexColor(c?.invoice_primary_color),
+      secondary: parseHexColor(c?.invoice_secondary_color),
+    },
     logo,
     signature,
     qrImage,
   });
+}
+
+const CENTER_PDF_COLUMNS = "name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text, invoice_template, invoice_primary_color, invoice_secondary_color, invoice_license_line, invoice_signature_path, invoice_tax_exemption_note, bank_transfer_info";
+
+// Ajustes que la pantalla de diseño puede probar sin guardar. Todo lo demás
+// (nombre, NIF, dirección, logo, firma) sale siempre de la base de datos.
+const PREVIEW_TEXT_LIMITS = {
+  invoice_license_line: 120,
+  invoice_tax_exemption_note: 300,
+  invoice_footer: 2000,
+  invoice_data_protection_text: 2000,
+  bank_transfer_info: 2000,
+} as const;
+
+function applyPreviewOverrides(center: InvoiceData['centers'], raw: unknown): InvoiceData['centers'] {
+  const overrides = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const next = { ...center };
+  if (overrides.invoice_template === 'standard' || overrides.invoice_template === 'formal') {
+    next.invoice_template = overrides.invoice_template;
+  }
+  for (const key of ['invoice_primary_color', 'invoice_secondary_color'] as const) {
+    if (key in overrides) next[key] = isHexColor(overrides[key]) ? (overrides[key] as string).toLowerCase() : null;
+  }
+  for (const [key, max] of Object.entries(PREVIEW_TEXT_LIMITS) as [keyof typeof PREVIEW_TEXT_LIMITS, number][]) {
+    if (!(key in overrides)) continue;
+    const value = overrides[key];
+    next[key] = typeof value === 'string' && value.trim() ? value.slice(0, max) : null;
+  }
+  return next;
+}
+
+// Marca visible en cada página: el PDF de muestra lleva datos reales del centro
+// (NIF, dirección, firma) y no debe poder pasar por una factura emitida.
+async function watermarkAsSample(pdfBytes: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes);
+  const font = await doc.embedFont(StandardFonts.HelveticaBold);
+  const text = 'MUESTRA - SIN VALOR FISCAL';
+  const size = 44;
+  for (const page of doc.getPages()) {
+    const { width, height } = page.getSize();
+    const textWidth = font.widthOfTextAtSize(text, size);
+    // Centrado sobre la diagonal (45º): el centro del texto cae en el centro de la página.
+    const offset = textWidth / 2 / Math.SQRT2;
+    page.drawText(text, {
+      x: width / 2 - offset, y: height / 2 - offset, size, font,
+      color: rgb(0.85, 0.2, 0.2), opacity: 0.18, rotate: degrees(45),
+    });
+  }
+  return await doc.save();
+}
+
+// Vista previa del diseño: factura de muestra con los datos reales del centro
+// del usuario y los ajustes sin guardar. No toca facturas, no sube nada al
+// storage y no lleva datos de pacientes.
+async function handlePreview(
+  req: Request,
+  body: Record<string, unknown>,
+  supabase: SupabaseClient,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const caller = await resolveCaller(req, supabase);
+  if (!caller || caller.kind !== 'user') return callerErrorResponse(401, corsHeaders);
+
+  const { data: centerRow, error } = await supabase
+    .from('centers')
+    .select(`${CENTER_PDF_COLUMNS}, default_tax_rate, retention_rate`)
+    .eq('id', caller.centerId)
+    .single();
+  if (error || !centerRow) {
+    console.error('[generate-invoice-pdf] Preview center fetch error:', error);
+    return callerErrorResponse(403, corsHeaders);
+  }
+
+  const { default_tax_rate, retention_rate, ...centerColumns } = centerRow as Record<string, unknown>;
+  const center = applyPreviewOverrides(centerColumns as InvoiceData['centers'], body.overrides);
+
+  const taxRate = Number(default_tax_rate) || 0;
+  const retentionRate = Number(retention_rate) || 0;
+  const sampleLine = (description: string, price: number): InvoiceItem => {
+    const tax = Math.round(price * taxRate) / 100;
+    const retention = Math.round(price * retentionRate) / 100;
+    return {
+      description, quantity: 1, unit_price: price,
+      tax_rate: taxRate, tax_amount: tax,
+      retention_rate: retentionRate || null, retention_amount: retention || null,
+      total: price + tax,
+    };
+  };
+  const items = [
+    sampleLine('Sesión de psicoterapia individual', 60),
+    sampleLine('Sesión de evaluación psicológica', 75),
+  ];
+  const sum = (pick: (i: InvoiceItem) => number) => Math.round(items.reduce((acc, i) => acc + pick(i), 0) * 100) / 100;
+  const subtotal = sum((i) => i.unit_price);
+  const taxAmount = sum((i) => Number(i.tax_amount) || 0);
+  const retentionAmount = sum((i) => Number(i.retention_amount) || 0);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const sample = {
+    id: 'preview',
+    center_id: caller.centerId,
+    invoice_number: 'MUESTRA-0001',
+    invoice_type: 'complete',
+    issue_date: today,
+    due_date: null,
+    subtotal,
+    tax_rate: taxRate,
+    tax_amount: taxAmount,
+    retention_rate: retentionRate || null,
+    retention_amount: retentionAmount || null,
+    total: Math.round((subtotal + taxAmount - retentionAmount) * 100) / 100,
+    notes: null,
+    // Sin QR: la muestra no puede decir que está registrada en Verifactu.
+    verifactu_qr: null,
+    verifactu_hash: null,
+    verifactu_timestamp: null,
+    verifactu_registration_id: null,
+    is_recapitulative: false,
+    rectified_invoice_id: null,
+    rectification_type: null,
+    verifactu_invoice_type: null,
+    pdf_generated_at: null,
+    recipient_snapshot: {
+      name: 'Paciente de ejemplo',
+      tax_id: '00000000T',
+      address: 'Calle de ejemplo, 1',
+      city: 'Madrid',
+      postal_code: '28001',
+    },
+    series_id: null,
+    patients: { first_name: 'Paciente', last_name: 'de ejemplo', tax_id: null, address: null, city: null, postal_code: null, email: null },
+    centers: center,
+  } as InvoiceData;
+
+  const pdfBytes = center.invoice_template === 'formal'
+    ? await renderFormalInvoice(supabase, sample, items, null, [], null)
+    : await generateInvoicePdfBytes(sample, items, null, [], null);
+
+  const watermarked = await watermarkAsSample(pdfBytes);
+
+  return new Response(
+    JSON.stringify({ pdf_base64: encodeBase64(watermarked.slice().buffer) }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } },
+  );
 }
 
 serve(async (req) => {
@@ -599,6 +764,12 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+
+    if (body?.preview === true) {
+      const previewClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      return await handlePreview(req, body, previewClient, corsHeaders);
+    }
+
     const invoice_id = body.invoice_id || body.invoiceId;
     const access_token = body.access_token;
     const { hasAuthenticatedJWT, unauthorizedResponse } = await import("../_shared/authGuard.ts");
@@ -620,7 +791,7 @@ serve(async (req) => {
       .select(`
         *,
         patients (first_name, last_name, tax_id, address, city, postal_code, email),
-        centers (name, tax_id, address, city, postal_code, phone, email, invoice_logo_url, invoice_footer, invoice_data_protection_text, invoice_template, invoice_license_line, invoice_signature_path, invoice_tax_exemption_note, bank_transfer_info)
+        centers (${CENTER_PDF_COLUMNS})
       `)
       .eq("id", invoice_id)
       .single();

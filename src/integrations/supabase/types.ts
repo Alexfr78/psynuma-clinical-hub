@@ -2475,6 +2475,8 @@ export type Database = {
           invoice_license_line: string | null
           invoice_logo_url: string | null
           invoice_next_number: number | null
+          invoice_primary_color: string | null
+          invoice_secondary_color: string | null
           invoice_on_payment_mode: string | null
           invoice_prefix: string | null
           invoice_send_channel: string | null
@@ -2588,6 +2590,8 @@ export type Database = {
           invoice_license_line?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
+          invoice_primary_color?: string | null
+          invoice_secondary_color?: string | null
           invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
           invoice_send_channel?: string | null
@@ -2701,6 +2705,8 @@ export type Database = {
           invoice_license_line?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
+          invoice_primary_color?: string | null
+          invoice_secondary_color?: string | null
           invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
           invoice_send_channel?: string | null

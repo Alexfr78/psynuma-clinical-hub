@@ -12,6 +12,7 @@ import type { DebtListFilters } from '@/hooks/useDebts';
 import type { PaymentListFilters } from '@/hooks/usePayments';
 import type { CustomPriceTargetType } from '@/hooks/useCustomPrices';
 import type { CancellationCharge } from '@/hooks/useCancellationCharges';
+import type { InvoiceDesignDraft } from '@/lib/invoice-design';
 
 type CenterId = string | null | undefined;
 type BonoFilters = { patientId?: string; status?: string };
@@ -255,6 +256,13 @@ export const qk = {
     all: ['center'] as const,
     byCenter: (centerId: CenterId) =>
       ['center', centerId] as const,
+  },
+  invoiceDesign: {
+    all: ['invoice-design'] as const,
+    preview: (centerId: CenterId, draft: InvoiceDesignDraft, assetsVersion: string) =>
+      ['invoice-design', 'preview', centerId, draft, assetsVersion] as const,
+    signatureUrl: (centerId: CenterId, path: string | null) =>
+      ['invoice-design', 'signature-url', centerId, path] as const,
   },
   communicationTemplate: {
     all: ['communication-template'] as const,

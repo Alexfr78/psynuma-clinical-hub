@@ -30,6 +30,9 @@ export interface Center {
   invoice_data_protection_text: string | null;
   // Modelo de factura: 'standard' (el de siempre) | 'formal'
   invoice_template: string;
+  // Colores del documento; null = los del modelo
+  invoice_primary_color: string | null;
+  invoice_secondary_color: string | null;
   invoice_license_line: string | null;
   // Ruta en el bucket privado invoice-documents, no URL pública
   invoice_signature_path: string | null;

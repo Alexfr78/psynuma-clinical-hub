@@ -11,6 +11,7 @@
  */
 import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 import { sanitizeForPdf, wrapText } from "../_shared/pdfHelpers.ts";
+import { readableOnWhite, type Rgb, textOn, toPdf } from "./colors.ts";
 
 export interface FormalInvoiceItem {
   description: string;
@@ -61,6 +62,8 @@ export interface FormalInvoiceInput {
     footer: string | null;
     data_protection_text: string | null;
   };
+  /** null = colores del modelo (banda azul claro, barras gris azulado). */
+  colors: { primary: Rgb | null; secondary: Rgb | null };
   logo: PDFImage | null;
   signature: PDFImage | null;
   qrImage: PDFImage | null;
@@ -71,8 +74,8 @@ const MARGIN_X = 50;
 const TABLE_LEFT = 60;
 const TABLE_RIGHT = 535;
 
-const BAR = rgb(0.69, 0.753, 0.788); // #b0c0c9
-const BAND = rgb(0.624, 0.788, 0.922); // #9fc9eb
+const BAR_DEFAULT: Rgb = [0.69, 0.753, 0.788]; // #b0c0c9
+const BAND_DEFAULT: Rgb = [0.624, 0.788, 0.922]; // #9fc9eb
 const CELL_BG = rgb(0.949, 0.949, 0.949); // #f2f2f2
 const CELL_BORDER = rgb(0.651, 0.651, 0.651); // #a6a6a6
 const LABEL = rgb(0.498, 0.498, 0.498); // #7f7f7f
@@ -186,6 +189,14 @@ export async function generateFormalInvoicePdfBytes(
   const serifItalic = await pdfDoc.embedFont(StandardFonts.TimesRomanItalic);
 
   const { center } = input;
+  const BAND = toPdf(input.colors.primary ?? BAND_DEFAULT);
+  const BAR = toPdf(input.colors.secondary ?? BAR_DEFAULT);
+  // Con los colores del modelo el texto va en blanco, como en el original.
+  const BAND_TEXT = input.colors.primary ? toPdf(textOn(input.colors.primary)) : WHITE;
+  const BAR_TEXT = input.colors.secondary ? toPdf(textOn(input.colors.secondary)) : WHITE;
+  // Etiquetas sobre blanco: el gris azulado del modelo es tenue a propósito,
+  // pero un color elegido por el centro se oscurece hasta poder leerse.
+  const BAR_LABEL = input.colors.secondary ? toPdf(readableOnWhite(input.colors.secondary, 3)) : BAR;
   const s = (text: string | null | undefined) => sanitizeForPdf(text ?? "");
 
   // ---- Pie (se dibuja en todas las páginas al final) ----
@@ -211,17 +222,17 @@ export async function generateFormalInvoicePdfBytes(
       const barY = top;
       page.drawRectangle({ x: TABLE_LEFT, y: barY, width: TABLE_RIGHT - TABLE_LEFT, height: 20, color: BAR });
       if (center.phone) {
-        page.drawText(s(center.phone), { x: TABLE_LEFT + 6, y: barY + 7, size: 8, font: oblique, color: WHITE });
-        page.drawText("TELÉFONO:", { x: TABLE_LEFT + 6, y: barY + 28, size: 8, font: oblique, color: BAR });
+        page.drawText(s(center.phone), { x: TABLE_LEFT + 6, y: barY + 7, size: 8, font: oblique, color: BAR_TEXT });
+        page.drawText("TELÉFONO:", { x: TABLE_LEFT + 6, y: barY + 28, size: 8, font: oblique, color: BAR_LABEL });
       }
       if (center.email) {
         const email = s(center.email);
         page.drawText(email, {
-          x: TABLE_RIGHT - 6 - oblique.widthOfTextAtSize(email, 8), y: barY + 7, size: 8, font: oblique, color: WHITE,
+          x: TABLE_RIGHT - 6 - oblique.widthOfTextAtSize(email, 8), y: barY + 7, size: 8, font: oblique, color: BAR_TEXT,
         });
         const label = "CORREO ELECTRÓNICO";
         page.drawText(label, {
-          x: TABLE_RIGHT - 6 - oblique.widthOfTextAtSize(label, 8), y: barY + 28, size: 8, font: oblique, color: BAR,
+          x: TABLE_RIGHT - 6 - oblique.widthOfTextAtSize(label, 8), y: barY + 28, size: 8, font: oblique, color: BAR_LABEL,
         });
       }
       top += contactHeight;
@@ -275,7 +286,7 @@ export async function generateFormalInvoicePdfBytes(
   const title = s(toSentenceCase(input.documentLabel));
   page.drawRectangle({ x: 48, y: y - 32, width: TABLE_RIGHT - 48 + 2, height: 32, color: BAND });
   page.drawText(title, {
-    x: (48 + TABLE_RIGHT + 2) / 2 - oblique.widthOfTextAtSize(title, 16) / 2, y: y - 22, size: 16, font: oblique, color: WHITE,
+    x: (48 + TABLE_RIGHT + 2) / 2 - oblique.widthOfTextAtSize(title, 16) / 2, y: y - 22, size: 16, font: oblique, color: BAND_TEXT,
   });
   y -= 46;
 
