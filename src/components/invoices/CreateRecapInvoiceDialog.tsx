@@ -47,6 +47,8 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 interface CreateRecapInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,21 +96,32 @@ export function CreateRecapInvoiceDialog({ open, onOpenChange }: CreateRecapInvo
   };
 
   const selectedSessionsData = unbilledSessions?.filter(s => selectedSessions.includes(s.id)) || [];
-  const subtotal = selectedSessionsData.reduce((sum, s) => sum + Number(s.price), 0);
-  const watchTaxRate = form.watch('tax_rate');
-  const taxAmount = subtotal * (watchTaxRate / 100);
-  const total = subtotal + taxAmount;
+  const watchTaxRate = Number(form.watch('tax_rate')) || 0;
+  // El IVA se calcula por línea y la cabecera es la suma, para que líneas y
+  // cabecera cuadren al céntimo (el PDF desglosa el IVA desde las líneas).
+  const lineTax = (price: number, rate: number) => round2(price * (rate / 100));
+  const subtotal = round2(selectedSessionsData.reduce((sum, s) => sum + Number(s.price), 0));
+  const taxAmount = round2(selectedSessionsData.reduce((sum, s) => sum + lineTax(Number(s.price), watchTaxRate), 0));
+  const total = round2(subtotal + taxAmount);
 
   const onSubmit = async (values: FormValues) => {
     if (selectedSessions.length === 0) return;
 
-    const items = selectedSessionsData.map(session => ({
-      session_id: session.id,
-      description: `Sesión ${session.session_type || 'individual'} - ${format(new Date(session.session_date), "d MMM yyyy", { locale: es })}`,
-      quantity: 1,
-      unit_price: Number(session.price),
-      total: Number(session.price),
-    }));
+    const taxRate = Number(values.tax_rate) || 0;
+    const items = selectedSessionsData.map(session => {
+      const price = Number(session.price);
+      const tax = lineTax(price, taxRate);
+      return {
+        session_id: session.id,
+        description: `Sesión ${session.session_type || 'individual'} - ${format(new Date(session.session_date), "d MMM yyyy", { locale: es })}`,
+        quantity: 1,
+        unit_price: price,
+        tax_rate: taxRate,
+        tax_name: taxRate === 0 ? 'IVA Exento' : 'IVA',
+        tax_amount: tax,
+        total: round2(price + tax),
+      };
+    });
 
     await createInvoice.mutateAsync({
       invoice: {
