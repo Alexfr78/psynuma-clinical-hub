@@ -32,7 +32,12 @@ export interface ChangeFormValues {
   module: string;
   change_type: string;
   affects_verifactu: boolean;
+  is_user_facing: boolean;
+  user_summary?: string;
 }
+
+// Lo técnico y lo de seguridad no se anuncia a los usuarios salvo que se marque a mano.
+const hiddenByDefault = (type: string) => type === 'technical' || type === 'security';
 
 const schema = z.object({
   title: z.string().min(1, 'Título obligatorio').max(200),
@@ -40,6 +45,8 @@ const schema = z.object({
   module: z.string().min(1, 'Módulo obligatorio'),
   change_type: z.string().min(1, 'Tipo obligatorio'),
   affects_verifactu: z.boolean(),
+  is_user_facing: z.boolean(),
+  user_summary: z.string().max(500).optional(),
 });
 
 interface Props {
@@ -47,9 +54,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   editingChange: AppChangeLog | null;
   onSave: (data: ChangeFormValues) => void;
+  /** 'request': petición de un usuario que no es el dueño; sin campos de VeriFactu ni de aviso. */
+  mode?: 'owner' | 'request';
 }
 
-export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }: Props) {
+export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave, mode = 'owner' }: Props) {
+  const isRequest = mode === 'request';
   const form = useForm<ChangeFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -58,6 +68,8 @@ export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }
       module: '',
       change_type: '',
       affects_verifactu: false,
+      is_user_facing: true,
+      user_summary: '',
     },
   });
 
@@ -70,6 +82,8 @@ export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }
           module: editingChange.module,
           change_type: editingChange.change_type,
           affects_verifactu: editingChange.affects_verifactu,
+          is_user_facing: editingChange.is_user_facing,
+          user_summary: editingChange.user_summary || '',
         });
       } else {
         form.reset({
@@ -78,6 +92,8 @@ export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }
           module: '',
           change_type: '',
           affects_verifactu: false,
+          is_user_facing: true,
+          user_summary: '',
         });
       }
     }
@@ -87,7 +103,11 @@ export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{editingChange ? 'Editar cambio' : 'Registrar cambio'}</DialogTitle>
+          <DialogTitle>
+            {isRequest
+              ? (editingChange ? 'Editar petición' : 'Nueva petición de cambio')
+              : (editingChange ? 'Editar cambio' : 'Registrar cambio')}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSave)} className="space-y-4">
           <div className="space-y-2">
@@ -120,7 +140,13 @@ export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }
 
             <div className="space-y-2">
               <Label>Tipo *</Label>
-              <Select value={form.watch('change_type')} onValueChange={(v) => form.setValue('change_type', v)}>
+              <Select
+                value={form.watch('change_type')}
+                onValueChange={(v) => {
+                  form.setValue('change_type', v);
+                  if (!editingChange) form.setValue('is_user_facing', !hiddenByDefault(v));
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
@@ -133,17 +159,41 @@ export function CreateChangeDialog({ open, onOpenChange, editingChange, onSave }
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Switch
-              checked={form.watch('affects_verifactu')}
-              onCheckedChange={(v) => form.setValue('affects_verifactu', v)}
-            />
-            <Label>Afecta VeriFactu</Label>
-          </div>
+          {!isRequest && (
+            <>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.watch('affects_verifactu')}
+                  onCheckedChange={(v) => form.setValue('affects_verifactu', v)}
+                />
+                <Label>Afecta VeriFactu</Label>
+              </div>
+
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={form.watch('is_user_facing')}
+                    onCheckedChange={(v) => form.setValue('is_user_facing', v)}
+                  />
+                  <Label>Mostrar en el aviso de novedades</Label>
+                </div>
+                {form.watch('is_user_facing') && (
+                  <div className="space-y-2">
+                    <Label>Texto para los usuarios</Label>
+                    <Textarea
+                      {...form.register('user_summary')}
+                      rows={2}
+                      placeholder="Opcional. Si lo dejas vacío se muestra el título."
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit">{editingChange ? 'Guardar' : 'Registrar'}</Button>
+            <Button type="submit">{editingChange ? 'Guardar' : isRequest ? 'Enviar petición' : 'Registrar'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

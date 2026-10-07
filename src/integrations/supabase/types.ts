@@ -462,6 +462,9 @@ export type Database = {
           title: string
           updated_at: string
           version_id: string | null
+          is_user_facing: boolean
+          requester_label: string | null
+          user_summary: string | null
         }
         Insert: {
           affects_verifactu?: boolean
@@ -475,6 +478,9 @@ export type Database = {
           title: string
           updated_at?: string
           version_id?: string | null
+          is_user_facing?: boolean
+          requester_label?: string | null
+          user_summary?: string | null
         }
         Update: {
           affects_verifactu?: boolean
@@ -488,6 +494,9 @@ export type Database = {
           title?: string
           updated_at?: string
           version_id?: string | null
+          is_user_facing?: boolean
+          requester_label?: string | null
+          user_summary?: string | null
         }
         Relationships: [
           {
@@ -527,6 +536,7 @@ export type Database = {
           verifactu_synced_at: string | null
           version_code: string
           version_name: string | null
+          announce_mode: string
         }
         Insert: {
           applies_to_verifactu?: boolean
@@ -541,6 +551,7 @@ export type Database = {
           verifactu_synced_at?: string | null
           version_code: string
           version_name?: string | null
+          announce_mode?: string
         }
         Update: {
           applies_to_verifactu?: boolean
@@ -555,6 +566,7 @@ export type Database = {
           verifactu_synced_at?: string | null
           version_code?: string
           version_name?: string | null
+          announce_mode?: string
         }
         Relationships: [
           {
@@ -5944,6 +5956,21 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_owners: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plaud_oauth_states: {
         Row: {
           center_id: string
@@ -6492,6 +6519,7 @@ export type Database = {
           phone: string | null
           specialty: string | null
           updated_at: string
+          release_notes_seen_at: string | null
         }
         Insert: {
           agenda_preferences?: Json
@@ -6508,6 +6536,7 @@ export type Database = {
           phone?: string | null
           specialty?: string | null
           updated_at?: string
+          release_notes_seen_at?: string | null
         }
         Update: {
           agenda_preferences?: Json
@@ -6524,6 +6553,7 @@ export type Database = {
           phone?: string | null
           specialty?: string | null
           updated_at?: string
+          release_notes_seen_at?: string | null
         }
         Relationships: [
           {
@@ -9713,6 +9743,8 @@ export type Database = {
         }[]
       }
       get_session_token: { Args: never; Returns: string }
+      am_i_platform_owner: { Args: never; Returns: boolean }
+      get_release_notes: { Args: { p_limit?: number }; Returns: Json }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
       handle_google_webhook_debounce: {
         Args: {
@@ -9742,6 +9774,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_platform_owner: { Args: { _user_id: string }; Returns: boolean }
       is_professional: { Args: { _user_id: string }; Returns: boolean }
       log_integration_error: {
         Args: {
@@ -9757,6 +9790,7 @@ export type Database = {
         }
         Returns: string
       }
+      mark_release_notes_seen: { Args: { p_until: string }; Returns: undefined }
       merge_patients: {
         Args: {
           p_field_overrides?: Json

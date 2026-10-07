@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
 import type { AppChangeLog } from '@/hooks/useAppVersions';
 
 export interface VersionFormValues {
@@ -15,6 +16,8 @@ export interface VersionFormValues {
   version_name?: string;
   description?: string;
   applies_to_verifactu: boolean;
+  /** Destacada: al publicarla sale una ventana. Normal: aviso breve y punto en Novedades. */
+  highlight: boolean;
 }
 
 const schema = z.object({
@@ -22,6 +25,7 @@ const schema = z.object({
   version_name: z.string().max(200).optional(),
   description: z.string().max(2000).optional(),
   applies_to_verifactu: z.boolean(),
+  highlight: z.boolean(),
 });
 
 interface Props {
@@ -39,8 +43,11 @@ export function CreateVersionDialog({ open, onOpenChange, selectedChanges, onSav
       version_name: '',
       description: '',
       applies_to_verifactu: selectedChanges.some((c) => c.affects_verifactu),
+      highlight: false,
     },
   });
+
+  const visibleCount = selectedChanges.filter((c) => c.is_user_facing).length;
 
   const handleSubmit = (data: VersionFormValues) => {
     onSave(data);
@@ -62,6 +69,9 @@ export function CreateVersionDialog({ open, onOpenChange, selectedChanges, onSav
             <div key={c.id} className="flex items-center gap-2 text-sm">
               <Badge variant="outline" className="text-xs">{c.module}</Badge>
               <span className="truncate">{c.title}</span>
+              {!c.is_user_facing && (
+                <Icon name="visibility_off" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              )}
             </div>
           ))}
         </div>
@@ -92,6 +102,23 @@ export function CreateVersionDialog({ open, onOpenChange, selectedChanges, onSav
               onCheckedChange={(v) => form.setValue('applies_to_verifactu', v)}
             />
             <Label>Aplica a VeriFactu</Label>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={form.watch('highlight')}
+                onCheckedChange={(v) => form.setValue('highlight', v)}
+              />
+              <Label>Versión destacada</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {visibleCount === 0
+                ? 'Ningún cambio está marcado para el aviso: al publicarla no se avisará a nadie.'
+                : form.watch('highlight')
+                  ? `Al publicarla, los usuarios verán una ventana con ${visibleCount} cambio${visibleCount !== 1 ? 's' : ''}.`
+                  : `Al publicarla, los usuarios verán un aviso breve y un punto en Novedades (${visibleCount} cambio${visibleCount !== 1 ? 's' : ''}).`}
+            </p>
           </div>
 
           <DialogFooter>

@@ -17,6 +17,7 @@ import { HeaderRecordButton } from '@/components/web-recorder/HeaderRecordButton
 import { PrivacyModeButton } from '@/components/agenda/PrivacyModeButton';
 import { PrivacyModeProvider } from '@/hooks/usePrivacyMode';
 import { RouteBoundary } from '@/components/RouteErrorBoundary';
+import { ReleaseNotesCenter } from '@/components/release-notes/ReleaseNotesCenter';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -72,6 +73,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </Breadcrumb>
             <div className="ml-auto flex items-center gap-2">
               {location.pathname === '/agenda' && <PrivacyModeButton />}
+              <ReleaseNotesCenter />
               <HeaderRecordButton />
             </div>
           </header>

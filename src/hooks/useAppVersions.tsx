@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuditLog } from '@/hooks/useAuditLog';
+import { usePlatformOwner } from '@/hooks/usePlatformOwner';
 import { toast } from 'sonner';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 
@@ -16,6 +17,7 @@ export interface AppVersion {
   is_current: boolean;
   published_at: string | null;
   applies_to_verifactu: boolean;
+  announce_mode: 'highlight' | 'normal';
   verifactu_synced_at: string | null;
   created_by: string | null;
   created_at: string;
@@ -30,6 +32,9 @@ export interface AppChangeLog {
   module: string;
   change_type: 'feature' | 'improvement' | 'fix' | 'technical' | 'legal' | 'security' | 'ui';
   affects_verifactu: boolean;
+  is_user_facing: boolean;
+  user_summary: string | null;
+  requester_label: string | null;
   status: 'pending' | 'included' | 'archived';
   version_id: string | null;
   created_by: string | null;
@@ -42,6 +47,7 @@ export function useAppVersions() {
   const { user } = useAuth();
   const { center, updateCenter } = useCenter();
   const { logView } = useAuditLog();
+  const { isPlatformOwner } = usePlatformOwner();
 
   const versionsQuery = useQuery({
     queryKey: qk.appVersions.all,
@@ -71,6 +77,7 @@ export function useAppVersions() {
         change_count: countMap[v.id] || 0,
       })) as AppVersion[];
     },
+    enabled: isPlatformOwner,
   });
 
   const pendingChangesQuery = useQuery({
@@ -84,6 +91,7 @@ export function useAppVersions() {
       if (error) throw error;
       return data as AppChangeLog[];
     },
+    enabled: isPlatformOwner,
   });
 
   const getVersionChanges = async (versionId: string) => {
@@ -104,6 +112,8 @@ export function useAppVersions() {
       module: string;
       change_type: string;
       affects_verifactu: boolean;
+      is_user_facing?: boolean;
+      user_summary?: string | null;
     }) => {
       const { data, error } = await supabase
         .from('app_change_log')
@@ -120,7 +130,8 @@ export function useAppVersions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.appChangesPending.all });
-      toast.success('Cambio registrado');
+      queryClient.invalidateQueries({ queryKey: qk.appChangeRequests.all });
+      toast.success(isPlatformOwner ? 'Cambio registrado' : 'Petición enviada');
     },
     onError: () => toast.error('Error al registrar el cambio'),
   });
@@ -135,6 +146,7 @@ export function useAppVersions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.appChangesPending.all });
+      queryClient.invalidateQueries({ queryKey: qk.appChangeRequests.all });
       toast.success('Cambio actualizado');
     },
     onError: () => toast.error('Error al actualizar'),
@@ -150,6 +162,7 @@ export function useAppVersions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.appChangesPending.all });
+      queryClient.invalidateQueries({ queryKey: qk.appChangeRequests.all });
       toast.success('Cambio archivado');
     },
     onError: () => toast.error('Error al archivar'),
@@ -161,12 +174,14 @@ export function useAppVersions() {
       version_name,
       description,
       applies_to_verifactu,
+      announce_mode,
       changeIds,
     }: {
       version_code: string;
       version_name?: string;
       description?: string;
       applies_to_verifactu: boolean;
+      announce_mode: 'highlight' | 'normal';
       changeIds: string[];
     }) => {
       const { data: version, error } = await supabase
@@ -176,6 +191,7 @@ export function useAppVersions() {
           version_name: version_name || null,
           description: description || null,
           applies_to_verifactu,
+          announce_mode,
           created_by: user?.id || null,
         })
         .select()
@@ -214,6 +230,7 @@ export function useAppVersions() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.appVersions.all });
+      queryClient.invalidateQueries({ queryKey: qk.releaseNotes.all });
       toast.success('Versión publicada');
     },
     onError: () => toast.error('Error al publicar'),
@@ -278,7 +295,8 @@ export function useAppVersions() {
     versions: versionsQuery.data || [],
     pendingChanges: pendingChangesQuery.data || [],
     currentVersion,
-    isLoading: versionsQuery.isLoading || pendingChangesQuery.isLoading,
+    isPlatformOwner,
+    isLoading: isPlatformOwner && (versionsQuery.isLoading || pendingChangesQuery.isLoading),
     getVersionChanges,
     createChange,
     updateChange,
@@ -289,4 +307,23 @@ export function useAppVersions() {
     syncWithVerifactu,
     archiveVersion,
   };
+}
+
+/** Peticiones de cambio enviadas por el propio usuario (las que no son del dueño de la plataforma). */
+export function useMyChangeRequests() {
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: qk.appChangeRequests.byUser(user?.id),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_change_log')
+        .select('*')
+        .eq('created_by', user!.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as AppChangeLog[];
+    },
+    enabled: !!user?.id,
+  });
+  return { requests: query.data ?? [], isLoading: query.isLoading };
 }

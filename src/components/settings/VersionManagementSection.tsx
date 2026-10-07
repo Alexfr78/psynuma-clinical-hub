@@ -11,12 +11,18 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAppVersions, type AppVersion, type AppChangeLog } from '@/hooks/useAppVersions';
 import { useCenter } from '@/hooks/useCenter';
+import { usePlatformOwner } from '@/hooks/usePlatformOwner';
 import { CreateChangeDialog } from './versions/CreateChangeDialog';
 import { type ChangeFormValues } from './versions/CreateChangeDialog';
 import { CreateVersionDialog } from './versions/CreateVersionDialog';
 import { type VersionFormValues } from './versions/CreateVersionDialog';
 import { VersionDetailSheet } from './versions/VersionDetailSheet';
 import { VerifactuSyncDialog } from './versions/VerifactuSyncDialog';
+import { ChangeRequestsSection } from './versions/ChangeRequestsSection';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Icon } from '@/components/ui/icon';
 
 const changeTypeBadge: Record<string, { label: string; className: string }> = {
@@ -36,6 +42,12 @@ const statusBadge: Record<string, { label: string; variant: 'default' | 'seconda
 };
 
 export function VersionManagementSection() {
+  const { isPlatformOwner, isLoading: ownerLoading } = usePlatformOwner();
+  if (ownerLoading) return null;
+  return isPlatformOwner ? <PlatformVersionManagement /> : <ChangeRequestsSection />;
+}
+
+function PlatformVersionManagement() {
   const {
     versions, pendingChanges, currentVersion, isLoading,
     createChange, updateChange, archiveChange, createVersion,
@@ -50,6 +62,7 @@ export function VersionManagementSection() {
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [detailVersion, setDetailVersion] = useState<AppVersion | null>(null);
   const [syncVersion, setSyncVersion] = useState<AppVersion | null>(null);
+  const [publishTarget, setPublishTarget] = useState<AppVersion | null>(null);
 
   if (isLoading) {
     return (
@@ -176,6 +189,7 @@ export function VersionManagementSection() {
                             onCheckedChange={() => toggleChange(change.id)}
                           />
                           <span className="font-medium text-sm truncate">{change.title}</span>
+                          {!change.is_user_facing && <Icon name="visibility_off" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -198,6 +212,7 @@ export function VersionManagementSection() {
                           {format(new Date(change.created_at), 'dd/MM/yy')}
                         </span>
                         <span className="text-xs capitalize text-muted-foreground">{change.module}</span>
+                        {change.requester_label && <Badge variant="outline" className="text-xs">Petición: {change.requester_label}</Badge>}
                         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${typeBadge.className}`}>
                           {typeBadge.label}
                         </span>
@@ -205,6 +220,9 @@ export function VersionManagementSection() {
                       </div>
                       {change.description && (
                         <p className="text-xs text-muted-foreground line-clamp-2">{change.description}</p>
+                      )}
+                      {change.user_summary && (
+                        <p className="text-xs line-clamp-2"><span className="text-muted-foreground">Aviso: </span>{change.user_summary}</p>
                       )}
                     </div>
                   );
@@ -250,9 +268,29 @@ export function VersionManagementSection() {
                               {typeBadge.label}
                             </span>
                           </TableCell>
-                          <TableCell className="font-medium text-sm max-w-[200px] truncate">{change.title}</TableCell>
+                          <TableCell className="font-medium text-sm max-w-[240px]">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate">{change.title}</span>
+                              {!change.is_user_facing && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Icon name="visibility_off" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>No sale en el aviso de novedades</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                            {change.requester_label && (
+                              <div className="text-xs font-normal text-muted-foreground truncate">Petición: {change.requester_label}</div>
+                            )}
+                          </TableCell>
                           <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[200px] truncate">
                             {change.description || '—'}
+                            {change.user_summary && (
+                              <div className="truncate text-foreground">Aviso: {change.user_summary}</div>
+                            )}
                           </TableCell>
                           <TableCell>
                             {change.affects_verifactu && (
@@ -336,7 +374,7 @@ export function VersionManagementSection() {
                               <Icon name="visibility" className="mr-2 h-4 w-4" /> Ver detalle
                             </DropdownMenuItem>
                             {v.status === 'draft' && (
-                              <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
+                              <DropdownMenuItem onClick={() => setPublishTarget(v)}>
                                 <Icon name="check_circle" className="mr-2 h-4 w-4" /> Publicar
                               </DropdownMenuItem>
                             )}
@@ -424,7 +462,7 @@ export function VersionManagementSection() {
                                   <Icon name="visibility" className="mr-2 h-4 w-4" /> Ver detalle
                                 </DropdownMenuItem>
                                 {v.status === 'draft' && (
-                                  <DropdownMenuItem onClick={() => publishVersion.mutate(v.id)}>
+                                  <DropdownMenuItem onClick={() => setPublishTarget(v)}>
                                     <Icon name="check_circle" className="mr-2 h-4 w-4" /> Publicar
                                   </DropdownMenuItem>
                                 )}
@@ -474,7 +512,8 @@ export function VersionManagementSection() {
         open={changeDialogOpen}
         onOpenChange={setChangeDialogOpen}
         editingChange={editingChange}
-        onSave={(data: ChangeFormValues) => {
+        onSave={(form: ChangeFormValues) => {
+          const data = { ...form, user_summary: form.user_summary?.trim() || null };
           if (editingChange) {
             updateChange.mutate({ id: editingChange.id, ...data });
           } else {
@@ -489,8 +528,8 @@ export function VersionManagementSection() {
         open={versionDialogOpen}
         onOpenChange={setVersionDialogOpen}
         selectedChanges={pendingChanges.filter((c) => selectedChangeIds.includes(c.id))}
-        onSave={(data: VersionFormValues) => {
-          createVersion.mutate({ ...data, changeIds: selectedChangeIds });
+        onSave={({ highlight, ...data }: VersionFormValues) => {
+          createVersion.mutate({ ...data, announce_mode: highlight ? 'highlight' : 'normal', changeIds: selectedChangeIds });
           setVersionDialogOpen(false);
           setSelectedChangeIds([]);
         }}
@@ -502,12 +541,37 @@ export function VersionManagementSection() {
           open={!!detailVersion}
           onOpenChange={(open) => { if (!open) setDetailVersion(null); }}
           getVersionChanges={getVersionChanges}
-          onPublish={(id) => publishVersion.mutate(id)}
+          onPublish={(id) => setPublishTarget(versions.find((x) => x.id === id) ?? null)}
           onSetCurrent={(id) => setAsCurrent.mutate(id)}
           onSyncVerifactu={(v) => setSyncVersion(v)}
           onArchive={(id) => archiveVersion.mutate(id)}
         />
       )}
+
+      <AlertDialog open={!!publishTarget} onOpenChange={(open) => { if (!open) setPublishTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Publicar la versión {publishTarget?.version_code}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {publishTarget?.announce_mode === 'highlight'
+                ? 'Es una versión destacada: todos los usuarios de todos los centros verán una ventana con sus novedades la próxima vez que usen Psycma.'
+                : 'Todos los usuarios de todos los centros verán un aviso breve y un punto en Novedades.'}
+              {' '}Solo se muestran los cambios marcados para el aviso.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (publishTarget) publishVersion.mutate(publishTarget.id);
+                setPublishTarget(null);
+              }}
+            >
+              Publicar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {syncVersion && (
         <VerifactuSyncDialog

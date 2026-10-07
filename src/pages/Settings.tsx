@@ -206,7 +206,7 @@ const navItems: NavItem[] = [
   { id: 'seguridad', label: 'Doble factor (2FA)', icon: 'shield', parent: 'Seguridad' },
 
   // Sistema
-  { id: 'versiones', label: 'Gestión de versiones', icon: 'account_tree', parent: 'Sistema' },
+  { id: 'versiones', label: 'Versiones y peticiones', icon: 'account_tree', parent: 'Sistema' },
 ];
 
 const categoryOrder = ['Mi Centro', 'Portal de Contactos', 'Pagos y Facturación', 'Comunicaciones', 'Plantillas', 'Conexiones Externas', 'Seguridad', 'Sistema'];

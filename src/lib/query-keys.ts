@@ -159,6 +159,11 @@ export const qk = {
   appChangesPending: {
     all: ['app-changes-pending'] as const,
   },
+  appChangeRequests: {
+    all: ['app-change-requests'] as const,
+    byUser: (userId: string | null | undefined) =>
+      ['app-change-requests', userId] as const,
+  },
   appVersions: {
     all: ['app-versions'] as const,
   },
@@ -540,6 +545,11 @@ export const qk = {
     byPatient: (patientId: string | null | undefined) =>
       ['pending-billable-events', patientId] as const,
   },
+  platformOwner: {
+    all: ['platform-owner'] as const,
+    byUser: (userId: string | null | undefined) =>
+      ['platform-owner', userId] as const,
+  },
   platformVerifactuSoftwareInfo: {
     all: ['platform-verifactu-software-info'] as const,
   },
@@ -665,6 +675,11 @@ export const qk = {
     all: ['recurring-series'] as const,
     bySeries: (seriesId: string | null | undefined) =>
       ['recurring-series', seriesId] as const,
+  },
+  releaseNotes: {
+    all: ['release-notes'] as const,
+    byUser: (userId: string | null | undefined) =>
+      ['release-notes', userId] as const,
   },
   referralPartners: {
     all: ['referral-partners'] as const,
