@@ -457,14 +457,14 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          is_user_facing: boolean
           module: string
+          requester_label: string | null
           status: string
           title: string
           updated_at: string
-          version_id: string | null
-          is_user_facing: boolean
-          requester_label: string | null
           user_summary: string | null
+          version_id: string | null
         }
         Insert: {
           affects_verifactu?: boolean
@@ -473,14 +473,14 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          is_user_facing?: boolean
           module: string
+          requester_label?: string | null
           status?: string
           title: string
           updated_at?: string
-          version_id?: string | null
-          is_user_facing?: boolean
-          requester_label?: string | null
           user_summary?: string | null
+          version_id?: string | null
         }
         Update: {
           affects_verifactu?: boolean
@@ -489,14 +489,14 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          is_user_facing?: boolean
           module?: string
+          requester_label?: string | null
           status?: string
           title?: string
           updated_at?: string
-          version_id?: string | null
-          is_user_facing?: boolean
-          requester_label?: string | null
           user_summary?: string | null
+          version_id?: string | null
         }
         Relationships: [
           {
@@ -524,6 +524,7 @@ export type Database = {
       }
       app_versions: {
         Row: {
+          announce_mode: string
           applies_to_verifactu: boolean
           created_at: string
           created_by: string | null
@@ -536,9 +537,9 @@ export type Database = {
           verifactu_synced_at: string | null
           version_code: string
           version_name: string | null
-          announce_mode: string
         }
         Insert: {
+          announce_mode?: string
           applies_to_verifactu?: boolean
           created_at?: string
           created_by?: string | null
@@ -551,9 +552,9 @@ export type Database = {
           verifactu_synced_at?: string | null
           version_code: string
           version_name?: string | null
-          announce_mode?: string
         }
         Update: {
+          announce_mode?: string
           applies_to_verifactu?: boolean
           created_at?: string
           created_by?: string | null
@@ -566,7 +567,6 @@ export type Database = {
           verifactu_synced_at?: string | null
           version_code?: string
           version_name?: string | null
-          announce_mode?: string
         }
         Relationships: [
           {
@@ -2475,10 +2475,10 @@ export type Database = {
           invoice_license_line: string | null
           invoice_logo_url: string | null
           invoice_next_number: number | null
-          invoice_primary_color: string | null
-          invoice_secondary_color: string | null
           invoice_on_payment_mode: string | null
           invoice_prefix: string | null
+          invoice_primary_color: string | null
+          invoice_secondary_color: string | null
           invoice_send_channel: string | null
           invoice_signature_path: string | null
           invoice_tax_exemption_note: string | null
@@ -2590,10 +2590,10 @@ export type Database = {
           invoice_license_line?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
-          invoice_primary_color?: string | null
-          invoice_secondary_color?: string | null
           invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
+          invoice_primary_color?: string | null
+          invoice_secondary_color?: string | null
           invoice_send_channel?: string | null
           invoice_signature_path?: string | null
           invoice_tax_exemption_note?: string | null
@@ -2705,10 +2705,10 @@ export type Database = {
           invoice_license_line?: string | null
           invoice_logo_url?: string | null
           invoice_next_number?: number | null
-          invoice_primary_color?: string | null
-          invoice_secondary_color?: string | null
           invoice_on_payment_mode?: string | null
           invoice_prefix?: string | null
+          invoice_primary_color?: string | null
+          invoice_secondary_color?: string | null
           invoice_send_channel?: string | null
           invoice_signature_path?: string | null
           invoice_tax_exemption_note?: string | null
@@ -6523,9 +6523,9 @@ export type Database = {
           last_name: string | null
           license_number: string | null
           phone: string | null
+          release_notes_seen_at: string | null
           specialty: string | null
           updated_at: string
-          release_notes_seen_at: string | null
         }
         Insert: {
           agenda_preferences?: Json
@@ -6540,9 +6540,9 @@ export type Database = {
           last_name?: string | null
           license_number?: string | null
           phone?: string | null
+          release_notes_seen_at?: string | null
           specialty?: string | null
           updated_at?: string
-          release_notes_seen_at?: string | null
         }
         Update: {
           agenda_preferences?: Json
@@ -6557,9 +6557,9 @@ export type Database = {
           last_name?: string | null
           license_number?: string | null
           phone?: string | null
+          release_notes_seen_at?: string | null
           specialty?: string | null
           updated_at?: string
-          release_notes_seen_at?: string | null
         }
         Relationships: [
           {
@@ -9332,6 +9332,7 @@ export type Database = {
         }
         Returns: string
       }
+      am_i_platform_owner: { Args: never; Returns: boolean }
       apply_bono_to_session: {
         Args: { p_bono_id: string; p_session_id: string }
         Returns: Json
@@ -9740,6 +9741,7 @@ export type Database = {
           total_pending: number
         }[]
       }
+      get_release_notes: { Args: { p_limit?: number }; Returns: Json }
       get_safe_center: { Args: { p_center_id: string }; Returns: Json }
       get_session_patient_ids: {
         Args: { p_session_id: string }
@@ -9749,8 +9751,6 @@ export type Database = {
         }[]
       }
       get_session_token: { Args: never; Returns: string }
-      am_i_platform_owner: { Args: never; Returns: boolean }
-      get_release_notes: { Args: { p_limit?: number }; Returns: Json }
       get_user_center_id: { Args: { _user_id: string }; Returns: string }
       handle_google_webhook_debounce: {
         Args: {
