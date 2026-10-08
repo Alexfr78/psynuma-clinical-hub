@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 import { classifyAeatAltaResponse, type AeatAltaOutcome } from "../_shared/verifactuAeatResponse.ts";
 import { loadVerifactuSoftwareIdentity } from "../_shared/verifactuSoftware.ts";
+import { acquireVerifactuChainLock, blockVerifactuChain, releaseVerifactuChainLock } from "../_shared/verifactuChainLock.ts";
 import {
   buildVerifactuCancellationHashInput,
   buildVerifactuCancellationInvoiceIdXml,
@@ -711,21 +712,51 @@ serve(async (req) => {
       );
     }
 
-    // Generate timestamp
-    const generationTimestamp = formatVerifactuTimestamp(new Date());
-
     const nifEmisor = normalizeNifForAEAT(center.tax_id);
     const idSistemaInformatico = '01';
     const numeroInstalacion = center.verifactu_numero_instalacion || 1;
 
+    const lockId = await acquireVerifactuChainLock(supabase, invoice.center_id, nifEmisor);
+    if (!lockId) {
+      return new Response(
+        JSON.stringify({ error: 'No se pudo adquirir el bloqueo de la cadena Verifactu. Otro proceso de firma está en curso. Reintente en unos segundos.' }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    try {
+
+    // Timestamp generated after the lock so it never precedes a concurrent alta.
+    const generationTimestamp = formatVerifactuTimestamp(new Date());
+
     const { data: chainStatus } = await supabase
       .from("verifactu_chain_status")
-      .select("ultimo_hash, ultima_factura_id, ultima_verifactu_record_id")
+      .select("ultimo_hash, ultima_factura_id, ultima_verifactu_record_id, blocked_reason, blocked_invoice_id")
       .eq("center_id", invoice.center_id)
       .eq("nif_emisor", nifEmisor)
       .eq("id_sistema_informatico", idSistemaInformatico)
       .eq("numero_instalacion", numeroInstalacion)
       .maybeSingle();
+
+    if (chainStatus?.blocked_reason) {
+      const blockedError = `La cadena Verifactu de este centro está bloqueada: ${chainStatus.blocked_reason}. Hay que conciliarla con la AEAT antes de registrar más facturas.`;
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        environment,
+        error_details: blockedError,
+      });
+      return new Response(
+        JSON.stringify({
+          error: blockedError,
+          chain_blocked: true,
+          blocked_invoice_id: chainStatus.blocked_invoice_id,
+          permanent: true,
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const previousHash = chainStatus?.ultimo_hash || invoice.invoice_hash || null;
     const previousRecordId = chainStatus?.ultima_verifactu_record_id || null;
@@ -835,6 +866,27 @@ serve(async (req) => {
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      if (aeatResult.outcome === 'duplicate') {
+        // Possible lost response: the AEAT may hold this anulación in its chain
+        // while ours did not advance. Block until reconciled.
+        const chainBlockError = await blockVerifactuChain(
+          supabase,
+          { centerId: invoice.center_id, nifEmisor, idSistemaInformatico, numeroInstalacion },
+          invoice_id,
+          `La AEAT indica que la anulación de la factura ${invoice.invoice_number} ya estaba registrada pero no tenemos su registro (posible respuesta perdida)`,
+        );
+        if (chainBlockError) {
+          console.error('[VERIFACTU:CHAIN] Could not block chain after duplicate cancellation:', chainBlockError);
+          await logVerifactuEvent(supabase, {
+            invoice_id,
+            center_id: invoice.center_id,
+            event_type: 'error',
+            environment,
+            error_details: `No se pudo bloquear la cadena tras el duplicado AEAT: ${chainBlockError}`,
+          });
+        }
       }
 
       return new Response(
@@ -1002,6 +1054,10 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
+    } finally {
+      await releaseVerifactuChainLock(supabase, invoice.center_id, lockId);
+    }
 
   } catch (error) {
     console.error("Error in cancel-registro-facturacion:", error);

@@ -23,6 +23,7 @@ import { FixInvoiceTypeDialog } from '@/components/invoices/FixInvoiceTypeDialog
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { downloadPdfFromUrl } from '@/lib/download-pdf';
 import { Icon } from '@/components/ui/icon';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
 
 interface InvoiceDetailDialogProps {
   open: boolean;
@@ -67,7 +68,7 @@ export function InvoiceDetailDialog({ open, onOpenChange, invoiceId }: InvoiceDe
       const { data, error } = await supabase.functions.invoke('sign-invoice-verifactu', {
         body: { invoice_id: invoiceId },
       });
-      if (error) throw error;
+      if (error) throw new Error(await describeEdgeFunctionError(error, 'Error al registrar en AEAT'));
       if (data?.error) throw new Error(data.error);
       if (data?.success) {
         toast.success('Factura registrada en AEAT correctamente');

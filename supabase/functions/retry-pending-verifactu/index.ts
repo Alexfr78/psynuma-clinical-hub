@@ -112,6 +112,12 @@ serve(async (req) => {
 
             results.push({ id: invoice.id, success: true });
           } else {
+            if (signResult.chain_blocked === true) {
+              console.log(`[retry-pending-verifactu] STOPPING center ${centerId} - Verifactu chain is blocked and requires AEAT reconciliation`);
+              results.push({ id: invoice.id, success: false, error: signResult.error || 'Verifactu chain blocked' });
+              break;
+            }
+
             if (signResult.permanent === true) {
               console.log(`[retry-pending-verifactu] Invoice ${invoice.invoice_number} was permanently rejected by AEAT; automatic retries disabled`);
               await supabase

@@ -202,6 +202,9 @@ export type Database = {
       }
       ai_generated_documents: {
         Row: {
+          blocked_at: string | null
+          blocked_invoice_id: string | null
+          blocked_reason: string | null
           center_id: string
           content_markdown: string
           document_type_id: string
@@ -223,6 +226,9 @@ export type Database = {
           validated_by: string | null
         }
         Insert: {
+          blocked_at?: string | null
+          blocked_invoice_id?: string | null
+          blocked_reason?: string | null
           center_id: string
           content_markdown: string
           document_type_id: string
@@ -244,6 +250,9 @@ export type Database = {
           validated_by?: string | null
         }
         Update: {
+          blocked_at?: string | null
+          blocked_invoice_id?: string | null
+          blocked_reason?: string | null
           center_id?: string
           content_markdown?: string
           document_type_id?: string
@@ -8309,6 +8318,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "verifactu_chain_status_blocked_invoice_id_fkey"
+            columns: ["blocked_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "verifactu_chain_status_center_id_fkey"
             columns: ["center_id"]

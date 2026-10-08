@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCenter } from './useCenter';
 import { toast } from 'sonner';
 import { assertInvoiceSeriesMatches, type SelectableInvoiceSeries, type InvoiceDocumentType } from '@/lib/invoice-series';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
 
 interface IssueInvoiceResult {
   success: boolean;
@@ -215,7 +216,7 @@ export function useIssueInvoice() {
           if (verifactuError) {
             console.error('Verifactu signing error:', verifactuError);
             result.verifactuPending = true;
-            result.verifactuError = verifactuError.message;
+            result.verifactuError = await describeEdgeFunctionError(verifactuError, 'Error al registrar en AEAT');
             
             await supabase
               .from('invoices')

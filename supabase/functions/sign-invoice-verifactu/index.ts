@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 import { classifyAeatAltaResponse, type AeatAltaOutcome } from "../_shared/verifactuAeatResponse.ts";
 import { loadVerifactuSoftwareIdentity } from "../_shared/verifactuSoftware.ts";
+import { acquireVerifactuChainLock, blockVerifactuChain, releaseVerifactuChainLock } from "../_shared/verifactuChainLock.ts";
 
 // Dynamic import of node-forge with bundle for Deno compatibility
 const forgeModule = await import("https://esm.sh/node-forge@1.3.1?bundle");
@@ -1180,24 +1181,7 @@ serve(async (req) => {
     
     // Acquire optimistic row-level lock (works with pgbouncer transaction mode)
     // Advisory locks do NOT work with pgbouncer transaction mode - pg_try_advisory_lock always returns false
-    const MAX_LOCK_ATTEMPTS = 15;
-    const LOCK_RETRY_MS = 2000;
-    let lockId: string | null = null;
-    
-    for (let attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
-      const { data: lockResult } = await supabase.rpc('acquire_verifactu_chain_lock_v2', { 
-        p_center_id: invoice.center_id,
-        p_nif_emisor: nifEmisor,
-        p_lock_timeout_seconds: 30
-      });
-      if (lockResult) {
-        lockId = lockResult;
-        console.log(`[VERIFACTU:LOCK] Acquired lock ${lockId} on attempt ${attempt + 1}`);
-        break;
-      }
-      console.log(`[VERIFACTU:LOCK] Attempt ${attempt + 1}/${MAX_LOCK_ATTEMPTS} failed, waiting ${LOCK_RETRY_MS}ms...`);
-      await new Promise(resolve => setTimeout(resolve, LOCK_RETRY_MS));
-    }
+    const lockId = await acquireVerifactuChainLock(supabase, invoice.center_id, nifEmisor);
     
     if (!lockId) {
       console.error('[VERIFACTU:LOCK] Could not acquire chain lock after max attempts');
@@ -1214,12 +1198,32 @@ serve(async (req) => {
     // This ensures proper chaining per NIF + Sistema + Instalación
     const { data: chainStatus } = await supabase
       .from("verifactu_chain_status")
-      .select("ultimo_hash, ultima_factura_id, ultima_verifactu_record_id")
+      .select("ultimo_hash, ultima_factura_id, ultima_verifactu_record_id, blocked_reason, blocked_invoice_id")
       .eq("center_id", invoice.center_id)
       .eq("nif_emisor", nifEmisor)
       .eq("id_sistema_informatico", idSistemaInformatico)
       .eq("numero_instalacion", numeroInstalacion)
       .maybeSingle();
+
+    if (chainStatus?.blocked_reason) {
+      const blockedError = `La cadena Verifactu de este centro está bloqueada: ${chainStatus.blocked_reason}. Hay que conciliarla con la AEAT antes de registrar más facturas.`;
+      await logVerifactuEvent(supabase, {
+        invoice_id,
+        center_id: invoice.center_id,
+        event_type: 'error',
+        environment,
+        error_details: blockedError,
+      });
+      return new Response(
+        JSON.stringify({
+          error: blockedError,
+          chain_blocked: true,
+          blocked_invoice_id: chainStatus.blocked_invoice_id,
+          permanent: true,
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const previousHash = chainStatus?.ultimo_hash || null;
     const previousRecordId = chainStatus?.ultima_verifactu_record_id || null;
@@ -1469,6 +1473,27 @@ serve(async (req) => {
           })
           .eq("id", invoice_id);
 
+        if (aeatResult.outcome === 'duplicate') {
+          const blockedReason = `La AEAT indica que la factura ${invoice.invoice_number} ya estaba registrada pero no tenemos su registro (posible respuesta perdida)`;
+          const chainBlockError = await blockVerifactuChain(
+            supabase,
+            { centerId: invoice.center_id, nifEmisor, idSistemaInformatico, numeroInstalacion },
+            invoice_id,
+            blockedReason,
+          );
+
+          if (chainBlockError) {
+            console.error('[VERIFACTU:CHAIN] Could not block chain after duplicate response:', chainBlockError);
+            await logVerifactuEvent(supabase, {
+              invoice_id,
+              center_id: invoice.center_id,
+              event_type: 'error',
+              environment,
+              error_details: `No se pudo bloquear la cadena tras el duplicado AEAT: ${chainBlockError}`,
+            });
+          }
+        }
+
         if (invoice.correction_operation_id) {
           await supabase
             .from('invoice_correction_operations')
@@ -1714,8 +1739,7 @@ serve(async (req) => {
     } finally {
       // ALWAYS release the optimistic lock
       if (lockId) {
-        await supabase.rpc('release_verifactu_chain_lock_v2', { p_center_id: invoice.center_id, p_lock_id: lockId });
-        console.log('[VERIFACTU:LOCK] Released chain lock');
+        await releaseVerifactuChainLock(supabase, invoice.center_id, lockId);
       }
     }
 

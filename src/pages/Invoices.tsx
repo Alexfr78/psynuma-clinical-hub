@@ -424,7 +424,7 @@ export default function Invoices() {
         body: { invoice_id: invoiceId },
       });
 
-      if (error) throw error;
+      if (error) throw new Error(await describeEdgeFunctionError(error, 'Error al reintentar el registro en AEAT'));
 
       if (data?.aeat_unavailable) {
         // AEAT is temporarily unavailable
@@ -439,7 +439,7 @@ export default function Invoices() {
       refetch();
     } catch (error) {
       console.error('Error retrying Verifactu:', error);
-      toast.error('Error al reintentar el registro en AEAT');
+      toast.error(error instanceof Error ? error.message : 'Error al reintentar el registro en AEAT');
     }
   };
 

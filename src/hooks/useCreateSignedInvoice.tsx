@@ -5,6 +5,7 @@ import { useCenter } from './useCenter';
 import { assertInvoiceSeriesMatches, selectAutomaticInvoiceSeries, type SelectableInvoiceSeries } from '@/lib/invoice-series';
 import { getCompleteInvoiceMissingFields } from '@/lib/complete-invoice-requirements';
 import { toast } from 'sonner';
+import { describeEdgeFunctionError } from '@/lib/edge-function-error';
 
 interface InvoiceItem {
   description: string;
@@ -330,7 +331,7 @@ export function useCreateSignedInvoice() {
             if (verifactuError) {
               console.error('Verifactu signing error:', verifactuError);
               result.verifactuPending = true;
-              result.verifactuError = verifactuError.message;
+              result.verifactuError = await describeEdgeFunctionError(verifactuError, 'Error al registrar en AEAT');
               
               // Mark invoice as pending Verifactu
               await supabase
