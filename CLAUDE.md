@@ -259,3 +259,10 @@ facturación, lanza siempre el subagente `clinical-data-reviewer` sobre el diff.
 - Dime qué encontró, aunque sea "sin hallazgos".
 - Lo CRÍTICO o ALTO se arregla antes del commit; lo MEDIO o BAJO me lo consultas.
 - No hace falta para cambios solo visuales o de textos.
+
+## Historial de versiones
+
+Al terminar una tarea que cambie algo en la app (después del commit), usa el skill
+`registrar-cambio` para apuntarla como cambio pendiente en el historial de versiones,
+sin esperar a que te lo pida. Enséñame el texto antes de guardarlo.
+Cuando diga "publica versión", el mismo skill crea y publica la versión, siempre con mi OK.
