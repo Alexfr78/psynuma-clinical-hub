@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   acquireVerifactuChainLock,
   blockVerifactuChain,
+  commitVerifactuChain,
   releaseVerifactuChainLock,
   type VerifactuChainLockClient,
 } from './verifactuChainLock.ts';
@@ -85,5 +86,61 @@ describe('blockVerifactuChain', () => {
     const c = client([]);
     expect(await blockVerifactuChain(c, key, 'inv', 'motivo')).toBeNull();
     expect(c.inserts[0]).toMatchObject({ center_id: 'c1', ultimo_hash: '', blocked_invoice_id: 'inv' });
+  });
+});
+
+describe('commitVerifactuChain', () => {
+  const key = { centerId: 'c1', nifEmisor: 'B1', idSistemaInformatico: '01', numeroInstalacion: 1 };
+  const link = { hash: 'H2', invoiceId: 'inv', recordId: 'rec' };
+
+  // Each awaited query consumes the next queued result, in call order.
+  function client(results: Array<{ data: unknown[] | null }>) {
+    const calls: Array<{ op: string; values?: Record<string, unknown>; filters: Record<string, unknown> }> = [];
+    const inserts: Record<string, unknown>[] = [];
+    const query = (op: string, values?: Record<string, unknown>) => {
+      const call = { op, values, filters: {} as Record<string, unknown> };
+      calls.push(call);
+      const q = {
+        eq: (column: string, value: unknown) => { call.filters[column] = value; return q; },
+        select: () => q,
+        then: (resolve: (r: unknown) => unknown) => resolve({ ...(results.shift() ?? { data: [] }), error: null }),
+      };
+      return q;
+    };
+    return {
+      calls,
+      inserts,
+      from: () => ({
+        update: (values: Record<string, unknown>) => query('update', values),
+        select: () => query('select'),
+        insert: async (values: Record<string, unknown>) => { inserts.push(values); return { error: null }; },
+      }),
+    };
+  }
+
+  it('updates the chain only while holding the lock', async () => {
+    const c = client([{ data: [{ id: 'row' }] }]);
+    expect(await commitVerifactuChain(c, key, 'L1', link)).toEqual({ ok: true });
+    expect(c.calls[0].filters.locked_by).toBe('L1');
+    expect(c.calls[0].values).toMatchObject({ ultimo_hash: 'H2', ultima_verifactu_record_id: 'rec' });
+  });
+
+  it('reports a lost lock and writes nothing when another process holds it', async () => {
+    const c = client([{ data: [] }, { data: [] }]);
+    const result = await commitVerifactuChain(c, key, 'L1', link);
+    expect(result).toMatchObject({ ok: false, lockLost: true });
+    expect(c.inserts).toHaveLength(0);
+  });
+
+  it('creates the installation row when the lock is ours but the row is missing', async () => {
+    const c = client([{ data: [] }, { data: [{ id: 'lock-row' }] }, { data: [] }]);
+    expect(await commitVerifactuChain(c, key, 'L1', link)).toEqual({ ok: true });
+    expect(c.inserts[0]).toMatchObject({ center_id: 'c1', ultimo_hash: 'H2', numero_instalacion: 1 });
+  });
+
+  it('never overwrites an existing row that is not under our lock', async () => {
+    const c = client([{ data: [] }, { data: [{ id: 'lock-row' }] }, { data: [{ id: 'other' }] }]);
+    expect(await commitVerifactuChain(c, key, 'L1', link)).toMatchObject({ ok: false, lockLost: true });
+    expect(c.inserts).toHaveLength(0);
   });
 });

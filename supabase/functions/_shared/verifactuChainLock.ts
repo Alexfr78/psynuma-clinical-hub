@@ -13,6 +13,11 @@ export interface VerifactuChainLockOptions {
 
 const DEFAULT_MAX_ATTEMPTS = 15;
 const DEFAULT_RETRY_MS = 2000;
+// Must outlast the longest sign/cancel run (AEAT call included) so a slow AEAT
+// response never lets a second process take the chain mid-flight.
+export const VERIFACTU_CHAIN_LOCK_TIMEOUT_SECONDS = 180;
+// Max wait for an AEAT response, so a run always ends well inside the lock.
+export const VERIFACTU_AEAT_TIMEOUT_MS = 60_000;
 
 export async function acquireVerifactuChainLock(
   supabase: VerifactuChainLockClient,
@@ -29,7 +34,7 @@ export async function acquireVerifactuChainLock(
     const { data: lockId } = await supabase.rpc('acquire_verifactu_chain_lock_v2', {
       p_center_id: centerId,
       p_nif_emisor: nifEmisor,
-      p_lock_timeout_seconds: 30,
+      p_lock_timeout_seconds: VERIFACTU_CHAIN_LOCK_TIMEOUT_SECONDS,
     });
 
     if (lockId) {
@@ -64,16 +69,27 @@ export interface VerifactuChainKey {
   numeroInstalacion: number;
 }
 
-interface ChainBlockQuery {
-  eq(column: string, value: unknown): ChainBlockQuery;
-  select(columns: string): PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+type ChainResult = { data: unknown[] | null; error: { message: string } | null };
+
+interface ChainQuery extends PromiseLike<ChainResult> {
+  eq(column: string, value: unknown): ChainQuery;
+  select(columns: string): ChainQuery;
 }
 
-interface ChainBlockClient {
+interface ChainClient {
   from(table: string): {
-    update(values: Record<string, unknown>): ChainBlockQuery;
+    select(columns: string): ChainQuery;
+    update(values: Record<string, unknown>): ChainQuery;
     insert(values: Record<string, unknown>): PromiseLike<{ error: { message: string } | null }>;
   };
+}
+
+function eqKey(query: ChainQuery, key: VerifactuChainKey): ChainQuery {
+  return query
+    .eq('center_id', key.centerId)
+    .eq('nif_emisor', key.nifEmisor)
+    .eq('id_sistema_informatico', key.idSistemaInformatico)
+    .eq('numero_instalacion', key.numeroInstalacion);
 }
 
 /**
@@ -87,7 +103,7 @@ export async function blockVerifactuChain(
   invoiceId: string,
   reason: string,
 ): Promise<string | null> {
-  const client = supabase as ChainBlockClient;
+  const client = supabase as ChainClient;
   const now = new Date().toISOString();
   const blockFields = {
     blocked_reason: reason,
@@ -96,14 +112,10 @@ export async function blockVerifactuChain(
     updated_at: now,
   };
 
-  const { data, error } = await client
-    .from('verifactu_chain_status')
-    .update(blockFields)
-    .eq('center_id', key.centerId)
-    .eq('nif_emisor', key.nifEmisor)
-    .eq('id_sistema_informatico', key.idSistemaInformatico)
-    .eq('numero_instalacion', key.numeroInstalacion)
-    .select('id');
+  const { data, error } = await eqKey(
+    client.from('verifactu_chain_status').update(blockFields),
+    key,
+  ).select('id');
   if (error) return error.message;
   if (data && data.length > 0) return null;
 
@@ -117,4 +129,66 @@ export async function blockVerifactuChain(
     ...blockFields,
   });
   return insertError ? insertError.message : null;
+}
+
+export type CommitVerifactuChainResult =
+  | { ok: true }
+  | { ok: false; lockLost: boolean; error: string };
+
+/**
+ * Advances the chain to a newly accepted record, but only while we still hold
+ * the chain lock. If the lock expired and another process took it, nothing is
+ * written and lockLost is true: the caller must block the chain.
+ */
+export async function commitVerifactuChain(
+  supabase: unknown,
+  key: VerifactuChainKey,
+  lockId: string,
+  link: { hash: string; invoiceId: string; recordId: string },
+): Promise<CommitVerifactuChainResult> {
+  const client = supabase as ChainClient;
+  const fields = {
+    ultimo_hash: link.hash,
+    ultima_factura_id: link.invoiceId,
+    ultima_verifactu_record_id: link.recordId,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await eqKey(
+    client.from('verifactu_chain_status').update(fields),
+    key,
+  ).eq('locked_by', lockId).select('id');
+  if (error) return { ok: false, lockLost: false, error: error.message };
+  if (data && data.length > 0) return { ok: true };
+
+  // No row matched: either the lock is no longer ours, or this installation's
+  // row does not exist yet (the lock row is per center + NIF).
+  const { data: held, error: heldError } = await client
+    .from('verifactu_chain_status')
+    .select('id')
+    .eq('center_id', key.centerId)
+    .eq('locked_by', lockId);
+  if (heldError) return { ok: false, lockLost: false, error: heldError.message };
+  if (!held || held.length === 0) {
+    return { ok: false, lockLost: true, error: 'Se perdió el bloqueo de la cadena Verifactu durante el registro' };
+  }
+
+  const { data: existing, error: existingError } = await eqKey(
+    client.from('verifactu_chain_status').select('id'),
+    key,
+  );
+  if (existingError) return { ok: false, lockLost: false, error: existingError.message };
+  if (existing && existing.length > 0) {
+    // Row exists but is not the one we locked: never overwrite it blindly.
+    return { ok: false, lockLost: true, error: 'La fila de la cadena Verifactu no está bajo nuestro bloqueo' };
+  }
+
+  const { error: insertError } = await client.from('verifactu_chain_status').insert({
+    center_id: key.centerId,
+    nif_emisor: key.nifEmisor,
+    id_sistema_informatico: key.idSistemaInformatico,
+    numero_instalacion: key.numeroInstalacion,
+    ...fields,
+  });
+  return insertError ? { ok: false, lockLost: false, error: insertError.message } : { ok: true };
 }

@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { authorizeFiscalInvoiceRequest } from "../_shared/fiscalAuth.ts";
 import { classifyAeatAltaResponse, type AeatAltaOutcome } from "../_shared/verifactuAeatResponse.ts";
 import { loadVerifactuSoftwareIdentity } from "../_shared/verifactuSoftware.ts";
-import { acquireVerifactuChainLock, blockVerifactuChain, releaseVerifactuChainLock } from "../_shared/verifactuChainLock.ts";
+import { acquireVerifactuChainLock, blockVerifactuChain, commitVerifactuChain, releaseVerifactuChainLock, VERIFACTU_AEAT_TIMEOUT_MS } from "../_shared/verifactuChainLock.ts";
 import {
   buildVerifactuCancellationHashInput,
   buildVerifactuCancellationInvoiceIdXml,
@@ -429,7 +429,10 @@ async function sendToAEAT(
         'SOAPAction': SOAP_ACTION_BAJA
       },
       body: signedXml,
-      client: client
+      client: client,
+      // Well under the 180 s chain lock. An abort is an unknown outcome: it is
+      // retried, and if the AEAT did accept it the retry gets 3000 and blocks the chain.
+      signal: AbortSignal.timeout(VERIFACTU_AEAT_TIMEOUT_MS),
     });
 
     const responseText = await response.text();
@@ -955,20 +958,23 @@ serve(async (req) => {
       );
     }
 
-    const { error: chainUpdateError } = await supabase
-      .from("verifactu_chain_status")
-      .upsert({
-        center_id: invoice.center_id,
-        nif_emisor: nifEmisor,
-        id_sistema_informatico: idSistemaInformatico,
-        numero_instalacion: numeroInstalacion,
-        ultimo_hash: cancellationHash,
-        ultima_factura_id: invoice_id,
-        ultima_verifactu_record_id: verifactuRecord.id,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'center_id,nif_emisor,id_sistema_informatico,numero_instalacion'
-      });
+    const chainKey = { centerId: invoice.center_id, nifEmisor, idSistemaInformatico, numeroInstalacion };
+    const chainCommit = await commitVerifactuChain(supabase, chainKey, lockId, {
+      hash: cancellationHash,
+      invoiceId: invoice_id,
+      recordId: verifactuRecord.id,
+    });
+    const chainUpdateError = chainCommit.ok ? null : { message: chainCommit.error };
+    if (!chainCommit.ok) {
+      // The AEAT accepted it but our chain did not advance: stop until reconciled.
+      const blockError = await blockVerifactuChain(
+        supabase,
+        chainKey,
+        invoice_id,
+        `${chainCommit.lockLost ? 'Se perdió el bloqueo de la cadena' : 'No se pudo guardar la cadena'} mientras se registraba la anulación de la factura ${invoice.invoice_number} (aceptada por la AEAT)`,
+      );
+      if (blockError) console.error('[VERIFACTU:CHAIN] Could not block chain after a failed chain commit:', blockError);
+    }
 
     if (chainUpdateError) {
       const chainError = `Anulación registrada en AEAT, pero no se pudo actualizar la cadena local: ${chainUpdateError.message}`;
