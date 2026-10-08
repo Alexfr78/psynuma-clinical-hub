@@ -47,10 +47,10 @@ export function InvoicingInfoSection() {
       country: center?.country || 'España',
       province: center?.province || '',
       default_tax_name: center?.default_tax_name || 'IVA',
-      default_tax_rate: center?.default_tax_rate || 21,
+      default_tax_rate: center?.default_tax_rate ?? 21,
       include_tax_in_price: center?.include_tax_in_price || false,
       retention_name: center?.retention_name || 'IRPF',
-      retention_rate: center?.retention_rate || 0,
+      retention_rate: center?.retention_rate ?? 0,
       custom_domain: center?.custom_domain || '',
     },
   });
