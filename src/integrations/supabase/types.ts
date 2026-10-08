@@ -9795,7 +9795,11 @@ export type Database = {
         Returns: boolean
       }
       handle_rectificativa_payments: {
-        Args: { p_original_invoice_id: string }
+        Args: {
+          p_original_invoice_id: string
+          p_rectificativa_id?: string
+          p_refund_expected?: boolean
+        }
         Returns: Json
       }
       has_role: {
@@ -10050,6 +10054,10 @@ export type Database = {
         }
       }
       set_patient_discharged: { Args: { p_patient_id: string }; Returns: Json }
+      settle_rectificativas_by_refunds_internal: {
+        Args: { p_original_invoice_id: string }
+        Returns: number
+      }
       swap_couple_session_payer: {
         Args: { p_scope?: string; p_session_id: string }
         Returns: Json
