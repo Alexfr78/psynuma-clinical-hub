@@ -98,7 +98,7 @@ async function reconcileRefundedPayment(
   metadata: Record<string, string>,
   charge: Stripe.Charge,
   eventCreated: number,
-): Promise<{ refundedAmount: number; refundDelta: number; fullyRefunded: boolean }> {
+): Promise<{ refundedAmount: number; refundDelta: number; fullyRefunded: boolean; invoiceId: string | null }> {
   let checkoutSessionId: string | null = null;
 
   if (metadata.debt_id) {
@@ -127,7 +127,7 @@ async function reconcileRefundedPayment(
 
   const { data: payment, error: paymentLookupError } = await supabase
     .from('payments')
-    .select('id, amount, refunded_amount')
+    .select('id, amount, refunded_amount, invoice_id')
     .eq('reference', checkoutSessionId)
     .eq('payment_method', 'stripe')
     .maybeSingle();
@@ -155,7 +155,7 @@ async function reconcileRefundedPayment(
     .eq('id', payment.id);
 
   if (paymentUpdateError) throw paymentUpdateError;
-  return refundProgress;
+  return { ...refundProgress, invoiceId: payment.invoice_id };
 }
 
 // Resolve which professional owns a Stripe connected account, so integration
@@ -1645,7 +1645,7 @@ serve(async (req) => {
         const debtId = metadata.debt_id;
         console.log('Refund processed for charge:', charge.id);
 
-        let paymentRefund: { refundedAmount: number; refundDelta: number; fullyRefunded: boolean };
+        let paymentRefund: { refundedAmount: number; refundDelta: number; fullyRefunded: boolean; invoiceId: string | null };
         try {
           paymentRefund = await reconcileRefundedPayment(supabase, metadata, charge, event.created);
         } catch (refundError) {
@@ -1760,6 +1760,29 @@ serve(async (req) => {
                 },
               });
             }
+          }
+        }
+
+        // Si la factura del cobro ya tiene una rectificativa por diferencias
+        // (abono), la devolución la liquida y cierra la deuda de la original.
+        // Va al final para que no la pise la actualización de la deuda de arriba.
+        if (paymentRefund.invoiceId) {
+          const { error: settleError } = await supabase.rpc('settle_rectificativas_by_refunds_internal', {
+            p_original_invoice_id: paymentRefund.invoiceId,
+          });
+          if (settleError) {
+            const professionalId = await resolveProfessionalIdForConnectedAccount(supabase, event.account || null);
+            await logStripeIntegrationError(supabase, {
+              professionalId,
+              step: 'rectificativa_settlement',
+              errorCode: 'rectificativa_settlement_failed',
+              message: 'Reembolso registrado, pero no se pudo marcar como pagada la factura rectificativa. Revísala a mano.',
+              raw: {
+                charge_id: charge.id,
+                invoice_id: paymentRefund.invoiceId,
+                error: settleError.message,
+              },
+            });
           }
         }
         break;

@@ -94,6 +94,9 @@ const formSchema = z.object({
   // Fields for substitution type (S)
   base_rectificada: z.coerce.number().optional(),
   cuota_rectificada: z.coerce.number().optional(),
+  // Abono por diferencias: si hay devolución, los cobros siguen en la original
+  // y la devolución liquida el abono; si no, se desvinculan para reasignarlos.
+  refund_expected: z.enum(['yes', 'no']),
   notes: z.string().optional(),
 });
 
@@ -132,6 +135,7 @@ export function CreateRectificativaDialog({
       amount: 0,
       base_rectificada: 0,
       cuota_rectificada: 0,
+      refund_expected: 'yes',
       notes: '',
     },
   });
@@ -142,6 +146,13 @@ export function CreateRectificativaDialog({
   });
 
   const isSubstitution = rectificationType === 'S';
+
+  const amountValue = useWatch({
+    control: form.control,
+    name: 'amount',
+  });
+
+  const askRefund = !isSubstitution && Number(amountValue) < 0;
 
   // Get original invoice type when dialog opens
   useEffect(() => {
@@ -170,6 +181,7 @@ export function CreateRectificativaDialog({
         amount: -Number(originalInvoice.total),
         base_rectificada: Number(originalInvoice.subtotal),
         cuota_rectificada: Number(originalInvoice.tax_amount) || 0,
+        refund_expected: 'yes',
         notes: '',
       });
     }
@@ -270,18 +282,22 @@ export function CreateRectificativaDialog({
       }
 
       // Handle payments linked to original invoice.
-      // The improved RPC auto-reassigns payments to the new rectificativa when possible,
-      // and marks the original invoice's debt as 'refunded' (closed) so it doesn't
-      // appear as a normal pending debt.
+      // Por diferencias (abono): los cobros siguen en la original y, si ya se
+      // devolvieron en Stripe, la rectificativa queda pagada. Sustitutiva: los
+      // cobros se desvinculan y quedan pendientes de reasignar.
       const { data: paymentsResult, error: paymentsError } = await supabase
-        .rpc('handle_rectificativa_payments', { p_original_invoice_id: originalInvoice.id });
+        .rpc('handle_rectificativa_payments', {
+          p_original_invoice_id: originalInvoice.id,
+          p_rectificativa_id: invoice.id,
+          p_refund_expected: values.refund_expected === 'yes',
+        });
 
       if (paymentsError) {
         console.error('Error handling payments:', paymentsError);
         toast.warning('Factura rectificativa creada, pero hubo un error al gestionar los pagos previos. Revísalos manualmente.', { duration: 8000 });
       } else if (paymentsResult && typeof paymentsResult === 'object' && 'action' in paymentsResult) {
         const result = paymentsResult as { action: string; message: string };
-        if (result.action === 'payments_auto_reassigned') {
+        if (result.action === 'rectificativa_settled_by_refund' || result.action === 'payments_kept') {
           toast.info(result.message, { duration: 6000 });
         } else if (result.action === 'payments_unlinked') {
           toast.warning(result.message + ' Reasígnalos desde la pantalla de cobros.', { duration: 8000 });
@@ -570,6 +586,36 @@ export function CreateRectificativaDialog({
                   </FormItem>
                 )}
               />
+
+              {askRefund && (
+                <FormField
+                  control={form.control}
+                  name="refund_expected"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>¿Se ha devuelto o se va a devolver el dinero al paciente?</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="yes">Sí, se le devuelve el dinero</SelectItem>
+                          <SelectItem value="no">No, solo corrijo la factura</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {field.value === 'yes'
+                          ? 'El cobro se queda en la factura original. Si devuelves por Stripe, la rectificativa quedará pagada sola.'
+                          : 'El cobro se separa de la factura original para poder asignarlo a la factura nueva.'
+                        }
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
