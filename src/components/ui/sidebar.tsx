@@ -14,12 +14,24 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Icon } from '@/components/ui/icon';
 import { SidebarContext, useSidebar } from "./sidebar-context";
 
-const SIDEBAR_COOKIE_NAME = "sidebar:state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+// Preferencia por navegador: menú fijo (true) u oculto con pestaña en el borde (false).
+const SIDEBAR_STORAGE_KEY = "psycma:sidebar-open";
+// Retrasos para que el menú no salte al rozar el borde con el ratón ni se cierre al salirse un poco.
+const SIDEBAR_PEEK_OPEN_DELAY_MS = 250;
+const SIDEBAR_PEEK_CLOSE_DELAY_MS = 350;
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
+
+function readStoredSidebarOpen(): boolean | null {
+  try {
+    const value = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    return value === null ? null : value === "true";
+  } catch {
+    return null;
+  }
+}
 
 const SidebarProvider = React.forwardRef<
   HTMLDivElement,
@@ -34,7 +46,8 @@ const SidebarProvider = React.forwardRef<
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  const [_open, _setOpen] = React.useState(() => readStoredSidebarOpen() ?? defaultOpen);
+  const [peek, setPeek] = React.useState(false);
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -44,12 +57,26 @@ const SidebarProvider = React.forwardRef<
       } else {
         _setOpen(openState);
       }
+      setPeek(false);
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      try {
+        window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState));
+      } catch {
+        // Sin almacenamiento (modo privado): la preferencia dura solo esta visita.
+      }
     },
     [setOpenProp, open],
   );
+
+  // Escape cierra el menú asomado.
+  React.useEffect(() => {
+    if (!peek) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPeek(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [peek]);
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
@@ -82,8 +109,10 @@ const SidebarProvider = React.forwardRef<
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      peek: peek && !open && !isMobile,
+      setPeek,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
+    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, peek],
   );
 
   return (
@@ -117,7 +146,36 @@ const Sidebar = React.forwardRef<
     collapsible?: "offcanvas" | "icon" | "none";
   }
 >(({ side = "left", variant = "sidebar", collapsible = "offcanvas", className, children, ...props }, ref) => {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, openMobile, setOpenMobile, peek, setPeek } = useSidebar();
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const peekTimer = React.useRef<number | undefined>(undefined);
+  const canPeek = side === "left" && collapsible === "offcanvas" && state === "collapsed";
+
+  const clearPeekTimer = React.useCallback(() => {
+    window.clearTimeout(peekTimer.current);
+    peekTimer.current = undefined;
+  }, []);
+  const schedulePeek = React.useCallback(
+    (value: boolean, delay: number) => {
+      clearPeekTimer();
+      peekTimer.current = window.setTimeout(() => setPeek(value), delay);
+    },
+    [clearPeekTimer, setPeek],
+  );
+  React.useEffect(() => clearPeekTimer, [clearPeekTimer]);
+
+  // Táctil (o clic): tocar fuera del menú asomado lo cierra.
+  React.useEffect(() => {
+    if (!peek) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        clearPeekTimer();
+        setPeek(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [peek, setPeek, clearPeekTimer]);
 
   if (collapsible === "none") {
     return (
@@ -171,12 +229,47 @@ const Sidebar = React.forwardRef<
             : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]",
         )}
       />
+      {canPeek && !peek && (
+        <>
+          {/* Franja invisible en el borde: con ratón, quedarse encima un momento asoma el menú. */}
+          <div
+            aria-hidden="true"
+            className="fixed inset-y-0 left-0 z-30 hidden w-2 lg:block"
+            onPointerEnter={(event) => {
+              if (event.pointerType === "mouse") schedulePeek(true, SIDEBAR_PEEK_OPEN_DELAY_MS);
+            }}
+            onPointerLeave={clearPeekTimer}
+          />
+          {/* Pestaña visible: la forma de sacarlo en pantallas táctiles. */}
+          <button
+            type="button"
+            aria-label="Mostrar menú"
+            title="Mostrar menú"
+            onClick={() => {
+              clearPeekTimer();
+              setPeek(true);
+            }}
+            className="fixed left-0 top-1/2 z-30 hidden h-16 w-6 -translate-y-1/2 items-center justify-center rounded-r-lg border border-l-0 border-sidebar-border bg-sidebar text-sidebar-foreground shadow-md transition-colors hover:bg-sidebar-accent lg:flex"
+          >
+            <Icon name="chevron_right" className="h-4 w-4" />
+          </button>
+        </>
+      )}
       <div
+        ref={panelRef}
+        onPointerEnter={(event) => {
+          if (peek && event.pointerType === "mouse") clearPeekTimer();
+        }}
+        onPointerLeave={(event) => {
+          if (peek && event.pointerType === "mouse") schedulePeek(false, SIDEBAR_PEEK_CLOSE_DELAY_MS);
+        }}
         className={cn(
           "fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] duration-200 ease-linear lg:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
+          // Menú asomado: por encima del contenido, sin empujarlo.
+          peek && "z-40 shadow-2xl group-data-[collapsible=offcanvas]:left-0",
           // Adjust the padding for floating and inset variants.
           variant === "floating" || variant === "inset"
             ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4)_+2px)]"
@@ -199,12 +292,14 @@ Sidebar.displayName = "Sidebar";
 
 const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.ComponentProps<typeof Button>>(
   ({ className, onClick, ...props }, ref) => {
-    const { toggleSidebar } = useSidebar();
+    const { toggleSidebar, open, isMobile } = useSidebar();
+    const label = isMobile ? "Abrir menú" : open ? "Ocultar menú (Ctrl+B)" : "Fijar menú (Ctrl+B)";
 
     return (
       <Button
         ref={ref}
         data-sidebar="trigger"
+        title={label}
         variant="ghost"
         size="icon"
         className={cn("h-7 w-7", className)}
@@ -215,7 +310,7 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         {...props}
       >
         <Icon name="dock_to_left" />
-        <span className="sr-only">Toggle Sidebar</span>
+        <span className="sr-only">{label}</span>
       </Button>
     );
   },

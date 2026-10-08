@@ -8,6 +8,9 @@ export type SidebarContext = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  // Escritorio con el menú oculto: se asoma por encima del contenido sin fijarse.
+  peek: boolean;
+  setPeek: (peek: boolean) => void;
 };
 
 export const SidebarContext = React.createContext<SidebarContext | null>(null);

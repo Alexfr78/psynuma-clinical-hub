@@ -71,7 +71,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, profile, isAdmin } = useAuth();
-  const { setOpenMobile, isMobile } = useSidebar();
+  const { setOpenMobile, isMobile, setPeek } = useSidebar();
   const [isDark, setIsDark] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -117,6 +117,8 @@ export function AppSidebar() {
     navigate(url);
     // Always close sidebar on navigation - on desktop this has no effect
     setOpenMobile(false);
+    // Menú oculto asomado en escritorio: se recoge al elegir página.
+    setPeek(false);
   };
 
   const NavItem = ({ item }: { item: NavItemDef }) => (
