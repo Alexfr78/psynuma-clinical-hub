@@ -40,6 +40,8 @@ Lo pedido: $ARGUMENTS
    - `user_summary`: solo si `is_user_facing`. Lo que verá el psicólogo: 1–2 frases, ≤ 500,
      tuteando, qué puede hacer ahora y dónde. Sin jerga ni nombres de tablas.
    - `affects_verifactu`: `true` solo si toca facturación Verifactu (sellado, cadena, AEAT, QR).
+     Si es `true`, avisa al usuario: cuando ese cambio salga en una versión habrá que subir la
+     **versión del Software de Facturación** y la de la **declaración responsable** (ver C).
 4. Enséñale al usuario el título, el tipo y el `user_summary` en una lista corta y **espera su OK**
    (puede corregir el texto). Luego inserta:
    ```sql
@@ -83,5 +85,43 @@ haya publicado otra antes en la conversación.
    ```
    El trigger `enforce_single_current_version` quita `is_current` a la anterior.
 4. Comprueba: `select version_code, status, is_current, published_at from app_versions order by created_at desc limit 2;`
-5. Si `applies_to_verifactu`: recuérdale que la sincronización con Verifactu (versión del software
-   de cada centro) se hace a mano en Configuración → Sistema; no la hagas tú.
+5. Si `applies_to_verifactu`: **obligatorio** subir la versión del Software de Facturación y la de
+   la declaración responsable. Díselo al usuario y sigue la sección C.
+
+## C. Versión del Software de Facturación y declaración responsable
+
+Si algún cambio de la versión tiene `affects_verifactu`, hay que actualizar **las dos**:
+
+- **Versión del Software de Facturación**: `centers.verifactu_software_version` del centro con
+  `is_software_provider = true` (solo hay uno). Es la `SistemaInformatico/Version` que va a la AEAT
+  en cada alta y anulación (`_shared/verifactuSoftware.ts`). No confundir con `IDVersion` (`1.0`, fijo).
+- **Versión de la declaración responsable**: hoy NO tiene número propio. La pantalla
+  (Configuración → Pagos y Facturación → Verifactu (AEAT) → Declaración responsable,
+  `ResponsibleDeclarationSection.tsx`) y el XML de `export-verifactu-records` leen la versión del
+  software anterior. Sube sola al cambiar esa, pero hay que comprobar que la muestra, y si existe
+  una declaración firmada o archivada fuera de la app, hay que emitir una nueva con la versión nueva.
+
+Cómo hacerlo (con el OK del usuario; cambia lo que se declara ante la AEAT):
+
+1. Vía interfaz, que es lo normal: entrar en el **centro proveedor**, ir a Configuración → Sistema →
+   Versiones y peticiones, y en la versión publicada pulsar **«Sincronizar con VeriFactu»**. Copia
+   `version_code` a `centers.verifactu_software_version` y marca `app_versions.verifactu_synced_at`.
+2. Vía SQL (si el usuario lo pide), en una sola llamada para que sea una transacción; cada
+   `RETURNING` debe devolver exactamente una fila:
+   ```sql
+   update centers set verifactu_software_version = 'X.Y.Z'
+   where is_software_provider = true
+   returning id, name, verifactu_software_version;
+   update app_versions set verifactu_synced_at = now()
+   where id = '<uuid>' and version_code = 'X.Y.Z' and applies_to_verifactu
+   returning id, version_code, verifactu_synced_at;
+   ```
+   (`query_database` solo devuelve el resultado de la última sentencia: comprueba después las dos.)
+3. Comprueba que coinciden:
+   ```sql
+   select (select verifactu_software_version from centers where is_software_provider) as software,
+          (select version_code from app_versions where is_current) as app,
+          (select verifactu_synced_at from app_versions where is_current) as synced_at;
+   ```
+4. Recuérdale al usuario que revise la pantalla de la declaración responsable con la versión nueva
+   y que actualice cualquier copia firmada que tenga fuera de la app.
