@@ -19,12 +19,17 @@ export interface AiModelOption {
 }
 
 export const OPENAI_MODEL_OPTIONS: AiModelOption[] = [
-  { value: 'gpt-5.4', label: 'GPT-5.4 — Razonamiento, máxima capacidad (recomendado)' },
-  { value: 'gpt-4.1', label: 'GPT-4.1 — Máxima capacidad sin razonamiento' },
-  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini — Equilibrio calidad/coste' },
-  { value: 'gpt-4.1-nano', label: 'GPT-4.1 Nano — Más económico' },
+  { value: 'gpt-6-astra', label: 'GPT-6 Astra — Máxima capacidad, el más caro' },
+  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol — Casi como Astra, más barato (recomendado)' },
+  { value: 'gpt-6-luna', label: 'GPT-6 Luna — Rápido y económico' },
+  { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol — Generación anterior, alta capacidad' },
+  { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra — Equilibrio calidad/coste' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna — Muy económico' },
+  { value: 'gpt-5.5', label: 'GPT-5.5' },
+  { value: 'gpt-5.4', label: 'GPT-5.4' },
+  { value: 'gpt-4.1', label: 'GPT-4.1 — Sin razonamiento, admite temperatura' },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini — Sin razonamiento, económico' },
   { value: 'gpt-4o', label: 'GPT-4o (legacy)' },
-  { value: 'o1', label: 'o1 — Razonamiento profundo' },
 ];
 
 export const GEMINI_MODEL_OPTIONS: AiModelOption[] = [
@@ -50,6 +55,18 @@ export const DEFAULT_STT_MODEL = 'gpt-4o-transcribe-diarize';
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1';
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-pro';
+
+/**
+ * Si el modelo acepta el ajuste de temperatura. Los modelos de OpenAI con razonamiento
+ * (GPT-5.x, GPT-6.x, serie o) devuelven error 400 si se les manda; solo la familia GPT-4 /
+ * GPT-3.5 la admite. Ante un nombre desconocido se asume que no, porque no mandarla nunca
+ * falla. Misma regla que `modelSupportsTemperature` en
+ * `supabase/functions/analyze-session-transcription/index.ts`; si cambia una, cambia la otra.
+ */
+export function modelSupportsTemperature(provider: string | null | undefined, model: string): boolean {
+  if (provider === 'gemini') return true;
+  return /^gpt-(4|3\.5)/i.test(model.trim());
+}
 
 /** Modelos que corresponden al proveedor configurado en el centro. */
 export function modelOptionsForProvider(provider: string | null | undefined): AiModelOption[] {

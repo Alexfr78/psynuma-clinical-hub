@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { OPENAI_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, STT_MODEL_OPTIONS, DEFAULT_STT_MODEL } from '@/lib/ai-models';
+import { OPENAI_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, STT_MODEL_OPTIONS, DEFAULT_STT_MODEL, modelSupportsTemperature } from '@/lib/ai-models';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,6 +48,10 @@ export function AISettingsSection() {
 
   const openaiModelIsCustom = openaiModel === 'custom' || (!OPENAI_MODELS.includes(openaiModel) && openaiModel !== '');
   const geminiModelIsCustom = geminiModel === 'custom' || (!GEMINI_MODELS.includes(geminiModel) && geminiModel !== '');
+  const activeModel = aiProvider === 'gemini'
+    ? (geminiModelIsCustom ? customGeminiModel : geminiModel)
+    : (openaiModelIsCustom ? customOpenaiModel : openaiModel);
+  const temperatureIgnored = activeModel !== '' && !modelSupportsTemperature(aiProvider, activeModel);
 
   useEffect(() => {
     if (center) {
@@ -286,11 +290,9 @@ export function AISettingsSection() {
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="gpt-4.1">GPT-4.1 — Máxima capacidad (recomendado)</SelectItem>
-                <SelectItem value="gpt-4.1-mini">GPT-4.1 Mini — Equilibrio calidad/coste</SelectItem>
-                <SelectItem value="gpt-4.1-nano">GPT-4.1 Nano — Más económico</SelectItem>
-                <SelectItem value="gpt-4o">GPT-4o (legacy)</SelectItem>
-                <SelectItem value="o1">o1 — Razonamiento profundo</SelectItem>
+                {OPENAI_MODEL_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
                 <SelectItem value="custom">Modelo personalizado...</SelectItem>
               </SelectContent>
             </Select>
@@ -371,6 +373,11 @@ export function AISettingsSection() {
           </CardTitle>
           <CardDescription>
             Valores bajos (0.1-0.3) producen textos más precisos y predecibles. Valores altos (0.5-0.7) generan redacción más rica y variada. Recomendado para informes clínicos: 0.4-0.5
+            {temperatureIgnored && (
+              <span className="block mt-2 text-amber-700 dark:text-amber-400">
+                El modelo elegido razona y no admite este ajuste: se ignora al generar informes.
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>

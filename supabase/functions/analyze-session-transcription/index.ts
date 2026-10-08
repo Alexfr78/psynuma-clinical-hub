@@ -109,6 +109,14 @@ function sanitizeModelName(raw: string, source: string): string {
   return trimmed;
 }
 
+// Los modelos de OpenAI con razonamiento (GPT-5.x, GPT-6.x, serie o) responden 400 si la
+// petición lleva `temperature`; solo la familia GPT-4 / GPT-3.5 la admite. Ante un nombre
+// desconocido (modelo personalizado) se omite, porque no mandarla nunca falla. Misma regla que
+// `modelSupportsTemperature` en `src/lib/ai-models.ts`; si cambia una, cambia la otra.
+function openaiModelSupportsTemperature(model: string): boolean {
+  return /^gpt-(4|3\.5)/i.test(model.trim());
+}
+
 // ─── AI Router ───────────────────────────────────────────────────────────────
 const PROVIDER_TIMEOUT_MS = 120_000;
 
@@ -179,7 +187,7 @@ async function callAIOnce(
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          temperature,
+          ...(openaiModelSupportsTemperature(model) ? { temperature } : {}),
           // `max_tokens` está en desuso en la API de chat completions de OpenAI: los modelos
           // de razonamiento (o1/o3/GPT-5...) lo rechazan de plano, y `max_completion_tokens`
           // ya es compatible con el resto de modelos de chat, así que no hace falta ramificar
