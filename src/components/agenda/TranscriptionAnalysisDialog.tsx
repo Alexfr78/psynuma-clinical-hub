@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTranscriptionAnalysis } from "@/hooks/useTranscriptionAnalysis";
 import { modelOptionsForProvider } from '@/lib/ai-models';
 import { useAIDocuments, useSessionPlaudTranscriptAvailability, useSessionTranscriptAvailability } from "@/hooks/useAIDocuments";
+import { usePatientAiReportPreferences } from "@/hooks/usePatientAiReportPreferences";
 import { useCenter } from "@/hooks/useCenter";
 import { useAuth } from "@/hooks/useAuth";
 import { uploadAndTranscribeAudio } from "@/lib/audio-ingestion";
@@ -116,6 +117,16 @@ export function TranscriptionAnalysisDialog({
   // Fuente de verdad de plantillas y documentos generados — sustituye a la orquestación de
   // "3 capas" que antes vivía aquí mismo. Ver `@/hooks/useAIDocuments`.
   const aiDocs = useAIDocuments({ sessionId, scope: "session", enabled: open });
+  const patientReportPreferences = usePatientAiReportPreferences(consent.patientId ?? undefined, open);
+  const patientPreferenceKeys = patientReportPreferences.documentKeys;
+  const patientPreferenceApplies = patientPreferenceKeys !== undefined && patientPreferenceKeys !== null;
+  const automaticPatientTemplates = patientPreferenceApplies
+    ? aiDocs.templates.filter(
+        (template) => template.audience === "patient" && patientPreferenceKeys.includes(template.key),
+      )
+    : aiDocs.patientDefault.template
+      ? [aiDocs.patientDefault.template]
+      : [];
 
   // Fallback de "Regenerar" cuando la caja de transcripción está vacía: si Plaud todavía
   // conserva el texto de la sesión (30 días, ver `sync-plaud-recordings`), el servidor lo
@@ -250,8 +261,8 @@ export function TranscriptionAnalysisDialog({
     if (aiDocs.professionalDefault.template) {
       await handleGenerate(aiDocs.professionalDefault.template.key, aiDocs.professionalDefault.template.label);
     }
-    if (aiDocs.patientDefault.template) {
-      await handleGenerate(aiDocs.patientDefault.template.key, aiDocs.patientDefault.template.label);
+    for (const template of automaticPatientTemplates) {
+      await handleGenerate(template.key, template.label);
     }
   };
 
@@ -606,15 +617,26 @@ export function TranscriptionAnalysisDialog({
                     <span className="text-sm font-medium">Generar automáticamente</span>
                   </div>
                   <p className="pl-6 text-xs text-muted-foreground">
-                    {aiDocs.isLoadingDefaults ? (
+                    {patientReportPreferences.error ? (
+                      "No se pudo cargar la preferencia de documentos de este paciente."
+                    ) : aiDocs.isLoadingDefaults || patientReportPreferences.isLoading ? (
                       "Cargando las plantillas predeterminadas del centro..."
                     ) : (
                       <>
                         Se generarán:{" "}
-                        <strong>{aiDocs.professionalDefault.template?.label ?? "Informe clínico"}</strong> (para el
-                        profesional) y{" "}
-                        <strong>{aiDocs.patientDefault.template?.label ?? "Resumen para el paciente"}</strong> (para
-                        el paciente).
+                        <strong>{aiDocs.professionalDefault.template?.label ?? "Informe clínico"}</strong>{" "}
+                        (para el profesional) y{" "}
+                        {automaticPatientTemplates.length > 0 ? (
+                          <>
+                            <strong>{automaticPatientTemplates.map((template) => template.label).join(", ")}</strong>{" "}
+                            (para el paciente{patientPreferenceApplies ? ", preferencia de este paciente" : ""}).
+                          </>
+                        ) : (
+                          <strong>
+                            ningún documento para el paciente
+                            {patientPreferenceApplies ? " (preferencia de este paciente)" : ""}.
+                          </strong>
+                        )}
                       </>
                     )}
                   </p>
@@ -711,7 +733,9 @@ export function TranscriptionAnalysisDialog({
                     isTranscribing ||
                     !(hasTranscription || hasSavedTranscriptFallback) ||
                     !aiDocs.professionalDefault.template ||
-                    !aiDocs.patientDefault.template ||
+                    (!patientPreferenceApplies && !aiDocs.patientDefault.template) ||
+                    patientReportPreferences.isLoading ||
+                    !!patientReportPreferences.error ||
                     consent.isLoading ||
                     !!consent.generateBlockReason
                   }
@@ -782,17 +806,15 @@ export function TranscriptionAnalysisDialog({
                 ))}
               </TabsList>
               {generatedReports.map(({ key, doc, template }) => {
-                // `key` viene de `doc.document_type.key` (garantizado), no de la búsqueda de
-                // plantilla — que puede fallar a `undefined`. Nunca se debe decidir aquí en
-                // base a `template?.key`: es el único documento que se envía tal cual al
-                // paciente (WhatsApp/email), así que el gate de negrita/resaltado no puede
-                // depender de un valor que podría faltar.
-                const isPatientReport = key === "patient_report";
+                // La audiencia sale de la plantilla del documento (`document_type`, no del
+                // catálogo activo): cualquier documento dirigido al paciente se edita como
+                // texto plano y puede enviarse por WhatsApp o email.
+                const isPatientDocument = doc.document_type.audience === "patient";
                 return (
                   <TabsContent key={key} value={key} className="space-y-3">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        <Icon name={isPatientReport ? "person" : key === "clinical_report" ? "stethoscope" : "description"} className="h-4 w-4 text-primary" />
+                        <Icon name={isPatientDocument ? "person" : key === "clinical_report" ? "stethoscope" : "description"} className="h-4 w-4 text-primary" />
                         {template?.label ?? key}
                         {sessionId && <Badge variant="outline" className="text-xs text-green-600">Guardado en sesión</Badge>}
                       </h3>
@@ -814,14 +836,14 @@ export function TranscriptionAnalysisDialog({
                     <DocumentEditor
                       doc={doc}
                       isSaving={aiDocs.isSavingEdit}
-                      allowFormatting={!isPatientReport}
+                      allowFormatting={!isPatientDocument}
                       onSave={(markdown) => aiDocs.saveEdit(doc.id, markdown)}
                     />
-                    {isPatientReport && (
+                    {isPatientDocument && (
                       <>
                         <div className="flex flex-wrap gap-2">
-                          {patientPhone && <Button size="sm" variant="outline" onClick={() => sendPatientReport("whatsapp", effectiveMarkdown(doc))} disabled={isSending || consent.isLoading || !!consent.whatsappBlockReason} title={consent.whatsappBlockReason || undefined}><Icon name={isSending ? "progress_activity" : "chat"} className={cn("h-4 w-4 mr-1", isSending && "animate-spin")} /> Enviar por WhatsApp</Button>}
-                          {patientEmail && <Button size="sm" variant="outline" onClick={() => sendPatientReport("email", effectiveMarkdown(doc))} disabled={isSending || consent.isLoading || !!consent.emailBlockReason} title={consent.emailBlockReason || undefined}><Icon name={isSending ? "progress_activity" : "mail"} className={cn("h-4 w-4 mr-1", isSending && "animate-spin")} /> Enviar por email</Button>}
+                          {patientPhone && <Button size="sm" variant="outline" onClick={() => sendPatientReport("whatsapp", effectiveMarkdown(doc), template?.label ?? doc.document_type.label, doc.id)} disabled={isSending || consent.isLoading || !!consent.whatsappBlockReason} title={consent.whatsappBlockReason || undefined}><Icon name={isSending ? "progress_activity" : "chat"} className={cn("h-4 w-4 mr-1", isSending && "animate-spin")} /> Enviar por WhatsApp</Button>}
+                          {patientEmail && <Button size="sm" variant="outline" onClick={() => sendPatientReport("email", effectiveMarkdown(doc), template?.label ?? doc.document_type.label, doc.id)} disabled={isSending || consent.isLoading || !!consent.emailBlockReason} title={consent.emailBlockReason || undefined}><Icon name={isSending ? "progress_activity" : "mail"} className={cn("h-4 w-4 mr-1", isSending && "animate-spin")} /> Enviar por email</Button>}
                         </div>
                         {(consent.whatsappBlockReason || consent.emailBlockReason) && <div className="space-y-1">{consent.whatsappBlockReason && <p className="text-xs text-muted-foreground"><Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />{consent.whatsappBlockReason}</p>}{consent.emailBlockReason && <p className="text-xs text-muted-foreground"><Icon name="lock" className="h-3 w-3 mr-1 inline align-text-bottom" />{consent.emailBlockReason}</p>}</div>}
                       </>

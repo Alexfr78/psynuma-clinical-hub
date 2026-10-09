@@ -1,5 +1,5 @@
 import { qk } from '@/lib/query-keys';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -7,6 +7,9 @@ import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { useCenter } from '@/hooks/useCenter';
@@ -14,6 +17,7 @@ import { Icon } from '@/components/ui/icon';
 import { checkPatientConsent, type ConsentCheckResult } from '@/lib/consent-verification';
 import { consentSendBlockReason } from '@/lib/consent-block-messages';
 import { useAIDocuments } from '@/hooks/useAIDocuments';
+import { usePatientAiReportPreferences } from '@/hooks/usePatientAiReportPreferences';
 import { effectiveMarkdown } from '@/lib/ai-documents';
 import { createPatientReportLink, buildPatientReportNotice, PATIENT_REPORT_EMAIL_SUBJECT } from '@/lib/patient-report-links';
 import type { AiGeneratedDocumentWithType } from '@/types/ai-documents';
@@ -88,7 +92,41 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
   // solo tuvieran informe de paciente (o cualquier otro tipo de documento) generado. Ahora
   // se listan todos los documentos del paciente, de cualquier tipo, agrupados por sesión.
   const aiDocs = useAIDocuments({ patientId, scope: 'multi_session' });
+  const patientSessionAiDocs = useAIDocuments({ patientId, scope: 'session' });
+  const patientTemplates = useMemo(
+    () => patientSessionAiDocs.templates.filter((template) => template.audience === 'patient'),
+    [patientSessionAiDocs.templates],
+  );
+  const preferences = usePatientAiReportPreferences(patientId);
+  const [preferenceMode, setPreferenceMode] = useState<'default' | 'custom'>('default');
+  const [selectedPatientTemplateKeys, setSelectedPatientTemplateKeys] = useState<string[]>([]);
   const evolutionTemplate = aiDocs.templates.find((t) => t.key === 'evolution_report');
+
+  useEffect(() => {
+    if (preferences.documentKeys === undefined) return;
+    setPreferenceMode(preferences.documentKeys === null ? 'default' : 'custom');
+    setSelectedPatientTemplateKeys(preferences.documentKeys ?? []);
+  }, [preferences.documentKeys]);
+
+  const selectedKeysInCatalogueOrder = patientTemplates
+    .filter((template) => selectedPatientTemplateKeys.includes(template.key))
+    .map((template) => template.key);
+  const savedKeysInCatalogueOrder = patientTemplates
+    .filter((template) => preferences.documentKeys?.includes(template.key))
+    .map((template) => template.key);
+  const preferenceIsDirty = preferences.documentKeys !== undefined && (
+    (preferences.documentKeys === null ? 'default' : 'custom') !== preferenceMode ||
+    (preferenceMode === 'custom' && selectedKeysInCatalogueOrder.join('\u0000') !== savedKeysInCatalogueOrder.join('\u0000'))
+  );
+
+  const handleSavePreferences = async () => {
+    try {
+      await preferences.save(preferenceMode === 'default' ? null : selectedKeysInCatalogueOrder);
+      toast.success('Preferencia de documentos guardada');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo guardar la preferencia');
+    }
+  };
 
   const sessionIds = useMemo(
     () => Array.from(new Set(aiDocs.documents.filter((d) => d.session_id).map((d) => d.session_id as string))),
@@ -237,6 +275,77 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Documentos para el paciente</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <RadioGroup
+            value={preferenceMode}
+            onValueChange={(value) => setPreferenceMode(value as 'default' | 'custom')}
+            className="space-y-2"
+            disabled={preferences.isLoading || patientSessionAiDocs.isLoadingTemplates || !!preferences.error}
+          >
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3">
+              <RadioGroupItem value="default" id="patient-ai-documents-default" className="mt-0.5" />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium">Lo predeterminado del centro</span>
+                <span className="block text-xs text-muted-foreground">
+                  {patientSessionAiDocs.isLoadingDefaults || patientSessionAiDocs.isLoadingTemplates
+                    ? 'Cargando plantilla predeterminada...'
+                    : patientSessionAiDocs.patientDefault.template?.label ?? 'No hay una plantilla predeterminada activa'}
+                </span>
+              </span>
+            </label>
+
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3">
+              <RadioGroupItem value="custom" id="patient-ai-documents-custom" className="mt-0.5" />
+              <span className="text-sm font-medium">Elegir para este paciente</span>
+            </label>
+          </RadioGroup>
+
+          {preferenceMode === 'custom' && (
+            <div className="space-y-2 rounded-md border bg-muted/20 p-3 sm:ml-7">
+              {patientTemplates.map((template) => (
+                <label key={template.key} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+                  <Checkbox
+                    checked={selectedPatientTemplateKeys.includes(template.key)}
+                    onCheckedChange={(checked) => {
+                      setSelectedPatientTemplateKeys((current) => checked === true
+                        ? [...current, template.key]
+                        : current.filter((key) => key !== template.key));
+                    }}
+                    disabled={preferences.isLoading || preferences.isSaving}
+                  />
+                  <span>{template.label}</span>
+                </label>
+              ))}
+              {patientTemplates.length === 0 && (
+                <p className="text-xs text-muted-foreground">No hay plantillas activas para el paciente.</p>
+              )}
+              {selectedKeysInCatalogueOrder.length === 0 && (
+                <p className="text-xs text-muted-foreground">No se generará ningún documento para el paciente.</p>
+              )}
+            </div>
+          )}
+
+          {preferences.error && (
+            <p className="text-xs text-destructive">No se pudo cargar la preferencia de este paciente.</p>
+          )}
+
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={handleSavePreferences}
+              disabled={!preferenceIsDirty || preferences.isLoading || preferences.isSaving || !!preferences.error}
+            >
+              {preferences.isSaving && <Icon name="progress_activity" className="mr-1 h-3 w-3 animate-spin" />}
+              Guardar preferencia
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {evolutionTemplate && (
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 p-3">
           <div>
@@ -370,9 +479,9 @@ function DocumentCard({
   hasPhone: boolean;
   hasEmail: boolean;
 }) {
-  // El envío al paciente se limita al documento que espeja `ai_summary_patient` — el resto
-  // (informe clínico, notas SOAP, evolución...) no está pensado para mandarse tal cual.
-  const canSend = doc.document_type.mirror_column === 'ai_summary_patient';
+  // Cualquier plantilla con audiencia de paciente puede compartirse, aunque no use la
+  // columna espejo heredada `ai_summary_patient`.
+  const canSend = doc.document_type.audience === 'patient';
 
   return (
     <div className="space-y-1 mt-1">

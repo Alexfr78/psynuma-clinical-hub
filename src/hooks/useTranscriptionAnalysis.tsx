@@ -140,7 +140,12 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
   const [isSending, setIsSending] = useState(false);
 
   /** Envía el markdown (vigente, editado o no) de un documento ya generado al paciente. */
-  const sendPatientReport = async (channel: 'whatsapp' | 'email', reportContent: string) => {
+  const sendPatientReport = async (
+    channel: 'whatsapp' | 'email',
+    reportContent: string,
+    title?: string,
+    aiGeneratedDocumentId?: string,
+  ) => {
     if (!sessionId || !reportContent || !centerId) {
       console.warn('[sendPatientReport] Missing data:', { sessionId: !!sessionId, reportContent: !!reportContent, centerId: !!centerId });
       toast.error('No hay informe del paciente para enviar');
@@ -183,6 +188,8 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
         centerId,
         patientId: session.patient_id,
         sessionId,
+        aiGeneratedDocumentId,
+        title,
         contentMarkdown: reportContent,
       });
       const noticeMessage = buildPatientReportNotice(url, session.patient?.first_name);

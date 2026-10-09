@@ -5671,6 +5671,7 @@ export type Database = {
       patients: {
         Row: {
           address: string | null
+          ai_patient_document_keys: string[] | null
           assigned_professional_id: string | null
           auto_invoice_on_complete: boolean
           booking_blocked: boolean
@@ -5709,6 +5710,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          ai_patient_document_keys?: string[] | null
           assigned_professional_id?: string | null
           auto_invoice_on_complete?: boolean
           booking_blocked?: boolean
@@ -5747,6 +5749,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          ai_patient_document_keys?: string[] | null
           assigned_professional_id?: string | null
           auto_invoice_on_complete?: boolean
           booking_blocked?: boolean

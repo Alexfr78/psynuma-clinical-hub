@@ -466,6 +466,11 @@ export const qk = {
     byPatient: (patientId: string | null | undefined) =>
       ['patient-ai-reports-contact', patientId] as const,
   },
+  patientAiReportPreferences: {
+    all: ['patient-ai-report-preferences'] as const,
+    byPatient: (patientId: string | null | undefined) =>
+      ['patient-ai-report-preferences', patientId] as const,
+  },
   patientAiReportsSessions: {
     all: ['patient-ai-reports-sessions'] as const,
     list: (patientId: string | null | undefined, sessionIds: readonly string[]) =>
