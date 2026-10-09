@@ -117,6 +117,13 @@ function openaiModelSupportsTemperature(model: string): boolean {
   return /^gpt-(4|3\.5)/i.test(model.trim());
 }
 
+// Gemini 3 acepta `temperature`, pero Google pide dejarla en su valor por defecto: con valores
+// bajos puede entrar en bucles o perder calidad. Misma regla que `modelSupportsTemperature` en
+// `src/lib/ai-models.ts`.
+function geminiModelSupportsTemperature(model: string): boolean {
+  return !/^gemini-3/i.test(model.trim());
+}
+
 // ─── AI Router ───────────────────────────────────────────────────────────────
 const PROVIDER_TIMEOUT_MS = 120_000;
 
@@ -151,7 +158,7 @@ async function callAIOnce(
             body: JSON.stringify({
               contents: [{ parts: [{ text: fullPrompt }] }],
               generationConfig: {
-                temperature,
+                ...(geminiModelSupportsTemperature(model) ? { temperature } : {}),
                 maxOutputTokens: maxTokens,
               },
             }),
@@ -516,7 +523,7 @@ async function loadCenterAiConfig(
     temperature = center.ai_temperature ?? 0.3;
 
     if (provider === 'gemini') {
-      model = sanitizeModelName(center.gemini_model || 'gemini-2.5-pro', 'configurado en el centro (Gemini)');
+      model = sanitizeModelName(center.gemini_model || 'gemini-3.8-flash', 'configurado en el centro (Gemini)');
       if (!center.gemini_api_key_encrypted) {
         throw new UserFacingError('API key de Gemini no configurada. Ve a Ajustes → Inteligencia Artificial.', 400);
       }

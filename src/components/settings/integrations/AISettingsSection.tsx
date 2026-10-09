@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { OPENAI_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, STT_MODEL_OPTIONS, DEFAULT_STT_MODEL, modelSupportsTemperature } from '@/lib/ai-models';
+import { OPENAI_MODEL_OPTIONS, GEMINI_MODEL_OPTIONS, STT_MODEL_OPTIONS, DEFAULT_STT_MODEL, DEFAULT_GEMINI_MODEL, modelSupportsTemperature } from '@/lib/ai-models';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,7 +32,7 @@ export function AISettingsSection() {
   const [openaiModel, setOpenaiModel] = useState('gpt-4.1');
   const [customOpenaiModel, setCustomOpenaiModel] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [geminiModel, setGeminiModel] = useState('gemini-2.5-pro');
+  const [geminiModel, setGeminiModel] = useState(DEFAULT_GEMINI_MODEL);
   const [customGeminiModel, setCustomGeminiModel] = useState('');
   const [sttModel, setSttModel] = useState(DEFAULT_STT_MODEL);
   const [retentionDays, setRetentionDays] = useState(7);
@@ -64,7 +64,7 @@ export function AISettingsSection() {
         setOpenaiModel('custom');
         setCustomOpenaiModel(om);
       }
-      const gm = c.gemini_model || 'gemini-2.5-pro';
+      const gm = c.gemini_model || DEFAULT_GEMINI_MODEL;
       if (GEMINI_MODELS.includes(gm)) {
         setGeminiModel(gm);
       } else {
@@ -126,7 +126,7 @@ export function AISettingsSection() {
       await updateCenter.mutateAsync({
         ai_provider: aiProvider,
         openai_model: finalOpenaiModel || 'gpt-4.1',
-        gemini_model: finalGeminiModel || 'gemini-2.5-pro',
+        gemini_model: finalGeminiModel || DEFAULT_GEMINI_MODEL,
         // `stt_model` es una columna nueva; types.ts se regenera en Lovable, así que
         // todavía no está en el tipo Center.
         ...({ stt_model: sttModel } as Record<string, unknown>),
@@ -346,9 +346,9 @@ export function AISettingsSection() {
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro (recomendado)</SelectItem>
-                <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash — Más rápido</SelectItem>
-                <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                {GEMINI_MODEL_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
                 <SelectItem value="custom">Modelo personalizado...</SelectItem>
               </SelectContent>
             </Select>
@@ -375,7 +375,7 @@ export function AISettingsSection() {
             Valores bajos (0.1-0.3) producen textos más precisos y predecibles. Valores altos (0.5-0.7) generan redacción más rica y variada. Recomendado para informes clínicos: 0.4-0.5
             {temperatureIgnored && (
               <span className="block mt-2 text-amber-700 dark:text-amber-400">
-                El modelo elegido razona y no admite este ajuste: se ignora al generar informes.
+                El modelo elegido no usa este ajuste: se ignora al generar informes.
               </span>
             )}
           </CardDescription>

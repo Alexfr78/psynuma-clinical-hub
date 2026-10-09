@@ -33,9 +33,12 @@ export const OPENAI_MODEL_OPTIONS: AiModelOption[] = [
 ];
 
 export const GEMINI_MODEL_OPTIONS: AiModelOption[] = [
-  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (recomendado)' },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash — Más rápido' },
-  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+  { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash — El más nuevo' },
+  { value: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash — Generación anterior' },
+  { value: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash — Generación anterior' },
+  { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite — Más económico' },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro — Máxima capacidad (vista previa)' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (solo cuentas que ya lo usaban)' },
 ];
 
 /**
@@ -54,17 +57,18 @@ export const STT_MODEL_OPTIONS: AiModelOption[] = [
 export const DEFAULT_STT_MODEL = 'gpt-4o-transcribe-diarize';
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1';
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-pro';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
 /**
  * Si el modelo acepta el ajuste de temperatura. Los modelos de OpenAI con razonamiento
  * (GPT-5.x, GPT-6.x, serie o) devuelven error 400 si se les manda; solo la familia GPT-4 /
  * GPT-3.5 la admite. Ante un nombre desconocido se asume que no, porque no mandarla nunca
- * falla. Misma regla que `modelSupportsTemperature` en
+ * falla. Gemini 3 la acepta, pero Google pide dejarla en su valor por defecto (con valores
+ * bajos puede entrar en bucles), así que tampoco se manda. Misma regla que `modelSupportsTemperature` en
  * `supabase/functions/analyze-session-transcription/index.ts`; si cambia una, cambia la otra.
  */
 export function modelSupportsTemperature(provider: string | null | undefined, model: string): boolean {
-  if (provider === 'gemini') return true;
+  if (provider === 'gemini') return !/^gemini-3/i.test(model.trim());
   return /^gpt-(4|3\.5)/i.test(model.trim());
 }
 
