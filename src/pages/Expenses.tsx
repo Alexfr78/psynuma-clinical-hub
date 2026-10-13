@@ -23,10 +23,12 @@ import { ExpenseFiltersBar } from '@/components/expenses/ExpenseFiltersBar';
 import { ExpenseList } from '@/components/expenses/ExpenseList';
 import { ExpenseFormDialog } from '@/components/expenses/ExpenseFormDialog';
 import { ExpenseReportsTab } from '@/components/expenses/ExpenseReportsTab';
+import { currentMonthISO, isCustomExpenseRange, monthRange, resolveExpensePeriod } from '@/lib/expense-period';
 
 export default function Expenses() {
   const { isAdmin } = useAuth();
-  const [filters, setFilters] = useState<ExpenseFilters>({ month: new Date().toISOString().slice(0, 7) });
+  const [filters, setFilters] = useState<ExpenseFilters>(() => ({ month: currentMonthISO() }));
+  const period = resolveExpensePeriod(filters) ?? monthRange(currentMonthISO());
   const pagination = usePagination('expenses', [filters]);
   const { data, isLoading, isFetching } = useExpensesPage(filters, pagination);
   const expenses = data?.rows;
@@ -52,7 +54,7 @@ export default function Expenses() {
         </Button>
       </div>
 
-      <ExpenseStatsCards month={filters.month} />
+      <ExpenseStatsCards period={period} isCustomRange={isCustomExpenseRange(filters)} />
 
       <Tabs defaultValue="list">
         {/* Los informes agregan ingresos completos del centro; para un

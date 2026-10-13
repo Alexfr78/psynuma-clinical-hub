@@ -1,6 +1,13 @@
+import { useState } from 'react';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import type { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Icon } from '@/components/ui/icon';
+import { currentMonthISO, isCustomExpenseRange, monthRange, resolveExpensePeriod } from '@/lib/expense-period';
 import { useAuth } from '@/hooks/useAuth';
 import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { useSuppliers } from '@/hooks/useSuppliers';
@@ -28,17 +35,93 @@ function formatMonthLabel(month: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+function formatDayLabel(isoDate: string): string {
+  return format(parseISO(isoDate), 'd MMM yyyy', { locale: es });
+}
+
+type PeriodMode = 'month' | 'range';
+
 export function ExpenseFiltersBar({ filters, onChange }: ExpenseFiltersBarProps) {
   const { isAdmin } = useAuth();
   const { data: categories } = useExpenseCategories();
   const { data: suppliers } = useSuppliers();
   const { data: professionals } = useProfessionalsWithRoles();
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>();
 
   const professionalOptions = (professionals ?? []).filter((p) => p.roles.includes('professional'));
-  const currentMonth = filters.month ?? new Date().toISOString().slice(0, 7);
+  const currentMonth = filters.month ?? currentMonthISO();
+  const mode: PeriodMode = isCustomExpenseRange(filters) ? 'range' : 'month';
+  const period = resolveExpensePeriod(filters) ?? monthRange(currentMonth);
+
+  const changeMode = (next: PeriodMode) => {
+    if (next === mode) return;
+    if (next === 'range') {
+      // Arranca con el mes que se estaba viendo, para que el listado no salte.
+      const { start, end } = monthRange(currentMonth);
+      onChange({ ...filters, startDate: start, endDate: end });
+      setDraftRange(undefined);
+      setRangeOpen(true);
+    } else {
+      // Vuelve al mes en el que empezaba el rango.
+      onChange({ ...filters, month: period.start.slice(0, 7), startDate: undefined, endDate: undefined });
+    }
+  };
+
+  const handleRangeSelect = (range: DateRange | undefined) => {
+    setDraftRange(range);
+    if (range?.from && range?.to) {
+      onChange({
+        ...filters,
+        startDate: format(range.from, 'yyyy-MM-dd'),
+        endDate: format(range.to, 'yyyy-MM-dd'),
+      });
+      setRangeOpen(false);
+    }
+  };
 
   return (
     <div className="flex flex-wrap gap-2">
+      <Select value={mode} onValueChange={(v) => changeMode(v as PeriodMode)}>
+        <SelectTrigger className="w-[140px]" aria-label="Tipo de periodo"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="month">Por mes</SelectItem>
+          <SelectItem value="range">Rango de fechas</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {mode === 'range' ? (
+        <Popover
+          open={rangeOpen}
+          onOpenChange={(open) => {
+            setRangeOpen(open);
+            if (open) setDraftRange(undefined);
+          }}
+        >
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline" className="justify-start text-left font-normal">
+              <Icon name="calendar_month" className="mr-2 h-4 w-4" />
+              {formatDayLabel(period.start)} – {formatDayLabel(period.end)}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <p className="px-3 pt-3 text-xs text-muted-foreground">
+              {draftRange?.from ? 'Elige la fecha final' : 'Elige la fecha inicial'}
+            </p>
+            <Calendar
+              mode="range"
+              selected={draftRange}
+              onSelect={handleRangeSelect}
+              defaultMonth={parseISO(period.start)}
+              numberOfMonths={2}
+              locale={es}
+              weekStartsOn={1}
+              initialFocus
+              className="pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+      ) : (
       <div className="flex items-center gap-1 rounded-md border">
         <Button
           type="button"
@@ -64,6 +147,7 @@ export function ExpenseFiltersBar({ filters, onChange }: ExpenseFiltersBarProps)
           <Icon name="chevron_right" className="h-4 w-4" />
         </Button>
       </div>
+      )}
 
       <Select
         value={filters.categoryId ?? ALL}

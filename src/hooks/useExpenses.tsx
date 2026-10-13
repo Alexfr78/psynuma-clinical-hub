@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
+import { currentMonthISO, monthRange, resolveExpensePeriod, type ExpensePeriod } from '@/lib/expense-period';
 
 export type ExpenseKind = 'fixed_recurring' | 'variable' | 'supplier_invoice' | 'professional_payment';
 export type ExpenseStatus = 'pending' | 'paid' | 'cancelled';
@@ -79,7 +80,10 @@ export interface ExpenseInsert {
 }
 
 export interface ExpenseFilters {
-  month?: string; // 'YYYY-MM'
+  month?: string; // 'YYYY-MM' — periodo por defecto
+  /** Rango personalizado ('yyyy-MM-dd', inclusivo). Si están los dos, manda sobre `month`. */
+  startDate?: string;
+  endDate?: string;
   categoryId?: string;
   supplierId?: string;
   professionalId?: string;
@@ -94,21 +98,13 @@ const EXPENSE_SELECT = `
   professional:profiles!expenses_professional_id_fkey(id, first_name, last_name)
 `;
 
-function monthRange(month: string): { start: string; end: string } {
-  const [y, m] = month.split('-').map((v) => parseInt(v, 10));
-  const start = `${month}-01`;
-  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const end = `${month}-${String(lastDay).padStart(2, '0')}`;
-  return { start, end };
-}
-
 type ExpenseQuery = ReturnType<typeof expenseFilterQuery>;
 const expenseFilterQuery = () => supabase.from('expenses').select(EXPENSE_SELECT);
 
 function applyExpenseFilters(query: ExpenseQuery, filters?: ExpenseFilters) {
-  if (filters?.month) {
-    const { start, end } = monthRange(filters.month);
-    query = query.gte('expense_date', start).lte('expense_date', end);
+  const period = resolveExpensePeriod(filters);
+  if (period) {
+    query = query.gte('expense_date', period.start).lte('expense_date', period.end);
   }
   if (filters?.categoryId) query = query.eq('category_id', filters.categoryId);
   if (filters?.supplierId) query = query.eq('supplier_id', filters.supplierId);
@@ -421,14 +417,14 @@ export function useExtractExpenseReceiptPreview() {
   });
 }
 
-export function useExpenseStats(month?: string) {
+/** Totales del periodo (mes o rango). "Vencidos" no depende del periodo: son todos los pendientes con vencimiento pasado. */
+export function useExpenseStats(period?: ExpensePeriod) {
   const { profile } = useAuth();
-  const effectiveMonth = month ?? new Date().toISOString().slice(0, 7);
+  const { start, end } = period ?? monthRange(currentMonthISO());
 
   return useQuery({
-    queryKey: qk.expenseStats.list(profile?.center_id, effectiveMonth),
+    queryKey: qk.expenseStats.list(profile?.center_id, start, end),
     queryFn: async () => {
-      const { start, end } = monthRange(effectiveMonth);
       const todayISO = new Date().toISOString().split('T')[0];
 
       const data: Pick<Expense, 'amount' | 'paid_amount' | 'status' | 'due_date' | 'expense_date'>[] = [];
@@ -444,20 +440,20 @@ export function useExpenseStats(month?: string) {
         if (!rows || rows.length < 500) break;
       }
 
-      const stats = { totalPending: 0, totalPaidThisMonth: 0, overdueCount: 0, overdueAmount: 0 };
+      const stats = { totalPending: 0, totalPaidInPeriod: 0, overdueCount: 0, overdueAmount: 0 };
 
       for (const expense of data as Array<{ amount: number; paid_amount: number; status: string; due_date: string | null; expense_date: string }>) {
-        const inMonth = expense.expense_date >= start && expense.expense_date <= end;
+        const inPeriod = expense.expense_date >= start && expense.expense_date <= end;
 
         if (expense.status === 'pending') {
-          if (inMonth) stats.totalPending += Number(expense.amount);
+          if (inPeriod) stats.totalPending += Number(expense.amount);
           if (expense.due_date && expense.due_date < todayISO) {
             stats.overdueCount++;
             stats.overdueAmount += Number(expense.amount) - Number(expense.paid_amount || 0);
           }
         }
-        if (expense.status === 'paid' && inMonth) {
-          stats.totalPaidThisMonth += Number(expense.paid_amount || expense.amount);
+        if (expense.status === 'paid' && inPeriod) {
+          stats.totalPaidInPeriod += Number(expense.paid_amount || expense.amount);
         }
       }
 

@@ -1,19 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useExpenseStats } from '@/hooks/useExpenses';
+import type { ExpensePeriod } from '@/lib/expense-period';
 
 interface ExpenseStatsCardsProps {
-  month?: string;
+  period?: ExpensePeriod;
+  /** true cuando el periodo es un rango personalizado (cambia el texto de las tarjetas). */
+  isCustomRange?: boolean;
 }
 
-export function ExpenseStatsCards({ month }: ExpenseStatsCardsProps) {
-  const { data: stats, isLoading } = useExpenseStats(month);
+export function ExpenseStatsCards({ period, isCustomRange }: ExpenseStatsCardsProps) {
+  const { data: stats, isLoading } = useExpenseStats(period);
+  const suffix = isCustomRange ? 'en el periodo' : 'este mes';
 
   return (
     <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-3">
       <Card>
         <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-          <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente este mes</CardTitle>
+          <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pendiente {suffix}</CardTitle>
         </CardHeader>
         <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
           <p className="text-lg sm:text-2xl font-bold text-amber-600 tabular-nums">
@@ -23,11 +27,11 @@ export function ExpenseStatsCards({ month }: ExpenseStatsCardsProps) {
       </Card>
       <Card>
         <CardHeader className="pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-          <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pagado este mes</CardTitle>
+          <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pagado {suffix}</CardTitle>
         </CardHeader>
         <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
           <p className="text-lg sm:text-2xl font-bold text-green-600 tabular-nums">
-            {isLoading ? '—' : `${stats?.totalPaidThisMonth.toFixed(2)} €`}
+            {isLoading ? '—' : `${stats?.totalPaidInPeriod.toFixed(2)} €`}
           </p>
         </CardContent>
       </Card>

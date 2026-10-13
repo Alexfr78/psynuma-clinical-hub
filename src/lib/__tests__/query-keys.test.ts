@@ -743,7 +743,7 @@ describe('query keys de la fase 2', () => {
   });
 
   it('qk.expenseStats.list conserva la clave original', () => {
-    expect(qk.expenseStats.list('centerId-1', 'effectiveMonth-1')).toEqual(['expense-stats', 'centerId-1', 'effectiveMonth-1']);
+    expect(qk.expenseStats.list('centerId-1', '2026-09-01', '2026-10-15')).toEqual(['expense-stats', 'centerId-1', '2026-09-01', '2026-10-15']);
   });
 
   it('qk.expenses.all conserva el prefijo original', () => {

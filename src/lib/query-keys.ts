@@ -358,8 +358,8 @@ export const qk = {
   },
   expenseStats: {
     all: ['expense-stats'] as const,
-    list: (centerId: CenterId, effectiveMonth: string | null | undefined) =>
-      ['expense-stats', centerId, effectiveMonth] as const,
+    list: (centerId: CenterId, start: string, end: string) =>
+      ['expense-stats', centerId, start, end] as const,
   },
   expenses: {
     all: ['expenses'] as const,

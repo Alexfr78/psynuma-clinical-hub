@@ -107,6 +107,11 @@ describe('consultas paginadas', () => {
     expect(params().getAll('expense_date')).toEqual(['gte.2024-02-01', 'lte.2024-02-29']);
   });
 
+  it('el rango personalizado de gastos manda sobre el mes y cruza meses', async () => {
+    await options(useExpensesPage({ month: '2024-02', startDate: '2024-01-15', endDate: '2024-03-10' }, range)).queryFn();
+    expect(params().getAll('expense_date')).toEqual(['gte.2024-01-15', 'lte.2024-03-10']);
+  });
+
   it('intersecta estado y pestaña sin sustituir filtros en los contadores', async () => {
     await options(useNotificationsPage({ status: 'sent', tab: 'pending', type: 'email' }, range)).queryFn();
     expect(params().getAll('status')).toEqual(['eq.sent', 'eq.pending']);
@@ -155,8 +160,8 @@ describe('consultas paginadas', () => {
     state.rows = Array.from({ length: 1003 }, () => ({
       amount: 25, paid_amount: 0, status: 'pending', due_date: '2020-01-01', expense_date: '2026-09-01',
     }));
-    expect(await options(useExpenseStats('2026-09')).queryFn()).toEqual({
-      totalPending: 25075, totalPaidThisMonth: 0, overdueCount: 1003, overdueAmount: 25075,
+    expect(await options(useExpenseStats({ start: '2026-09-01', end: '2026-09-30' })).queryFn()).toEqual({
+      totalPending: 25075, totalPaidInPeriod: 0, overdueCount: 1003, overdueAmount: 25075,
     });
   });
 
