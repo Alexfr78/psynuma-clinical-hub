@@ -391,6 +391,22 @@ function parseJsonRpcBody(text: string): JsonRpcResponseShape | null {
  * probe: a plain JSON POST answered directly, no session negotiation
  * enforced at that stage).
  */
+/**
+ * Desde octubre de 2026 Plaud envuelve el JSON de sus herramientas en un aviso para modelos:
+ * una frase y un bloque `<untrusted-user-data-ID ...>JSON</untrusted-user-data-ID>`. Devuelve el
+ * contenido del bloque, o el texto tal cual si no viene envuelto.
+ */
+export function unwrapPlaudUntrustedBlock(text: string): string {
+  // La frase de aviso nombra la propia etiqueta, así que el bloque empieza en la última
+  // apertura anterior al cierre, no en la primera mención.
+  const close = /<\/untrusted-user-data-([\w-]+)>/.exec(text);
+  if (!close) return text;
+  const openStart = text.lastIndexOf(`<untrusted-user-data-${close[1]}`, close.index);
+  const openEnd = openStart === -1 ? -1 : text.indexOf(">", openStart);
+  if (openEnd === -1 || openEnd > close.index) return text;
+  return text.slice(openEnd + 1, close.index).trim();
+}
+
 export async function callPlaudTool<T>(
   accessToken: string,
   tool: PlaudTool | string,
@@ -453,7 +469,7 @@ export async function callPlaudTool<T>(
     const textContent = result.content?.find((c) => c.type === "text")?.text;
     if (textContent !== undefined) {
       try {
-        return { ok: true, data: JSON.parse(textContent) as T };
+        return { ok: true, data: JSON.parse(unwrapPlaudUntrustedBlock(textContent)) as T };
       } catch {
         return { ok: true, data: textContent as unknown as T };
       }
