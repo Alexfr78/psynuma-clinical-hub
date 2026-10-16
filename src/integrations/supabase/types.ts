@@ -2435,6 +2435,9 @@ export type Database = {
       }
       centers: {
         Row: {
+          aeat_activity_code: string
+          aeat_activity_type: string
+          aeat_iae_epigraph: string | null
           address: string | null
           address_details: string | null
           admin_alerts_emails: string | null
@@ -2550,6 +2553,9 @@ export type Database = {
           whatsapp_send_method: string | null
         }
         Insert: {
+          aeat_activity_code?: string
+          aeat_activity_type?: string
+          aeat_iae_epigraph?: string | null
           address?: string | null
           address_details?: string | null
           admin_alerts_emails?: string | null
@@ -2665,6 +2671,9 @@ export type Database = {
           whatsapp_send_method?: string | null
         }
         Update: {
+          aeat_activity_code?: string
+          aeat_activity_type?: string
+          aeat_iae_epigraph?: string | null
           address?: string | null
           address_details?: string | null
           admin_alerts_emails?: string | null
@@ -3551,6 +3560,7 @@ export type Database = {
       }
       expense_categories: {
         Row: {
+          aeat_expense_concept: string | null
           center_id: string
           color: string
           created_at: string
@@ -3563,6 +3573,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          aeat_expense_concept?: string | null
           center_id: string
           color?: string
           created_at?: string
@@ -3575,6 +3586,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          aeat_expense_concept?: string | null
           center_id?: string
           color?: string
           created_at?: string
@@ -3714,6 +3726,7 @@ export type Database = {
       }
       expenses: {
         Row: {
+          aeat_invoice_type: string
           ai_extraction_confidence: number | null
           ai_extraction_raw: Json | null
           ai_extraction_status: string | null
@@ -3728,6 +3741,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string
+          deductible_vat_amount: number | null
           drive_file_id: string | null
           drive_url: string | null
           due_date: string | null
@@ -3736,6 +3750,7 @@ export type Database = {
           id: string
           invoice_issue_date: string | null
           irpf_amount: number | null
+          irpf_deductible_amount: number | null
           irpf_rate: number | null
           kind: Database["public"]["Enums"]["expense_kind"]
           notes: string | null
@@ -3754,6 +3769,7 @@ export type Database = {
           vat_rate: number | null
         }
         Insert: {
+          aeat_invoice_type?: string
           ai_extraction_confidence?: number | null
           ai_extraction_raw?: Json | null
           ai_extraction_status?: string | null
@@ -3768,6 +3784,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description: string
+          deductible_vat_amount?: number | null
           drive_file_id?: string | null
           drive_url?: string | null
           due_date?: string | null
@@ -3776,6 +3793,7 @@ export type Database = {
           id?: string
           invoice_issue_date?: string | null
           irpf_amount?: number | null
+          irpf_deductible_amount?: number | null
           irpf_rate?: number | null
           kind?: Database["public"]["Enums"]["expense_kind"]
           notes?: string | null
@@ -3794,6 +3812,7 @@ export type Database = {
           vat_rate?: number | null
         }
         Update: {
+          aeat_invoice_type?: string
           ai_extraction_confidence?: number | null
           ai_extraction_raw?: Json | null
           ai_extraction_status?: string | null
@@ -3808,6 +3827,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string
+          deductible_vat_amount?: number | null
           drive_file_id?: string | null
           drive_url?: string | null
           due_date?: string | null
@@ -3816,6 +3836,7 @@ export type Database = {
           id?: string
           invoice_issue_date?: string | null
           irpf_amount?: number | null
+          irpf_deductible_amount?: number | null
           irpf_rate?: number | null
           kind?: Database["public"]["Enums"]["expense_kind"]
           notes?: string | null

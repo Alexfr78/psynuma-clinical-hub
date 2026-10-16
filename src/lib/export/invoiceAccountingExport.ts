@@ -23,6 +23,7 @@ export interface AccountingExportInvoice {
   tax_rate?: number | string | null;
   tax_amount: number | string | null;
   retention_amount: number | string | null;
+  retention_rate?: number | string | null;
   total: number | string;
   notes: string | null;
   status: string | null;
@@ -39,6 +40,8 @@ export interface AccountingExportInvoice {
   rectification_type?: string | null;
   rectification_reason_code?: string | null;
   rectified_invoice_id?: string | null;
+  base_rectificada?: number | string | null;
+  cuota_rectificada?: number | string | null;
   correction_operation_id?: string | null;
   recipient_snapshot?: unknown;
   patients: AccountingExportPatient | null;
@@ -52,6 +55,8 @@ export interface AccountingExportInvoice {
     invoice_number?: string | null;
     issue_date?: string | null;
     invoice_type?: 'simplified' | 'complete' | null;
+    retention_rate?: number | string | null;
+    retention_amount?: number | string | null;
     series?: {
       name?: string | null;
       invoice_type?: string | null;
@@ -63,6 +68,7 @@ export interface AccountingExportInvoice {
     unit_price: number;
     total: number;
     tax_rate?: number | null;
+    tax_amount?: number | null;
     session_id?: string | null;
     bono_id?: string | null;
     session?: {
@@ -261,14 +267,16 @@ type FiscalRecipientSnapshot = {
   city?: string | null;
   postal_code?: string | null;
   email?: string | null;
+  country?: string | null;
+  id_type?: string | null;
 };
 
-function getRecipientSnapshot(value: unknown): FiscalRecipientSnapshot | null {
+export function getRecipientSnapshot(value: unknown): FiscalRecipientSnapshot | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as FiscalRecipientSnapshot;
 }
 
-function extractXmlValue(xml: string | null | undefined, tag: string): string {
+export function extractXmlValue(xml: string | null | undefined, tag: string): string {
   if (!xml) return '';
   const match = xml.match(new RegExp(`<[^>]*${tag}[^>]*>([^<]*)<\\/[^>]*${tag}[^>]*>`, 'i'));
   return match?.[1]?.trim() || '';
@@ -299,7 +307,7 @@ function getFiscalRecipientSource(
   return 'none';
 }
 
-function inferInvoiceType(
+export function inferInvoiceType(
   invoice: AccountingExportInvoice,
   snapshot: FiscalRecipientSnapshot | null,
 ): string {
@@ -363,7 +371,7 @@ function formatDecimal(value: number): string {
   return String(Number(value.toFixed(2)));
 }
 
-function resolveOperationDate(invoice: AccountingExportInvoice): string {
+export function resolveOperationDate(invoice: AccountingExportInvoice): string {
   const sessionDates = [...new Set(
     invoice.invoice_items
       .map((item) => item.session?.session_date?.slice(0, 10))

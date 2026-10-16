@@ -351,6 +351,11 @@ export const qk = {
     list: (centerId: CenterId, start: string | null | undefined, end: string | null | undefined) =>
       ['expense-income-statement', centerId, start, end] as const,
   },
+  aeatBooks: {
+    all: ['aeat-books'] as const,
+    list: (centerId: CenterId, year: number, quarter: number) =>
+      ['aeat-books', centerId, year, quarter] as const,
+  },
   expenseRecurringTemplates: {
     all: ['expense-recurring-templates'] as const,
     byCenter: (centerId: CenterId) =>

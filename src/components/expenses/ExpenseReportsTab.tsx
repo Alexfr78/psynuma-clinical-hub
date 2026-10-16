@@ -8,11 +8,13 @@ import { useExpenseIncomeStatementData, useExpensesForVatBook, quarterToDateRang
 import { createIncomeStatementExport } from '@/lib/export/expenseIncomeStatementExport';
 import { createExpenseVatBookExport, type ExpenseForVatBookExport } from '@/lib/export/expenseVatBookExport';
 import { downloadFile } from '@/lib/export/downloadFile';
+import { AeatBooksExportDialog } from '@/components/invoices/AeatBooksExportDialog';
 
 const currentYear = new Date().getFullYear();
 const currentQuarter = (Math.floor(new Date().getMonth() / 3) + 1) as 1 | 2 | 3 | 4;
 
 export function ExpenseReportsTab() {
+  const [aeatBooksOpen, setAeatBooksOpen] = useState(false);
   const [range, setRange] = useState<QuarterRange>({ year: currentYear, quarter: currentQuarter });
   const { data, isLoading } = useExpenseIncomeStatementData(range);
   const { data: vatBookExpenses } = useExpensesForVatBook(range);
@@ -100,16 +102,21 @@ export function ExpenseReportsTab() {
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button variant="outline" onClick={handleExportIncomeStatement} className="flex-1">
                 <Icon name="file_download" className="h-4 w-4 mr-2" />
-                Exportar cuenta de resultados (CSV)
+                Cuenta de resultados - CSV (no oficial)
               </Button>
               <Button variant="outline" onClick={handleExportVatBook} className="flex-1">
                 <Icon name="file_download" className="h-4 w-4 mr-2" />
-                Exportar libro de IVA soportado (CSV)
+                IVA soportado - CSV (no oficial)
+              </Button>
+              <Button variant="outline" onClick={() => setAeatBooksOpen(true)} className="flex-1">
+                <Icon name="table_view" className="h-4 w-4 mr-2" />
+                Descargar libros (AEAT)
               </Button>
             </div>
           </>
         )}
       </CardContent>
+      <AeatBooksExportDialog open={aeatBooksOpen} onOpenChange={setAeatBooksOpen} />
     </Card>
   );
 }

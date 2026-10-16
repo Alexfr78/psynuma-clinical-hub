@@ -5,6 +5,9 @@ import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import { currentMonthISO, monthRange, resolveExpensePeriod, type ExpensePeriod } from '@/lib/expense-period';
+import { fetchAllRows } from '@/lib/fetch-all-rows';
+import type { AccountingExportInvoice } from '@/lib/export/invoiceAccountingExport';
+import type { AeatExpense } from '@/lib/export/aeatBooksExport';
 
 export type ExpenseKind = 'fixed_recurring' | 'variable' | 'supplier_invoice' | 'professional_payment';
 export type ExpenseStatus = 'pending' | 'paid' | 'cancelled';
@@ -26,6 +29,9 @@ export interface Expense {
   tax_base: number | null;
   vat_rate: number | null;
   vat_amount: number | null;
+  aeat_invoice_type: string;
+  deductible_vat_amount: number | null;
+  irpf_deductible_amount: number | null;
   irpf_rate: number | null;
   irpf_amount: number | null;
   supplier_invoice_number: string | null;
@@ -51,8 +57,8 @@ export interface Expense {
 }
 
 export interface ExpenseWithRelations extends Expense {
-  category: { id: string; name: string; color: string } | null;
-  supplier: { id: string; name: string; tax_id: string | null } | null;
+  category: { id: string; name: string; color: string; aeat_expense_concept: string | null } | null;
+  supplier: { id: string; name: string; tax_id: string | null; country: string | null } | null;
   professional: { id: string; first_name: string | null; last_name: string | null } | null;
 }
 
@@ -66,6 +72,9 @@ export interface ExpenseInsert {
   tax_base?: number | null;
   vat_rate?: number | null;
   vat_amount?: number | null;
+  aeat_invoice_type?: string;
+  deductible_vat_amount?: number | null;
+  irpf_deductible_amount?: number | null;
   irpf_rate?: number | null;
   irpf_amount?: number | null;
   supplier_invoice_number?: string | null;
@@ -93,8 +102,8 @@ export interface ExpenseFilters {
 
 const EXPENSE_SELECT = `
   *,
-  category:expense_categories(id, name, color),
-  supplier:suppliers(id, name, tax_id),
+  category:expense_categories(id, name, color, aeat_expense_concept),
+  supplier:suppliers(id, name, tax_id, country),
   professional:profiles!expenses_professional_id_fkey(id, first_name, last_name)
 `;
 
@@ -552,6 +561,42 @@ export function useExpensesForVatBook(range: QuarterRange) {
 
       if (error) throw error;
       return data as ExpenseWithRelations[];
+    },
+    enabled: !!profile?.center_id,
+  });
+}
+
+/** Datos acumulados desde el 1 de enero hasta el cierre del trimestre para el libro oficial AEAT. */
+export function useAeatBooksData(range: QuarterRange) {
+  const { profile } = useAuth();
+  const start = `${range.year}-01-01`;
+  const { end } = quarterToDateRange(range);
+
+  return useQuery({
+    queryKey: qk.aeatBooks.list(profile?.center_id, range.year, range.quarter),
+    queryFn: async () => {
+      const centerId = profile!.center_id!;
+      const invoiceQuery = () => supabase.from('invoices').select(`
+        id, invoice_number, invoice_type, issue_date, due_date, cancellation_date, cancellation_reason,
+        operation_date, subtotal, tax_rate, tax_amount, retention_amount, retention_rate, total, notes, status, is_valid,
+        series_id, center_id, verifactu_invoice_type, rectification_type, rectification_reason_code,
+        rectified_invoice_id, correction_operation_id, recipient_snapshot, base_rectificada, cuota_rectificada,
+        patients:patient_id(first_name,last_name,tax_id),
+        series:series_id(name,invoice_type,series_type),
+        rectified_invoice:rectified_invoice_id(id,invoice_number,issue_date,invoice_type,retention_rate,retention_amount,series:series_id(name,invoice_type)),
+        verifactu_records(xml_sent,created_at),
+        invoice_items(description,quantity,unit_price,total,tax_rate,tax_amount,session_id,bono_id,session:session_id(session_date),bono:bono_id(created_at)),
+        payments(amount,payment_date)
+      `).eq('center_id', centerId).gte('issue_date', start).lte('issue_date', end)
+        .order('issue_date', { ascending: true }).order('id', { ascending: true });
+      const expenseQuery = () => supabase.from('expenses').select(EXPENSE_SELECT)
+        .eq('center_id', centerId).gte('expense_date', start).lte('expense_date', end)
+        .neq('status', 'cancelled').order('expense_date', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true });
+      const [invoices, expenses] = await Promise.all([
+        fetchAllRows((from, to) => invoiceQuery().range(from, to)),
+        fetchAllRows((from, to) => expenseQuery().range(from, to)),
+      ]);
+      return { invoices: invoices as unknown as AccountingExportInvoice[], expenses: expenses as unknown as AeatExpense[] };
     },
     enabled: !!profile?.center_id,
   });

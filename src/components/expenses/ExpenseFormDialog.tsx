@@ -31,6 +31,8 @@ import {
   type ExtractedReceiptData,
 } from '@/hooks/useExpenses';
 import { validateSpanishTaxId } from '@/lib/nif-validation';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AEAT_RECEIVED_INVOICE_TYPES } from '@/lib/aeat-codes';
 
 const VAT_RATE_OPTIONS = [21, 10, 4, 0];
 
@@ -80,6 +82,9 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
   const [vatAmount, setVatAmount] = useState('');
   const [irpfRate, setIrpfRate] = useState('');
   const [irpfAmount, setIrpfAmount] = useState('');
+  const [aeatInvoiceType, setAeatInvoiceType] = useState('F1');
+  const [deductibleVatAmount, setDeductibleVatAmount] = useState('');
+  const [irpfDeductibleAmount, setIrpfDeductibleAmount] = useState('');
 
   // Professional payment fields (manual, admin-only)
   const [professionalId, setProfessionalId] = useState('');
@@ -113,6 +118,9 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       setVatAmount(expense.vat_amount != null ? String(expense.vat_amount) : '');
       setIrpfRate(expense.irpf_rate != null ? String(expense.irpf_rate) : '');
       setIrpfAmount(expense.irpf_amount != null ? String(expense.irpf_amount) : '');
+      setAeatInvoiceType(expense.aeat_invoice_type || 'F1');
+      setDeductibleVatAmount(expense.deductible_vat_amount != null ? String(expense.deductible_vat_amount) : '');
+      setIrpfDeductibleAmount(expense.irpf_deductible_amount != null ? String(expense.irpf_deductible_amount) : '');
       setProfessionalId(expense.professional_id || '');
     } else {
       setKind('variable');
@@ -132,6 +140,9 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       setVatAmount('');
       setIrpfRate('');
       setIrpfAmount('');
+      setAeatInvoiceType('F1');
+      setDeductibleVatAmount('');
+      setIrpfDeductibleAmount('');
       setProfessionalId('');
     }
     setShowNewSupplier(false);
@@ -298,6 +309,9 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
       vat_amount: kind === 'supplier_invoice' && vatAmount ? parseFloat(vatAmount) : null,
       irpf_rate: kind === 'supplier_invoice' && irpfRate ? parseFloat(irpfRate) : null,
       irpf_amount: kind === 'supplier_invoice' && irpfAmount ? parseFloat(irpfAmount) : null,
+      aeat_invoice_type: aeatInvoiceType,
+      deductible_vat_amount: deductibleVatAmount ? parseFloat(deductibleVatAmount) : null,
+      irpf_deductible_amount: irpfDeductibleAmount ? parseFloat(irpfDeductibleAmount) : null,
       ...(isEditing && expense?.status === 'paid' ? { paid_at: paidAt || null } : {}),
       // The "upload first" AI flow already extracted this data before the
       // expense was created — record that so the receipt upload below
@@ -564,6 +578,35 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
               )}
             </div>
           )}
+
+          <Collapsible className="rounded-lg border">
+            <CollapsibleTrigger asChild>
+              <Button type="button" variant="ghost" className="h-11 w-full justify-between px-3">
+                Datos fiscales avanzados
+                <Icon name="expand_more" className="h-4 w-4" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="grid gap-4 border-t p-3 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="aeat-invoice-type">Tipo de factura AEAT</Label>
+                <Select value={aeatInvoiceType} onValueChange={setAeatInvoiceType}>
+                  <SelectTrigger id="aeat-invoice-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>{AEAT_RECEIVED_INVOICE_TYPES.map((item) => <SelectItem key={item.code} value={item.code}>{item.code} - {item.literal}</SelectItem>)}</SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">SF: sin factura, por ejemplo la cuota de autónomos.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deductible-vat">IVA deducible (opcional)</Label>
+                <Input id="deductible-vat" type="number" min={0} step="0.01" value={deductibleVatAmount} onChange={(event) => setDeductibleVatAmount(event.target.value)} />
+                <p className="text-xs text-muted-foreground">Vacío: se deduce toda la cuota de IVA.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="irpf-deductible">Gasto deducible IRPF (opcional)</Label>
+                <Input id="irpf-deductible" type="number" min={0} step="0.01" value={irpfDeductibleAmount} onChange={(event) => setIrpfDeductibleAmount(event.target.value)} />
+                <p className="text-xs text-muted-foreground">Vacío: se usa la base imponible o el importe.</p>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <div className="space-y-2">
             <Label>Notas (opcional)</Label>

@@ -11,6 +11,9 @@ import {
   useUpdateExpenseCategory,
   useDeleteExpenseCategory,
 } from '@/hooks/useExpenseCategories';
+import { AEAT_EXPENSE_CONCEPTS } from '@/lib/aeat-codes';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const COLOR_OPTIONS = ['#EF4444', '#F59E0B', '#6366F1', '#0EA5E9', '#22C55E', '#14B8A6', '#EC4899', '#8B5CF6', '#0891B2', '#64748B'];
 
@@ -23,6 +26,7 @@ export function ExpenseCategoriesSection() {
 
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(COLOR_OPTIONS[0]);
+  const [openConceptFor, setOpenConceptFor] = useState<string | null>(null);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -50,7 +54,7 @@ export function ExpenseCategoriesSection() {
       </CardHeader>
       <CardContent className="space-y-3">
         {categories?.map((category) => (
-          <div key={category.id} className="flex items-center gap-3 rounded-lg border p-3">
+          <div key={category.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
             <span className="h-4 w-4 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
             <span className={`flex-1 text-sm ${!category.is_active ? 'text-muted-foreground line-through' : ''}`}>
               {category.name}
@@ -58,6 +62,10 @@ export function ExpenseCategoriesSection() {
             {category.is_professional_payment_category && (
               <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Pagos a profesionales</span>
             )}
+            <Popover open={openConceptFor === category.id} onOpenChange={(open) => setOpenConceptFor(open ? category.id : null)}>
+              <PopoverTrigger asChild><Button type="button" variant="outline" role="combobox" aria-expanded={openConceptFor === category.id} className="w-full justify-between font-normal sm:w-[320px]" disabled={!isAdmin}>{category.aeat_expense_concept ? `${category.aeat_expense_concept} - ${AEAT_EXPENSE_CONCEPTS.find((item) => item.code === category.aeat_expense_concept)?.literal ?? ''}` : 'Concepto AEAT sin asignar'}<Icon name="unfold_more" className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></PopoverTrigger>
+              <PopoverContent className="w-[320px] p-0"><Command><CommandInput placeholder="Buscar código o concepto..." /><CommandList><CommandEmpty>No se encontraron conceptos.</CommandEmpty><CommandGroup><CommandItem value="sin asignar" onSelect={() => { updateCategory.mutate({ id: category.id, aeat_expense_concept: null }); setOpenConceptFor(null); }}>Sin asignar</CommandItem>{AEAT_EXPENSE_CONCEPTS.map((item) => <CommandItem key={item.code} value={`${item.code} ${item.literal}`} onSelect={() => { updateCategory.mutate({ id: category.id, aeat_expense_concept: item.code }); setOpenConceptFor(null); }}>{item.code} - {item.literal}</CommandItem>)}</CommandGroup></CommandList></Command></PopoverContent>
+            </Popover>
             {isAdmin && (
               <Switch
                 checked={category.is_active}

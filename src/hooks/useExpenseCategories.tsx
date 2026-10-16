@@ -8,6 +8,7 @@ export interface ExpenseCategory {
   id: string;
   center_id: string;
   name: string;
+  aeat_expense_concept: string | null;
   color: string;
   icon: string | null;
   is_professional_payment_category: boolean;
@@ -19,6 +20,7 @@ export interface ExpenseCategory {
 
 export interface ExpenseCategoryInsert {
   name: string;
+  aeat_expense_concept?: string | null;
   color?: string;
   icon?: string | null;
   is_active?: boolean;

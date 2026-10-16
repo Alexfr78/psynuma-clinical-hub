@@ -37,6 +37,7 @@ import { CreateRectificativaDialog } from '@/components/invoices/CreateRectifica
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
 import { LinkPaymentsToInvoiceDialog } from '@/components/invoices/LinkPaymentsToInvoiceDialog';
 import { ExportInvoicesDialog } from '@/components/invoices/ExportInvoicesDialog';
+import { AeatBooksExportDialog } from '@/components/invoices/AeatBooksExportDialog';
 import {
   InvoiceAnalyticsCard,
   type InvoiceDateRange,
@@ -144,6 +145,7 @@ export default function Invoices() {
   
   // Export dialog state
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [aeatBooksOpen, setAeatBooksOpen] = useState(false);
   const [invoiceDateRange, setInvoiceDateRange] = useState<InvoiceDateRange>(initialPreferences.dateRange);
   const [invoiceGroupBy, setInvoiceGroupBy] = useState<InvoiceGroupBy>(initialPreferences.groupBy);
   const [selectedChartBucket, setSelectedChartBucket] = useState<(InvoiceDateRange & { label: string }) | null>(null);
@@ -453,7 +455,11 @@ export default function Invoices() {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)}>
             <Icon name="download" className="h-4 w-4 mr-2" />
-            Exportar
+            CSV (no oficial)
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setAeatBooksOpen(true)}>
+            <Icon name="table_view" className="mr-2 h-4 w-4" />
+            Libros AEAT
           </Button>
           <DropdownMenu open={newInvoiceMenuOpen} onOpenChange={setNewInvoiceMenuOpen}>
             <DropdownMenuTrigger asChild>
@@ -713,6 +719,7 @@ export default function Invoices() {
         open={exportDialogOpen} 
         onOpenChange={setExportDialogOpen} 
       />
+      <AeatBooksExportDialog open={aeatBooksOpen} onOpenChange={setAeatBooksOpen} />
     </div>
   );
 }

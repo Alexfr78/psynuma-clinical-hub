@@ -11,6 +11,8 @@ import { Separator } from '@/components/ui/separator';
 import { useCenter } from '@/hooks/useCenter';
 import { useAuth } from '@/hooks/useAuth';
 import { Icon } from '@/components/ui/icon';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AEAT_ACTIVITY_CODES, AEAT_ACTIVITY_TYPES_A, AEAT_ACTIVITY_TYPES_B } from '@/lib/aeat-codes';
 
 const invoicingInfoSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(200),
@@ -27,6 +29,9 @@ const invoicingInfoSchema = z.object({
   retention_name: z.string().max(200).optional(),
   retention_rate: z.coerce.number().min(0).max(100).optional(),
   custom_domain: z.string().max(200).optional(),
+  aeat_activity_code: z.enum(['A', 'B', 'C', 'D']),
+  aeat_activity_type: z.enum(['01', '02', '03', '04', '05', '06']),
+  aeat_iae_epigraph: z.string().max(4, 'El epígrafe IAE admite hasta 4 caracteres').optional(),
 });
 
 type InvoicingInfoFormValues = z.infer<typeof invoicingInfoSchema>;
@@ -52,6 +57,9 @@ export function InvoicingInfoSection() {
       retention_name: center?.retention_name || 'IRPF',
       retention_rate: center?.retention_rate ?? 0,
       custom_domain: center?.custom_domain || '',
+      aeat_activity_code: (center?.aeat_activity_code || 'A') as 'A',
+      aeat_activity_type: (center?.aeat_activity_type || '05') as '05',
+      aeat_iae_epigraph: center?.aeat_iae_epigraph || '',
     },
   });
 
@@ -95,6 +103,33 @@ export function InvoicingInfoSection() {
                   {...form.register('tax_id')}
                   placeholder="B12345678"
                 />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Actividad económica (AEAT)</h4>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="aeat_activity_code">Código de actividad</Label>
+                <Select value={form.watch('aeat_activity_code')} onValueChange={(value) => form.setValue('aeat_activity_code', value as 'A' | 'B' | 'C' | 'D', { shouldDirty: true })}>
+                  <SelectTrigger id="aeat_activity_code"><SelectValue /></SelectTrigger>
+                  <SelectContent>{AEAT_ACTIVITY_CODES.map((item) => <SelectItem key={item.code} value={item.code}>{item.code} - {item.literal}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="aeat_activity_type">Tipo de actividad</Label>
+                <Select value={form.watch('aeat_activity_type')} onValueChange={(value) => form.setValue('aeat_activity_type', value as '01' | '02' | '03' | '04' | '05' | '06', { shouldDirty: true })} disabled={['C', 'D'].includes(form.watch('aeat_activity_code'))}>
+                  <SelectTrigger id="aeat_activity_type"><SelectValue /></SelectTrigger>
+                  <SelectContent>{(form.watch('aeat_activity_code') === 'A' ? AEAT_ACTIVITY_TYPES_A : AEAT_ACTIVITY_TYPES_B).map((item) => <SelectItem key={item.code} value={item.code}>{item.code} - {item.literal}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="aeat_iae_epigraph">Grupo o epígrafe del IAE</Label>
+                <Input id="aeat_iae_epigraph" maxLength={4} {...form.register('aeat_iae_epigraph')} placeholder="Ej. 776" />
+                <p className="text-sm text-muted-foreground">Lo tienes en tu alta censal (modelo 036/037).</p>
               </div>
             </div>
           </div>

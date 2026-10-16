@@ -8,6 +8,9 @@ export interface Center {
   id: string;
   name: string;
   tax_id: string | null;
+  aeat_activity_code: string;
+  aeat_activity_type: string;
+  aeat_iae_epigraph: string | null;
   address: string | null;
   city: string | null;
   postal_code: string | null;
