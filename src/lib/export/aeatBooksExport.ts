@@ -56,9 +56,38 @@ function recipient(invoice: AccountingExportInvoice, type: string) {
   const snapshot = getRecipientSnapshot(invoice.recipient_snapshot);
   const taxId = normalizedTaxId(snapshot?.tax_id || invoice.patients?.tax_id);
   const name = snapshot?.name || [invoice.patients?.first_name, invoice.patients?.last_name].filter(Boolean).join(' ');
-  if (type === 'F2') return { nifType: '', country: '', id: '', name: 'VENTAS A CONSUMIDOR FINAL' };
+  if (type === 'F2' || (type === 'R5' && !hasRecipientId(invoice))) return { nifType: '', country: '', id: '', name: 'VENTAS A CONSUMIDOR FINAL' };
   const validSpanish = taxId !== '' && validateSpanishTaxId(taxId).valid;
   return { nifType: validSpanish ? '' : taxId ? (snapshot?.id_type || '06') : '', country: validSpanish ? '' : (snapshot?.country || '').slice(0, 2).toUpperCase(), id: taxId, name: name || '' };
+}
+
+/** El destinatario está identificado: NIF español válido o identificación extranjera completa (tipo y país). */
+function hasRecipientId(invoice: Pick<AccountingExportInvoice, 'recipient_snapshot' | 'patients'>): boolean {
+  const snapshot = getRecipientSnapshot(invoice.recipient_snapshot);
+  // Con snapshot manda lo que se emitió; la ficha actual del paciente solo vale para facturas antiguas sin snapshot.
+  const taxId = normalizedTaxId(snapshot ? snapshot.tax_id : invoice.patients?.tax_id);
+  if (!taxId) return false;
+  if (validateSpanishTaxId(taxId).valid) return true;
+  return Boolean(snapshot?.id_type?.match(/^0[2-6]$/) && (snapshot.id_type === '02' || snapshot.country?.length === 2));
+}
+
+/**
+ * Tipo de factura del libro. Manda el que ya se registró en VeriFactu; si no hay registro,
+ * una factura sin destinatario identificado es F2 y su rectificativa R5 (diseño, validación 2).
+ */
+function aeatInvoiceType(invoice: AccountingExportInvoice): string {
+  const registered = extractXmlValue(fiscalXml(invoice), 'TipoFactura');
+  if (registered && aeatCodeSet(AEAT_ISSUED_INVOICE_TYPES).has(registered)) return registered;
+  const identified = hasRecipientId(invoice);
+  if (invoice.rectified_invoice_id) {
+    const original = invoice.rectified_invoice;
+    const originalIdentified = original ? hasRecipientId({ recipient_snapshot: original.recipient_snapshot, patients: invoice.patients }) : identified;
+    if (!identified && !originalIdentified) return 'R5';
+    const code = invoice.rectification_reason_code ?? '';
+    return /^R[1-4]$/.test(code) ? code : inferInvoiceType(invoice, getRecipientSnapshot(invoice.recipient_snapshot)) || 'R4';
+  }
+  const inferred = inferInvoiceType(invoice, getRecipientSnapshot(invoice.recipient_snapshot));
+  return inferred === 'F1' && !identified ? 'F2' : inferred;
 }
 
 /** Facturas que entran en el libro: emitidas y no anuladas. Las rectificadas se quedan (diseño, validación 8). */
@@ -72,7 +101,7 @@ interface IssuedEntry {
 }
 
 function issuedEntries(invoice: AccountingExportInvoice): IssuedEntry[] {
-  const type = inferInvoiceType(invoice, getRecipientSnapshot(invoice.recipient_snapshot));
+  const type = aeatInvoiceType(invoice);
   const operationDate = resolveOperationDate(invoice) || invoice.issue_date;
   const groups = new Map<number, { base: number; vat: number }>();
   invoice.invoice_items.forEach((item) => {
@@ -176,7 +205,7 @@ export function validateAeatBooks(input: AeatBooksInput): { errors: AeatIssue[];
   if (!['C', 'D'].includes(input.center.aeat_activity_code) && !aeatCodeSet(activityTypes).has(input.center.aeat_activity_type)) errors.push({ type: 'centro', id: input.center.id, href: '/configuracion?section=facturacion-info', message: 'El tipo de actividad AEAT no es válido para el código de actividad seleccionado.' });
   if (input.center.aeat_activity_code === 'A' && !input.center.aeat_iae_epigraph?.trim()) errors.push({ type: 'centro', id: input.center.id, href: '/configuracion?section=facturacion-info', message: 'Falta el epígrafe IAE para una actividad incluida en el IAE.' });
   input.invoices.filter(isBookInvoice).forEach((invoice) => {
-    const type = inferInvoiceType(invoice, getRecipientSnapshot(invoice.recipient_snapshot));
+    const type = aeatInvoiceType(invoice);
     if (!aeatCodeSet(AEAT_ISSUED_INVOICE_TYPES).has(type)) errors.push({ type: 'factura', id: invoice.id, href: `/facturas?invoice=${invoice.id}`, message: `La factura ${invoice.invoice_number} no tiene un tipo AEAT válido.` });
     const issue = invoice.issue_date.slice(0, 10);
     if (!inRange(issue, input.year, input.quarter)) return;
@@ -185,6 +214,9 @@ export function validateAeatBooks(input: AeatBooksInput): { errors: AeatIssue[];
     const spanish = taxId !== '' && validateSpanishTaxId(taxId).valid;
     const foreignComplete = !spanish && Boolean(taxId && snapshot?.id_type?.match(/^0[2-6]$/) && (snapshot.id_type === '02' || snapshot.country?.length === 2));
     if (type === 'F1' && !spanish && !foreignComplete) errors.push({ type: 'factura', id: invoice.id, href: `/facturas?invoice=${invoice.id}`, message: `La factura ${invoice.invoice_number} es F1 y no tiene identificación española válida ni identificación extranjera completa (tipo y país).` });
+    if (type === 'F2' && !extractXmlValue(fiscalXml(invoice), 'TipoFactura') && Math.abs(Number(invoice.total)) > 400) {
+      warnings.push({ type: 'factura', id: invoice.id, href: `/facturas?invoice=${invoice.id}`, message: `La factura ${invoice.invoice_number} no identifica al paciente (sale como F2) y supera 400 €. Revísalo con tu gestor.` });
+    }
     const operationYear = (resolveOperationDate(invoice) || issue).slice(0, 4);
     if (operationYear !== String(input.year)) warnings.push({ type: 'factura', id: invoice.id, href: `/facturas?invoice=${invoice.id}`, message: `La factura ${invoice.invoice_number} tiene fecha de operación de ${operationYear}: saldrá con ese ejercicio. Revísalo con tu gestor.` });
     if (invoice.invoice_number.length > 40) errors.push({ type: 'factura', id: invoice.id, message: `La identificación de la factura ${invoice.invoice_number} supera 40 caracteres.` });

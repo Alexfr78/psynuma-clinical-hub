@@ -57,6 +57,7 @@ export interface AccountingExportInvoice {
     invoice_type?: 'simplified' | 'complete' | null;
     retention_rate?: number | string | null;
     retention_amount?: number | string | null;
+    recipient_snapshot?: unknown;
     series?: {
       name?: string | null;
       invoice_type?: string | null;

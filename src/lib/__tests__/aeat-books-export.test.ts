@@ -70,6 +70,23 @@ describe('Libros Registro AEAT', () => {
     expect(rows.reduce((sum, row) => sum + Number((row[31] || '0').replace(',', '.')), 0)).toBe(12);
   });
 
+  it('una factura completa sin NIF del paciente sale como F2 y su rectificativa como R5', () => {
+    const noNif = invoice({ id: 'sf', invoice_number: 'SF260001', recipient_snapshot: null, patients: { first_name: 'Ana', last_name: 'P', tax_id: null } as AccountingExportInvoice['patients'] });
+    const rect = invoice({ id: 'rs', invoice_number: 'RS260001', recipient_snapshot: null, patients: null,
+      rectified_invoice_id: 'sf', rectification_type: 'differences', rectification_reason_code: 'R5',
+      rectified_invoice: { invoice_number: 'SF260001', issue_date: '2026-02-10', invoice_type: null },
+      subtotal: -100, total: -100, invoice_items: [{ description: 'Abono', quantity: 1, unit_price: -100, total: -100, tax_rate: 0 }] });
+    const input = { ...base, invoices: [noNif, rect] };
+    expect(buildAeatIssuedRows(input).map((row) => row[5])).toEqual(['F2', 'R5']);
+    expect(buildAeatIssuedRows(input).every((row) => row[16] === 'VENTAS A CONSUMIDOR FINAL')).toBe(true);
+    expect(validateAeatBooks(input).errors.filter((issue) => issue.type === 'factura')).toHaveLength(0);
+  });
+
+  it('respeta el tipo registrado en VeriFactu', () => {
+    const registered = { ...invoice({ id: 'vf' }), verifactu_records: [{ xml_sent: '<sum1:TipoFactura>F2</sum1:TipoFactura>', created_at: '2026-02-10T10:00:00Z' }] };
+    expect(buildAeatIssuedRows({ ...base, invoices: [registered] })[0][5]).toBe('F2');
+  });
+
   it('genera gastos SF y limita la cuota parcialmente deducible', () => {
     const expenses = [{ id: 'expense-1', kind: 'variable', status: 'paid', description: 'RETA', amount: 300,
       tax_base: 300, vat_rate: 0, vat_amount: 0, irpf_rate: null, irpf_amount: null, expense_date: '2026-04-02',

@@ -583,7 +583,7 @@ export function useAeatBooksData(range: QuarterRange) {
         rectified_invoice_id, correction_operation_id, recipient_snapshot, base_rectificada, cuota_rectificada,
         patients:patient_id(first_name,last_name,tax_id),
         series:series_id(name,invoice_type,series_type),
-        rectified_invoice:rectified_invoice_id(id,invoice_number,issue_date,invoice_type,retention_rate,retention_amount,series:series_id(name,invoice_type)),
+        rectified_invoice:rectified_invoice_id(id,invoice_number,issue_date,invoice_type,retention_rate,retention_amount,recipient_snapshot,series:series_id(name,invoice_type)),
         verifactu_records(xml_sent,created_at),
         invoice_items(description,quantity,unit_price,total,tax_rate,tax_amount,session_id,bono_id,session:session_id(session_date),bono:bono_id(created_at)),
         payments(amount,payment_date)
