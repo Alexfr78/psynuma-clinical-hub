@@ -56,8 +56,10 @@ export async function generateAutomaticReports(
     return;
   }
 
+  // Las dos audiencias en paralelo: cada informe tarda decenas de segundos y quien llama
+  // (un cron) tiene un tiempo de ejecución limitado.
   const audiences: AutomaticReportAudience[] = ["clinical", "patient"];
-  for (const audience of audiences) {
+  await Promise.all(audiences.map(async (audience) => {
     try {
       const audienceValues = audience === "clinical" ? ["clinical", "professional"] : [audience];
       let defaultRow: { document_type_id: string; audience: string } | null = null;
@@ -92,7 +94,7 @@ export async function generateAutomaticReports(
 
       if (!defaultRow) {
         console.log(`${log} Se omite informe automático para audience ${audience}: no hay default configurado.`);
-        continue;
+        return;
       }
 
       const { data: documentType, error: documentTypeError } = await supabase
@@ -104,7 +106,7 @@ export async function generateAutomaticReports(
       const documentTypeKey = (documentType as { key?: string } | null)?.key;
       if (!documentTypeKey) {
         console.log(`${log} Se omite informe automático para audience ${audience}: el default no tiene document type válido.`);
-        continue;
+        return;
       }
 
       const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/analyze-session-transcription`, {
@@ -126,12 +128,12 @@ export async function generateAutomaticReports(
       if (!response.ok) {
         const responseText = await response.text();
         console.error(`${log} Error generando informe automático para audience ${audience} (${documentTypeKey}): HTTP ${response.status} ${responseText}`);
-        continue;
+        return;
       }
 
       console.log(`${log} Informe automático generado para audience ${audience}: ${documentTypeKey}.`);
     } catch (error) {
       console.error(`${log} Error no bloqueante generando informe automático para audience ${audience}:`, error);
     }
-  }
+  }));
 }

@@ -23,7 +23,7 @@ import type { TranscriptionSegment } from "./transcriptionProvider.ts";
 
 const LOG = "[plaud-promotion]";
 /** Cada informe tarda decenas de segundos: se limita por ciclo para no agotar el tiempo del cron. */
-export const MAX_PROMOTIONS_PER_RUN = 2;
+export const MAX_PROMOTIONS_PER_RUN = 1;
 export const CONSENT_MISSING_REASON = "consent_recording_missing";
 /** Una reserva más antigua que esto se da por abandonada (ejecución cortada a medias). */
 const CLAIM_TTL_MS = 30 * 60 * 1000;

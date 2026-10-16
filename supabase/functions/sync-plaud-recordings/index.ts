@@ -211,6 +211,7 @@ interface ExistingPlaudRow {
   matched_by: string | null;
   session_id: string | null;
   patient_id: string | null;
+  last_error: string | null;
   confirmed_by: string | null;
   flagged_after_confirmation: boolean | null;
   transcript_deleted_at: string | null;
@@ -787,7 +788,12 @@ interface CenterSyncSummary {
   errors: number;
 }
 
-async function syncCenter(supabase: SupabaseClient, centerId: string, accessToken: string): Promise<CenterSyncSummary> {
+async function syncCenter(
+  supabase: SupabaseClient,
+  centerId: string,
+  accessToken: string,
+  deadlineMs: number,
+): Promise<CenterSyncSummary> {
   const summary: CenterSyncSummary = {
     listed: 0,
     toProcess: 0,
@@ -826,7 +832,7 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
   const fileIds = files.map((f) => f.id);
   const { data: existing, error: existingError } = await supabase
     .from("plaud_recordings")
-    .select("plaud_file_id, status, transcript_text, transcript_attempts, matched_by, session_id, patient_id, confirmed_by, flagged_after_confirmation, transcript_deleted_at, created_at")
+    .select("plaud_file_id, status, transcript_text, transcript_attempts, matched_by, session_id, patient_id, confirmed_by, flagged_after_confirmation, transcript_deleted_at, last_error, created_at")
     .eq("center_id", centerId)
     .in("plaud_file_id", fileIds);
 
@@ -849,7 +855,11 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
       .filter((r) => r.transcript_text !== null || r.transcript_deleted_at !== null || isRetryExhausted(r))
       .map((r) => r.plaud_file_id),
   );
-  const filesToProcess = files.filter((f) => !finalizedIds.has(f.id));
+  // Primero los archivos nunca vistos: si el ciclo se queda sin tiempo, lo que se aplaza son
+  // los reintentos, no las grabaciones nuevas.
+  const filesToProcess = files
+    .filter((f) => !finalizedIds.has(f.id))
+    .sort((a, b) => Number(existingByFileId.has(a.id)) - Number(existingByFileId.has(b.id)));
   summary.toProcess = filesToProcess.length;
   if (filesToProcess.length === 0) return summary;
 
@@ -891,7 +901,19 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
   const { overlaps, contiguities } = detectOverlaps([...newMetas, ...existingMetas]);
 
   for (const file of filesToProcess) {
+    if (Date.now() > deadlineMs) {
+      console.log(`[sync-plaud-recordings] Sin tiempo en este ciclo (center ${centerId}); se sigue en el próximo.`);
+      break;
+    }
     const existingRow = existingByFileId.get(file.id) ?? null;
+    // Si esperaba consentimiento, no se vuelve a descargar de Plaud hasta que lo haya.
+    if (
+      existingRow?.last_error === CONSENT_MISSING_REASON &&
+      !(await recordingConsentGranted(supabase, centerId, existingRow.session_id, existingRow.patient_id))
+    ) {
+      summary.stillPending++;
+      continue;
+    }
     try {
       if (existingRow && isHumanDecision(existingRow)) {
         // Punto 3 del encargo: ya hay una decisión humana detrás de esta fila (confirmada a
@@ -930,7 +952,15 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
 // Handler.
 // ---------------------------------------------------------------------------
 
+/**
+ * Tiempo máximo para procesar archivos en un ciclo. La función se corta poco después de los
+ * dos minutos (visto en producción el 16-oct: dejó de escribir a los ~3 min); lo que no dé
+ * tiempo sigue en el ciclo siguiente.
+ */
+const SYNC_BUDGET_MS = 140_000;
+
 serve(async (req) => {
+  const startedAt = Date.now();
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -1023,7 +1053,15 @@ serve(async (req) => {
       continue;
     }
 
-    const summary = await syncCenter(supabase, connection.center_id, tokenResult.accessToken);
+    // Lo emparejado sin dudas o confirmado en la bandeja entra en el circuito de la
+    // grabadora (/grabaciones, `transcripts`, informes en borrador). Va antes de sincronizar
+    // para que una sincronización larga, cortada por tiempo, no lo deje siempre para después.
+    const promotion = await promotePlaudRecordings(supabase, req, connection.center_id);
+    totals.recordingsPromoted += promotion.promoted;
+    totals.recordingsWaitingConsent += promotion.waitingConsent;
+    totals.promotionErrors += promotion.errors;
+
+    const summary = await syncCenter(supabase, connection.center_id, tokenResult.accessToken, startedAt + SYNC_BUDGET_MS);
     totals.centersSynced++;
     totals.filesListed += summary.listed;
     totals.filesToProcess += summary.toProcess;
@@ -1032,13 +1070,6 @@ serve(async (req) => {
     totals.confirmedRowsRefreshed += summary.confirmedRefreshed;
     totals.confirmedRowsFlagged += summary.confirmedFlagged;
     totals.fileErrors += summary.errors;
-
-    // Lo emparejado sin dudas o confirmado en la bandeja entra en el circuito de la
-    // grabadora: /grabaciones, `transcripts` e informes automáticos en borrador.
-    const promotion = await promotePlaudRecordings(supabase, req, connection.center_id);
-    totals.recordingsPromoted += promotion.promoted;
-    totals.recordingsWaitingConsent += promotion.waitingConsent;
-    totals.promotionErrors += promotion.errors;
 
     // `confirmedRowsFlagged` > 0 es el caso de riesgo del punto 3 del encargo: una grabación
     // ya confirmada a mano en la que la transcripción, llegada después, reveló sospecha de
