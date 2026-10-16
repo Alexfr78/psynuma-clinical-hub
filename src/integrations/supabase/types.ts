@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -2435,15 +2435,15 @@ export type Database = {
       }
       centers: {
         Row: {
-          aeat_activity_code: string
-          aeat_activity_type: string
-          aeat_iae_epigraph: string | null
           address: string | null
           address_details: string | null
           admin_alerts_emails: string | null
           admin_alerts_enabled: boolean | null
           admin_alerts_events: Json | null
           admin_alerts_include_professional: boolean | null
+          aeat_activity_code: string
+          aeat_activity_type: string
+          aeat_iae_epigraph: string | null
           agenda_show_weekends: boolean | null
           ai_analysis_mode: string | null
           ai_prompt_layer1: string | null
@@ -2504,6 +2504,7 @@ export type Database = {
           payment_reminder_interval_hours: number | null
           payment_reminder_max_count: number | null
           phone: string | null
+          plaud_enabled: boolean
           portal_agenda_closed: boolean | null
           portal_allow_professional_selection: boolean | null
           portal_default_professional_id: string | null
@@ -2553,15 +2554,15 @@ export type Database = {
           whatsapp_send_method: string | null
         }
         Insert: {
-          aeat_activity_code?: string
-          aeat_activity_type?: string
-          aeat_iae_epigraph?: string | null
           address?: string | null
           address_details?: string | null
           admin_alerts_emails?: string | null
           admin_alerts_enabled?: boolean | null
           admin_alerts_events?: Json | null
           admin_alerts_include_professional?: boolean | null
+          aeat_activity_code?: string
+          aeat_activity_type?: string
+          aeat_iae_epigraph?: string | null
           agenda_show_weekends?: boolean | null
           ai_analysis_mode?: string | null
           ai_prompt_layer1?: string | null
@@ -2622,6 +2623,7 @@ export type Database = {
           payment_reminder_interval_hours?: number | null
           payment_reminder_max_count?: number | null
           phone?: string | null
+          plaud_enabled?: boolean
           portal_agenda_closed?: boolean | null
           portal_allow_professional_selection?: boolean | null
           portal_default_professional_id?: string | null
@@ -2671,15 +2673,15 @@ export type Database = {
           whatsapp_send_method?: string | null
         }
         Update: {
-          aeat_activity_code?: string
-          aeat_activity_type?: string
-          aeat_iae_epigraph?: string | null
           address?: string | null
           address_details?: string | null
           admin_alerts_emails?: string | null
           admin_alerts_enabled?: boolean | null
           admin_alerts_events?: Json | null
           admin_alerts_include_professional?: boolean | null
+          aeat_activity_code?: string
+          aeat_activity_type?: string
+          aeat_iae_epigraph?: string | null
           agenda_show_weekends?: boolean | null
           ai_analysis_mode?: string | null
           ai_prompt_layer1?: string | null
@@ -2740,6 +2742,7 @@ export type Database = {
           payment_reminder_interval_hours?: number | null
           payment_reminder_max_count?: number | null
           phone?: string | null
+          plaud_enabled?: boolean
           portal_agenda_closed?: boolean | null
           portal_allow_professional_selection?: boolean | null
           portal_default_professional_id?: string | null
@@ -3740,8 +3743,8 @@ export type Database = {
           compensation_period_start: string | null
           created_at: string
           created_by: string | null
-          description: string
           deductible_vat_amount: number | null
+          description: string
           drive_file_id: string | null
           drive_url: string | null
           due_date: string | null
@@ -3783,8 +3786,8 @@ export type Database = {
           compensation_period_start?: string | null
           created_at?: string
           created_by?: string | null
-          description: string
           deductible_vat_amount?: number | null
+          description: string
           drive_file_id?: string | null
           drive_url?: string | null
           due_date?: string | null
@@ -3826,8 +3829,8 @@ export type Database = {
           compensation_period_start?: string | null
           created_at?: string
           created_by?: string | null
-          description?: string
           deductible_vat_amount?: number | null
+          description?: string
           drive_file_id?: string | null
           drive_url?: string | null
           due_date?: string | null
@@ -6072,8 +6075,8 @@ export type Database = {
       }
       plaud_recordings: {
         Row: {
-          center_id: string
           audio_ingestion_id: string | null
+          center_id: string
           confirmed_at: string | null
           confirmed_by: string | null
           contains_multiple_sessions: boolean
@@ -6089,6 +6092,7 @@ export type Database = {
           overlap_with_file_id: string | null
           patient_id: string | null
           plaud_file_id: string
+          promotion_claimed_at: string | null
           report_generated_at: string | null
           segment_boundaries: Json | null
           segmentation_score: number | null
@@ -6107,8 +6111,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          center_id: string
           audio_ingestion_id?: string | null
+          center_id: string
           confirmed_at?: string | null
           confirmed_by?: string | null
           contains_multiple_sessions?: boolean
@@ -6124,6 +6128,7 @@ export type Database = {
           overlap_with_file_id?: string | null
           patient_id?: string | null
           plaud_file_id: string
+          promotion_claimed_at?: string | null
           report_generated_at?: string | null
           segment_boundaries?: Json | null
           segmentation_score?: number | null
@@ -6142,8 +6147,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          center_id?: string
           audio_ingestion_id?: string | null
+          center_id?: string
           confirmed_at?: string | null
           confirmed_by?: string | null
           contains_multiple_sessions?: boolean
@@ -6159,6 +6164,7 @@ export type Database = {
           overlap_with_file_id?: string | null
           patient_id?: string | null
           plaud_file_id?: string
+          promotion_claimed_at?: string | null
           report_generated_at?: string | null
           segment_boundaries?: Json | null
           segmentation_score?: number | null
@@ -6177,6 +6183,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "plaud_recordings_audio_ingestion_id_fkey"
+            columns: ["audio_ingestion_id"]
+            isOneToOne: false
+            referencedRelation: "audio_ingestions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "plaud_recordings_center_id_fkey"
             columns: ["center_id"]
