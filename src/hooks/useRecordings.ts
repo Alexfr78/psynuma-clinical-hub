@@ -13,6 +13,7 @@ interface RecordingRow {
   patient_id: string | null;
   session_id: string | null;
   duration_ms: number | null;
+  recorded_at: string | null;
   created_at: string;
   job: { status: string; error_code: string | null }[] | null;
   transcripts: { id: string }[] | null;
@@ -27,7 +28,7 @@ export function useRecordingsPage(range: { from: number; to: number }) {
       const since = new Date(Date.now() - LIST_DAYS * 24 * 60 * 60 * 1000).toISOString();
       let query = supabase
         .from('audio_ingestions')
-        .select('id, source, status, professional_id, patient_id, session_id, duration_ms, created_at, job:transcription_jobs(status, error_code), transcripts(id)', { count: 'exact' })
+        .select('id, source, status, professional_id, patient_id, session_id, duration_ms, recorded_at, created_at, job:transcription_jobs(status, error_code), transcripts(id)', { count: 'exact' })
         .gte('created_at', since)
         .order('created_at', { ascending: false })
         .order('id', { ascending: true }).range(range.from, range.to);

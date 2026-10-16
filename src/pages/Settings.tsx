@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useCenter } from '@/hooks/useCenter';
+import { usePlaudAllowed } from '@/hooks/usePlaudConnection';
 import { useAuth } from '@/hooks/useAuth';
 import { InvoicingInfoSection } from '@/components/settings/InvoicingInfoSection';
 import { InvoiceEditSection } from '@/components/settings/InvoiceEditSection';
@@ -233,6 +234,7 @@ function parentOf(id: SettingsSection): string {
 
 export default function Settings() {
   const { center, isLoading, updateCenter } = useCenter();
+  const plaudAllowed = usePlaudAllowed();
   const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlSection = parseSection(searchParams.get('section'));
@@ -285,7 +287,7 @@ export default function Settings() {
   }
 
   // Group nav items by parent and subgroup
-  const groupedNavItems = navItems.reduce((acc, item) => {
+  const groupedNavItems = navItems.filter((item) => item.id !== 'integraciones-plaud' || plaudAllowed).reduce((acc, item) => {
     const key = item.parent;
     if (!acc[key]) acc[key] = { items: [], subgroups: {} };
     
@@ -493,7 +495,7 @@ export default function Settings() {
       case 'integraciones-ia-plantillas':
         return <AIDocumentTemplatesSection />;
       case 'integraciones-plaud':
-        return <PlaudIntegrationSection />;
+        return plaudAllowed ? <PlaudIntegrationSection /> : null;
       case 'seguridad':
         return <SecuritySection />;
       case 'versiones':

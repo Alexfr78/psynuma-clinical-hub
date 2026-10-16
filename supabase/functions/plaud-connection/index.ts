@@ -42,6 +42,17 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = body.action || "status";
 
+    // Plaud solo está disponible en los centros autorizados por SQL (`centers.plaud_enabled`).
+    // Desconectar se permite siempre, para poder borrar una conexión antigua.
+    const { data: center } = await supabase.from("centers").select("plaud_enabled").eq("id", profile.center_id).maybeSingle();
+    const allowed = center?.plaud_enabled === true;
+    if (!allowed && action === "status") {
+      return new Response(JSON.stringify({ connected: false, allowed: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (!allowed && action !== "disconnect") {
+      return new Response(JSON.stringify({ error: "Plaud no está disponible para este centro" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (action === "disconnect") {
       if (!isAdmin) {
         return new Response(
@@ -113,7 +124,7 @@ serve(async (req) => {
       .maybeSingle();
 
     return new Response(
-      JSON.stringify({ connected: !!connection, ...(connection || {}) }),
+      JSON.stringify({ connected: !!connection, allowed: true, ...(connection || {}) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -52,6 +52,14 @@ serve(async (req) => {
       );
     }
 
+    const { data: center } = await supabase.from("centers").select("plaud_enabled").eq("id", profile.center_id).maybeSingle();
+    if (center?.plaud_enabled !== true) {
+      return new Response(
+        JSON.stringify({ error: "Plaud no está disponible para este centro" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const redirectUri = `${supabaseUrl}/functions/v1/plaud-oauth-callback`;
 
     // Reuse a previously registered dynamic client for this center instead

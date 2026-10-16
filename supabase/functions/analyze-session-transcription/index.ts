@@ -1067,11 +1067,14 @@ serve(async (req) => {
       // the patient's consent. The client always supplies sessionId (the dialog only
       // opens against a real session — see TranscriptionAnalysisDialog.tsx). Without it
       // we cannot identify the patient, so we fail closed rather than skip the check.
-      const { data: sessionRow } = await supabaseService
+      // La sesión tiene que ser del centro pedido: el filtro protege también las llamadas de
+      // service role (informes automáticos), que no pasan la comprobación de perfil de arriba.
+      let sessionQuery = supabaseService
         .from('sessions')
         .select('patient_id, session_type_id')
-        .eq('id', sessionId)
-        .maybeSingle();
+        .eq('id', sessionId);
+      if (centerId) sessionQuery = sessionQuery.eq('center_id', centerId);
+      const { data: sessionRow } = await sessionQuery.maybeSingle();
       patientId = (sessionRow as { patient_id: string | null } | null)?.patient_id ?? null;
       sessionTypeId = (sessionRow as { session_type_id: string | null } | null)?.session_type_id ?? null;
 

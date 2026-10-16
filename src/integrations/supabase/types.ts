@@ -6073,6 +6073,7 @@ export type Database = {
       plaud_recordings: {
         Row: {
           center_id: string
+          audio_ingestion_id: string | null
           confirmed_at: string | null
           confirmed_by: string | null
           contains_multiple_sessions: boolean
@@ -6098,6 +6099,7 @@ export type Database = {
           start_at: string
           status: string
           transcript_attempts: number
+          transcript_deleted_at: string | null
           transcript_expires_at: string | null
           transcript_fetched_at: string | null
           transcript_retry_gave_up_at: string | null
@@ -6106,6 +6108,7 @@ export type Database = {
         }
         Insert: {
           center_id: string
+          audio_ingestion_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           contains_multiple_sessions?: boolean
@@ -6131,6 +6134,7 @@ export type Database = {
           start_at: string
           status?: string
           transcript_attempts?: number
+          transcript_deleted_at?: string | null
           transcript_expires_at?: string | null
           transcript_fetched_at?: string | null
           transcript_retry_gave_up_at?: string | null
@@ -6139,6 +6143,7 @@ export type Database = {
         }
         Update: {
           center_id?: string
+          audio_ingestion_id?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
           contains_multiple_sessions?: boolean
@@ -6164,6 +6169,7 @@ export type Database = {
           start_at?: string
           status?: string
           transcript_attempts?: number
+          transcript_deleted_at?: string | null
           transcript_expires_at?: string | null
           transcript_fetched_at?: string | null
           transcript_retry_gave_up_at?: string | null

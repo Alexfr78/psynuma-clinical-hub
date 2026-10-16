@@ -7,7 +7,7 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { unauthorizedResponse } from "../_shared/authGuard.ts";
 import { createOpenAITranscriptionProvider, getAudioChunk, getAudioChunkCount } from "../_shared/openaiTranscriptionProvider.ts";
 import { TranscriptionProvider, TranscriptionProviderError, TranscriptionSegment } from "../_shared/transcriptionProvider.ts";
-import type { DiarizedTurn } from "../_shared/transcriptDiarization.ts";
+import { generateAutomaticReports } from "../_shared/automaticReports.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,112 +38,7 @@ interface JobRow {
   transcript_chunks: string[];
 }
 interface IngestionRow { id: string; center_id: string; professional_id: string; patient_id: string | null; session_id: string | null; source: string; storage_path: string | null; mime_type: string | null; }
-type ServiceClient = SupabaseClient<any>;
-
-type AutomaticReportAudience = "clinical" | "patient";
-
-async function generateAutomaticReports(
-  supabase: ServiceClient,
-  ingestion: IngestionRow,
-  transcription: string,
-  segments?: TranscriptionSegment[] | null,
-): Promise<void> {
-  // Con diarización se manda `segments`: analyze-session-transcription los pasa por
-  // buildTranscriptFromTurns, que anonimiza las etiquetas y avisa al modelo de que la
-  // atribución puede fallar. Sin ella, se manda el texto plano como hasta ahora.
-  const diarizedTurns: DiarizedTurn[] | null = segments?.length
-    ? segments.filter((segment) => segment.text.trim()).map((segment) => ({
-      speaker: segment.speaker ?? null,
-      content: segment.text,
-      startTime: segment.start,
-      endTime: segment.end,
-    }))
-    : null;
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("[process-transcription-job] No se pudo generar informes automáticos: faltan secretos de Supabase.");
-    return;
-  }
-
-  const audiences: AutomaticReportAudience[] = ["clinical", "patient"];
-  for (const audience of audiences) {
-    try {
-      const audienceValues = audience === "clinical" ? ["clinical", "professional"] : [audience];
-      let defaultRow: { document_type_id: string; audience: string } | null = null;
-
-      for (const audienceValue of audienceValues) {
-        const { data: professionalDefault, error: professionalDefaultError } = await supabase
-          .from("ai_document_defaults")
-          .select("document_type_id, audience")
-          .eq("center_id", ingestion.center_id)
-          .eq("professional_id", ingestion.professional_id)
-          .eq("audience", audienceValue)
-          .maybeSingle();
-        if (professionalDefaultError) throw professionalDefaultError;
-        if (professionalDefault) {
-          defaultRow = professionalDefault as { document_type_id: string; audience: string };
-          break;
-        }
-
-        const { data: centerDefault, error: centerDefaultError } = await supabase
-          .from("ai_document_defaults")
-          .select("document_type_id, audience")
-          .eq("center_id", ingestion.center_id)
-          .is("professional_id", null)
-          .eq("audience", audienceValue)
-          .maybeSingle();
-        if (centerDefaultError) throw centerDefaultError;
-        if (centerDefault) {
-          defaultRow = centerDefault as { document_type_id: string; audience: string };
-          break;
-        }
-      }
-
-      if (!defaultRow) {
-        console.log(`[process-transcription-job] Se omite informe automático para audience ${audience}: no hay default configurado.`);
-        continue;
-      }
-
-      const { data: documentType, error: documentTypeError } = await supabase
-        .from("ai_document_types")
-        .select("key")
-        .eq("id", defaultRow.document_type_id)
-        .maybeSingle();
-      if (documentTypeError) throw documentTypeError;
-      const documentTypeKey = (documentType as { key?: string } | null)?.key;
-      if (!documentTypeKey) {
-        console.log(`[process-transcription-job] Se omite informe automático para audience ${audience}: el default no tiene document type válido.`);
-        continue;
-      }
-
-      const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/functions/v1/analyze-session-transcription`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${serviceRoleKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId: ingestion.session_id,
-          centerId: ingestion.center_id,
-          documentTypeKey,
-          ...(diarizedTurns ? { segments: diarizedTurns } : { transcription }),
-          transcriptSource: "manual",
-        }),
-      });
-
-      if (!response.ok) {
-        const responseText = await response.text();
-        console.error(`[process-transcription-job] Error generando informe automático para audience ${audience} (${documentTypeKey}): HTTP ${response.status} ${responseText}`);
-        continue;
-      }
-
-      console.log(`[process-transcription-job] Informe automático generado para audience ${audience}: ${documentTypeKey}.`);
-    } catch (error) {
-      console.error(`[process-transcription-job] Error no bloqueante generando informe automático para audience ${audience}:`, error);
-    }
-  }
-}
+type ServiceClient = SupabaseClient;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -272,7 +167,13 @@ async function finalizeCompletedJob(
   await supabase.from("audio_ingestions").update({ status: "transcription_verified" }).eq("id", ingestion.id);
 
   if (ingestion.session_id && ingestion.patient_id) {
-    const reportsPromise = generateAutomaticReports(supabase, ingestion, normalizedText, segments);
+    const reportsPromise = generateAutomaticReports(
+      supabase,
+      { centerId: ingestion.center_id, professionalId: ingestion.professional_id, sessionId: ingestion.session_id },
+      normalizedText,
+      segments,
+      { logPrefix: "[process-transcription-job]" },
+    );
     const edgeRuntime = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void } }).EdgeRuntime;
     if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(reportsPromise);
     else reportsPromise.catch((error) => console.error("[process-transcription-job] generateAutomaticReports sin EdgeRuntime:", error));

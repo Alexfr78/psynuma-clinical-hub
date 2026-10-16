@@ -99,6 +99,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callPlaudTool, getValidPlaudAccessToken } from "../_shared/plaud.ts";
+import { CONSENT_MISSING_REASON, promotePlaudRecordings } from "../_shared/plaudPromotion.ts";
+import { checkSessionConsent } from "../_shared/consent.ts";
 import {
   detectOverlaps,
   detectSegmentation,
@@ -207,8 +209,11 @@ interface ExistingPlaudRow {
   transcript_text: string | null;
   transcript_attempts: number | null;
   matched_by: string | null;
+  session_id: string | null;
+  patient_id: string | null;
   confirmed_by: string | null;
   flagged_after_confirmation: boolean | null;
+  transcript_deleted_at: string | null;
   created_at: string;
 }
 
@@ -385,8 +390,30 @@ function buildTranscriptText(segments: TranscriptSegment[]): string {
   return segments
     .slice()
     .sort((a, b) => a.startTime - b.startTime)
-    .map((s) => `[${s.speaker ?? "desconocido"}] ${s.content}`)
+    // Corchetes y saltos de línea fuera de la etiqueta: si no, la línea no se reconoce al
+    // leerla y una etiqueta con un nombre real acabaría pegada al texto sin anonimizar.
+    .map((s) => `[${s.speaker?.replace(/[[\]\r\n]+/g, " ").trim() || "desconocido"}] ${s.content}`)
     .join("\n");
+}
+
+/**
+ * El texto de una grabación solo se guarda si se sabe de qué sesión es y todos sus pacientes
+ * han dado el consentimiento de grabación. Sin eso se guardan solo los metadatos y el
+ * emparejamiento; la ingesta lo vuelve a intentar en cada ciclo mientras dure el plazo.
+ */
+async function recordingConsentGranted(
+  supabase: SupabaseClient,
+  centerId: string,
+  sessionId: string | null,
+  patientId: string | null,
+): Promise<boolean> {
+  if (!sessionId) return false;
+  // La sesión la puede haber elegido el cliente en la bandeja: tiene que ser del centro.
+  const { data: session } = await supabase.from("sessions")
+    .select("id").eq("id", sessionId).eq("center_id", centerId).maybeSingle();
+  if (!session) return false;
+  const consent = await checkSessionConsent(supabase, sessionId, ["recording"], patientId ?? undefined);
+  return consent.granted;
 }
 
 // ---------------------------------------------------------------------------
@@ -558,7 +585,11 @@ async function processFile(
     contiguities: fileContiguities,
   });
 
-  const status = matchResult.requiresReview ? "needs_review" : "matched";
+  const consentGranted = await recordingConsentGranted(supabase, centerId, matchResult.sessionId, matchResult.patientId);
+  const status = matchResult.requiresReview || !consentGranted ? "needs_review" : "matched";
+  const matchReasons = !consentGranted && matchResult.sessionId
+    ? [...matchResult.reasons.filter((r) => r !== "matched_auto"), CONSENT_MISSING_REASON]
+    : matchResult.reasons;
   const fetchedAt = new Date();
   const expiresAt = new Date(fetchedAt.getTime() + TRANSCRIPT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
@@ -573,13 +604,13 @@ async function processFile(
     session_id: matchResult.sessionId,
     patient_id: matchResult.patientId,
     match_confidence: matchResult.confidence,
-    match_reasons: matchResult.reasons,
+    match_reasons: matchReasons,
     matched_by: status === "matched" ? "auto" : null,
-    transcript_text: buildTranscriptText(segments),
-    transcript_fetched_at: fetchedAt.toISOString(),
-    transcript_expires_at: expiresAt.toISOString(),
+    transcript_text: consentGranted ? buildTranscriptText(segments) : null,
+    transcript_fetched_at: consentGranted ? fetchedAt.toISOString() : null,
+    transcript_expires_at: consentGranted ? expiresAt.toISOString() : null,
     transcript_attempts: attempts,
-    last_error: null,
+    last_error: consentGranted ? null : CONSENT_MISSING_REASON,
   };
 
   const { error: upsertError } = await supabase
@@ -640,6 +671,21 @@ async function refreshTranscriptForConfirmedRow(
       .eq("plaud_file_id", file.id);
     if (error) {
       console.error(`[sync-plaud-recordings] Failed to bump attempts on confirmed row (center ${centerId}):`, error.message);
+      return "error";
+    }
+    return "still_pending";
+  }
+
+  // Decisión humana o no, el texto solo se guarda con el consentimiento de grabación de los
+  // pacientes de la sesión asignada.
+  if (!(await recordingConsentGranted(supabase, centerId, existingRow.session_id, existingRow.patient_id))) {
+    const { error } = await supabase
+      .from("plaud_recordings")
+      .update({ transcript_attempts: attempts, last_error: CONSENT_MISSING_REASON })
+      .eq("center_id", centerId)
+      .eq("plaud_file_id", file.id);
+    if (error) {
+      console.error(`[sync-plaud-recordings] Failed to record missing consent (center ${centerId}):`, error.message);
       return "error";
     }
     return "still_pending";
@@ -720,7 +766,7 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
   const fileIds = files.map((f) => f.id);
   const { data: existing, error: existingError } = await supabase
     .from("plaud_recordings")
-    .select("plaud_file_id, status, transcript_text, transcript_attempts, matched_by, confirmed_by, flagged_after_confirmation, created_at")
+    .select("plaud_file_id, status, transcript_text, transcript_attempts, matched_by, session_id, patient_id, confirmed_by, flagged_after_confirmation, transcript_deleted_at, created_at")
     .eq("center_id", centerId)
     .in("plaud_file_id", fileIds);
 
@@ -738,7 +784,10 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
   // `pending`/`error` esperando transcripción, y filas `needs_review` sin decisión humana
   // todavía cuyo texto pueda haber llegado mientras tanto.
   const finalizedIds = new Set(
-    existingRows.filter((r) => r.transcript_text !== null || isRetryExhausted(r)).map((r) => r.plaud_file_id),
+    // Una transcripción borrada a mano desde /grabaciones no se vuelve a traer nunca.
+    existingRows
+      .filter((r) => r.transcript_text !== null || r.transcript_deleted_at !== null || isRetryExhausted(r))
+      .map((r) => r.plaud_file_id),
   );
   const filesToProcess = files.filter((f) => !finalizedIds.has(f.id));
   summary.toProcess = filesToProcess.length;
@@ -852,6 +901,21 @@ serve(async (req) => {
     .from("center_plaud_connections")
     .select("center_id, enabled");
 
+  // Plaud solo funciona en los centros autorizados expresamente (`centers.plaud_enabled`,
+  // que solo se cambia por SQL). Una conexión de otro centro se ignora aunque esté activa.
+  const { data: allowedCenters, error: allowedError } = await supabase
+    .from("centers")
+    .select("id")
+    .eq("plaud_enabled", true);
+  if (allowedError) {
+    console.error("[sync-plaud-recordings] Failed to fetch allowed centers:", allowedError.message);
+    return new Response(JSON.stringify({ error: "Failed to fetch allowed centers" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const allowedCenterIds = new Set((allowedCenters ?? []).map((c) => c.id as string));
+
   if (connectionsError) {
     console.error("[sync-plaud-recordings] Failed to fetch connections:", connectionsError.message);
     return new Response(JSON.stringify({ error: "Failed to fetch connections" }), {
@@ -872,6 +936,10 @@ serve(async (req) => {
     confirmedRowsRefreshed: 0,
     confirmedRowsFlagged: 0,
     fileErrors: 0,
+    centersNotAllowed: 0,
+    recordingsPromoted: 0,
+    recordingsWaitingConsent: 0,
+    promotionErrors: 0,
   };
 
   for (const connection of connections ?? []) {
@@ -881,6 +949,10 @@ serve(async (req) => {
     // este centro, ni siquiera el listado. No la bypasses nunca.
     if (!connection.enabled) {
       totals.centersDisabled++;
+      continue;
+    }
+    if (!allowedCenterIds.has(connection.center_id)) {
+      totals.centersNotAllowed++;
       continue;
     }
 
@@ -900,6 +972,13 @@ serve(async (req) => {
     totals.confirmedRowsRefreshed += summary.confirmedRefreshed;
     totals.confirmedRowsFlagged += summary.confirmedFlagged;
     totals.fileErrors += summary.errors;
+
+    // Lo emparejado sin dudas o confirmado en la bandeja entra en el circuito de la
+    // grabadora: /grabaciones, `transcripts` e informes automáticos en borrador.
+    const promotion = await promotePlaudRecordings(supabase, req, connection.center_id);
+    totals.recordingsPromoted += promotion.promoted;
+    totals.recordingsWaitingConsent += promotion.waitingConsent;
+    totals.promotionErrors += promotion.errors;
 
     // `confirmedRowsFlagged` > 0 es el caso de riesgo del punto 3 del encargo: una grabación
     // ya confirmada a mano en la que la transcripción, llegada después, reveló sospecha de

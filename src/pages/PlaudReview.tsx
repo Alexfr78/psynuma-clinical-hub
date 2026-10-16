@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Icon } from '@/components/ui/icon';
 import { PlaudRecordingCard } from '@/components/plaud/PlaudRecordingCard';
+import { usePlaudConnectionStatus } from '@/hooks/usePlaudConnection';
 import { usePlaudPendingCount, usePlaudRecordings, usePlaudReviewStats } from '@/hooks/usePlaudRecordings';
 
 /**
@@ -16,6 +17,15 @@ import { usePlaudPendingCount, usePlaudRecordings, usePlaudReviewStats } from '@
  * pantalla le restaría la atención dedicada que pide el encargo.
  */
 export default function PlaudReview() {
+  const plaudStatus = usePlaudConnectionStatus();
+  if (plaudStatus.isLoading) return <Skeleton className="h-40 w-full" />;
+  if (plaudStatus.data?.allowed !== true) {
+    return <p className="text-muted-foreground">Plaud no está disponible para este centro.</p>;
+  }
+  return <PlaudReviewContent />;
+}
+
+function PlaudReviewContent() {
   const [tab, setTab] = useState<'needs_review' | 'resolved'>('needs_review');
 
   const needsReview = usePlaudRecordings('needs_review');

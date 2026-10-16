@@ -84,6 +84,15 @@ Deno.serve(async (req) => {
     .delete().eq("audio_ingestion_id", ingestion.id).select("id");
   if (transcriptError) return json({ error: "Se borró el audio, pero no la transcripción; vuelve a intentarlo" }, 503);
 
+  // 2.bis Plaud: su copia del texto en `plaud_recordings` también se borra, y la marca
+  // impide que la ingesta la vuelva a traer de Plaud.
+  if (ingestion.source === "plaud") {
+    const { error: plaudError } = await supabase.from("plaud_recordings")
+      .update({ transcript_text: null, transcript_deleted_at: new Date().toISOString() })
+      .eq("audio_ingestion_id", ingestion.id);
+    if (plaudError) return json({ error: "Se borró la transcripción, pero no la copia de Plaud; vuelve a intentarlo" }, 503);
+  }
+
   // 3. Transcripción pendiente: se cancela para que el worker no la recoja.
   const now = new Date().toISOString();
   await supabase.from("transcription_jobs")

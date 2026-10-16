@@ -13,6 +13,7 @@ import { qk } from '@/lib/query-keys';
  * de columnas coinciden con los de aquí, no hace falta tocar nada más.
  */
 import { useMemo } from 'react';
+import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
@@ -346,7 +347,10 @@ export function useConfirmPlaudMatch() {
         .eq('id', recordingId);
       if (error) throw error;
     },
-    onSuccess: () => invalidatePlaudQueries(queryClient),
+    onSuccess: () => {
+      toast.success('Confirmada. En unos minutos aparecerá en Grabaciones y se generarán los informes en borrador.');
+      invalidatePlaudQueries(queryClient);
+    },
   });
 }
 

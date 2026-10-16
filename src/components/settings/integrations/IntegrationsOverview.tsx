@@ -1,11 +1,8 @@
-import { qk } from '@/lib/query-keys';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
 import { useProfessionalIntegrations } from "@/hooks/useProfessionalIntegrations";
+import { usePlaudConnectionStatus } from '@/hooks/usePlaudConnection';
 import { useCenter } from "@/hooks/useCenter";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
@@ -60,20 +57,8 @@ function IntegrationStatus({ icon, name, description, enabled, connected }: Inte
 export function IntegrationsOverview() {
   const { integrations, isLoading, isProviderConnected, updateIntegrations } = useProfessionalIntegrations();
   const { center } = useCenter();
-  const { profile } = useAuth();
 
-  const { data: plaudStatus } = useQuery({
-    queryKey: qk.plaudConnection.byCenter(profile?.center_id),
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke<{ connected: boolean; enabled?: boolean | null }>(
-        "plaud-connection",
-        { body: { action: "status" } }
-      );
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.center_id,
-  });
+  const { data: plaudStatus } = usePlaudConnectionStatus();
 
   const bothVideoEnabled =
     (integrations?.zoom_enabled && isProviderConnected('zoom')) &&
@@ -172,13 +157,15 @@ export function IntegrationsOverview() {
           connected={!!(center?.openai_api_key_encrypted || center?.gemini_api_key_encrypted)}
         />
 
-        <IntegrationStatus
-          icon={<Icon name="mic" className="h-5 w-5" />}
-          name="Plaud"
-          description="Ingesta de grabaciones y transcripciones"
-          enabled={!!plaudStatus?.enabled}
-          connected={!!plaudStatus?.connected}
-        />
+        {plaudStatus?.allowed && (
+          <IntegrationStatus
+            icon={<Icon name="mic" className="h-5 w-5" />}
+            name="Plaud"
+            description="Ingesta de grabaciones y transcripciones"
+            enabled={!!plaudStatus?.enabled}
+            connected={!!plaudStatus?.connected}
+          />
+        )}
 
         {bothVideoEnabled && (
           <div className="border rounded-lg p-4 space-y-2">

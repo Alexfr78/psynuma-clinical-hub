@@ -1,7 +1,8 @@
 import { qk } from '@/lib/query-keys';
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePlaudConnectionStatus } from "@/hooks/usePlaudConnection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,31 +15,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Icon } from "@/components/ui/icon";
 
-interface PlaudConnectionStatus {
-  connected: boolean;
-  plaud_account_label?: string | null;
-  enabled?: boolean | null;
-  needs_reconnect?: boolean | null;
-  last_error?: string | null;
-  created_at?: string | null;
-}
-
 export function PlaudIntegrationSection() {
-  const { profile, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
-  const { data: status, isLoading } = useQuery({
-    queryKey: qk.plaudConnection.byCenter(profile?.center_id),
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke<PlaudConnectionStatus>("plaud-connection", {
-        body: { action: "status" },
-      });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.center_id,
-  });
+  const { data: status, isLoading } = usePlaudConnectionStatus();
 
   useEffect(() => {
     const oauthStatus = searchParams.get("oauth");
@@ -123,8 +105,8 @@ export function PlaudIntegrationSection() {
           <div>
             <CardTitle className="text-lg">Plaud (grabaciones)</CardTitle>
             <CardDescription>
-              Conecta la cuenta de Plaud para leer grabaciones y transcripciones ya existentes y, más adelante,
-              generar automáticamente los informes de sesión a partir de ellas.
+              Conecta la cuenta de Plaud para traer sus transcripciones, emparejarlas con las citas y generar los
+              informes de sesión en borrador, igual que con la grabadora de Psycma.
             </CardDescription>
           </div>
         </div>
@@ -160,8 +142,9 @@ export function PlaudIntegrationSection() {
                     Ingesta automática
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Con esto activado, Psycma buscará periódicamente grabaciones nuevas en la cuenta conectada
-                    para emparejarlas con sesiones y generar informes.
+                    Cada 15 minutos Psycma trae las transcripciones de la cuenta conectada y las empareja con las
+                    citas. Las que encajan sin dudas aparecen en Grabaciones y generan los informes en borrador;
+                    las dudosas esperan en la bandeja de revisión. Del audio no se guarda nada: solo el texto.
                   </p>
                 </div>
                 <Switch
@@ -173,9 +156,9 @@ export function PlaudIntegrationSection() {
               </div>
               <Alert>
                 <AlertDescription className="text-xs">
-                  Antes de activarla, confirma con Plaud el contrato de encargado de tratamiento de datos: las
-                  grabaciones contienen información clínica de pacientes y no deben procesarse por un tercero sin
-                  esa base legal cerrada. Mientras tanto, deja este interruptor apagado.
+                  Solo se procesan sesiones cuyos pacientes han dado el consentimiento de grabación. Plaud es
+                  encargado de tratamiento de las grabaciones: debe figurar en el consentimiento y en tu registro de
+                  actividades. Las grabaciones se borran en la app de Plaud; Psycma no puede borrarlas allí.
                 </AlertDescription>
               </Alert>
             </div>

@@ -10,6 +10,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlaudAllowed } from '@/hooks/usePlaudConnection';
+import { usePlaudNeedsReviewCount } from '@/hooks/usePlaudRecordings';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -35,6 +37,7 @@ const SOURCE_LABELS: Record<string, string> = {
   manual_upload: 'Subida manual',
   android_recorder: 'App Android',
   samsung_media_store: 'Grabadora del móvil',
+  plaud: 'Plaud',
 };
 
 type Tone = 'default' | 'secondary' | 'destructive' | 'outline';
@@ -68,7 +71,9 @@ const BUSY_STATUSES = ['uploading', 'transcription_processing'];
 export default function Recordings() {
   const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [toDelete, setToDelete] = useState<{ id: string; label: string; hasTranscript: boolean } | null>(null);
+  const [toDelete, setToDelete] = useState<{ id: string; label: string; hasTranscript: boolean; isPlaud: boolean } | null>(null);
+  const plaudAllowed = usePlaudAllowed();
+  const plaudNeedsReview = usePlaudNeedsReviewCount();
 
   const deleteRecording = useMutation({
     mutationFn: async (audioIngestionId: string) => {
@@ -110,6 +115,19 @@ export default function Recordings() {
 
       <TranscriptionIssuesCard />
 
+      {plaudAllowed && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-4 shadow-card">
+          <p className="text-sm text-muted-foreground">
+            {plaudNeedsReview.data
+              ? `${plaudNeedsReview.data} ${plaudNeedsReview.data === 1 ? 'grabación de Plaud espera' : 'grabaciones de Plaud esperan'} tu revisión.`
+              : 'Las grabaciones de Plaud que no se emparejan solas esperan en la bandeja de revisión.'}
+          </p>
+          <Button asChild size="sm" variant={plaudNeedsReview.data ? 'default' : 'outline'}>
+            <Link to="/grabaciones/plaud">Revisar Plaud</Link>
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-2xl border bg-card shadow-card">
         {isLoading ? (
           <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
@@ -140,7 +158,7 @@ export default function Recordings() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{r.patientName || 'Sin paciente'}</p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(r.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                      {format(new Date(r.recorded_at ?? r.created_at), "d MMM yyyy, HH:mm", { locale: es })}
                       {r.duration_ms ? ` · ${formatDuration(r.duration_ms)}` : ''}
                       {` · ${SOURCE_LABELS[r.source] ?? r.source}`}
                     </p>
@@ -162,8 +180,9 @@ export default function Recordings() {
                         aria-label={`Borrar grabación de ${r.patientName || 'sesión sin paciente'}`}
                         onClick={() => setToDelete({
                           id: r.id,
-                          label: `${r.patientName || 'Sin paciente'} · ${format(new Date(r.created_at), "d MMM yyyy, HH:mm", { locale: es })}`,
+                          label: `${r.patientName || 'Sin paciente'} · ${format(new Date(r.recorded_at ?? r.created_at), "d MMM yyyy, HH:mm", { locale: es })}`,
                           hasTranscript,
+                          isPlaud: r.source === 'plaud',
                         })}
                       >
                         <Icon name="delete" className="h-4 w-4" />
@@ -193,9 +212,16 @@ export default function Recordings() {
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p className="font-medium text-foreground">{toDelete?.label}</p>
-                <p>
-                  Se borrarán definitivamente el audio{toDelete?.hasTranscript ? ' y la transcripción' : ''}. No se puede deshacer.
-                </p>
+                {toDelete?.isPlaud ? (
+                  <p>
+                    Se borrará definitivamente la transcripción guardada en Psycma y no se volverá a traer. No se puede
+                    deshacer. La grabación sigue en tu cuenta de Plaud: bórrala desde su app.
+                  </p>
+                ) : (
+                  <p>
+                    Se borrarán definitivamente el audio{toDelete?.hasTranscript ? ' y la transcripción' : ''}. No se puede deshacer.
+                  </p>
+                )}
                 <p>
                   Los informes ya generados a partir de ella <strong>no se borran</strong>: forman parte de la historia clínica.
                   Si hay que retirarlos, hazlo desde la sesión.

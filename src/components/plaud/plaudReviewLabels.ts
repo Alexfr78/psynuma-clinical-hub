@@ -34,6 +34,8 @@ const PRIMARY_REVIEW_REASON_LABELS: Record<string, string> = {
   ambiguous_candidates: 'Hay más de una cita que encaja igual de bien.',
   no_session_that_day: 'No se ha encontrado ninguna cita cercana a la hora de esta grabación.',
   low_confidence: 'La coincidencia encontrada no llega al nivel de confianza necesario para confirmarla sola.',
+  consent_recording_missing:
+    'Algún paciente de la sesión no ha dado el consentimiento de grabación. Cuando lo dé, la grabación seguirá sola; si la confirmas antes, esperará igualmente al consentimiento.',
   transcript_retry_exhausted:
     'Se agotó el plazo de espera de la transcripción (3 días) y la grabación se clasificó solo por sus metadatos (fecha y duración), sin haber podido leer su contenido.',
 };
