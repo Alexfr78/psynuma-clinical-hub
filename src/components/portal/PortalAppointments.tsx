@@ -155,13 +155,13 @@ export function PortalAppointments({
             className="space-y-4 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 sm:p-5"
           >
             {/* Date and Status */}
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-3">
+            <div className="flex flex-wrap-reverse items-start justify-between gap-2">
+              <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon name="calendar_month" className="h-5 w-5" aria-hidden="true" />
                 </div>
-                <span className="font-semibold capitalize">
-                  {format(new Date(session.session_date), "EEEE, d 'de' MMMM", { locale: es })}
+                <span className="min-w-0 break-words font-semibold first-letter:uppercase">
+                  {format(new Date(`${session.session_date.slice(0, 10)}T12:00:00`), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
                 </span>
               </div>
               <Badge variant="outline" className={`flex items-center gap-1 ${getSessionStatusDisplay(session.status).badgeClass}`}>
