@@ -305,9 +305,48 @@ function diffMinutes(startTime: string, endTime: string): number {
 // Listado de archivos (paginado).
 // ---------------------------------------------------------------------------
 
+/**
+ * Saca la lista de archivos de la respuesta de `list_files`, que según el cliente puede llegar
+ * como `{ data: [...] }`, envuelta en `result`, como texto JSON o como bloques `content`.
+ */
+function extractPlaudFiles(value: unknown, depth = 0): PlaudListFileEntry[] | null {
+  if (depth > 4 || value == null) return null;
+  if (Array.isArray(value)) {
+    if (value.every((v) => v && typeof v === "object" && "id" in v && "start_at" in v)) return value as PlaudListFileEntry[];
+    for (const block of value) {
+      const text = (block as { type?: string; text?: unknown })?.type === "text" ? (block as { text?: unknown }).text : undefined;
+      const found = extractPlaudFiles(text, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value === "string") {
+    try { return extractPlaudFiles(JSON.parse(value), depth + 1); } catch { return null; }
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of ["data", "files", "items", "result", "content", "structuredContent"]) {
+      if (key in obj) {
+        const found = extractPlaudFiles(obj[key], depth + 1);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
+}
+
+/** Descripción de la forma de una respuesta (solo nombres de campos y tipos, nunca valores). */
+function describeShape(value: unknown, depth = 0): string {
+  if (Array.isArray(value)) return `array(${value.length})`;
+  if (value && typeof value === "object" && depth < 2) {
+    return `{${Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k}:${describeShape(v, depth + 1)}`).join(",")}}`;
+  }
+  return typeof value;
+}
+
 async function listAllPlaudFiles(
   accessToken: string,
-): Promise<{ ok: true; files: PlaudListFileEntry[] } | { ok: false; error: string }> {
+): Promise<{ ok: true; files: PlaudListFileEntry[]; emptyShape?: string } | { ok: false; error: string }> {
   const files: PlaudListFileEntry[] = [];
   for (let page = 1; page <= MAX_LIST_PAGES; page++) {
     const result = await callPlaudTool<PlaudListFilesResponse>(accessToken, "list_files", {
@@ -315,7 +354,8 @@ async function listAllPlaudFiles(
       page_size: LIST_PAGE_SIZE,
     });
     if (!result.ok) return { ok: false, error: result.error };
-    const pageData = Array.isArray(result.data?.data) ? result.data.data : [];
+    const pageData = extractPlaudFiles(result.data) ?? [];
+    if (page === 1 && pageData.length === 0) return { ok: true, files, emptyShape: describeShape(result.data) };
     files.push(...pageData);
     if (pageData.length < LIST_PAGE_SIZE) break;
   }
@@ -763,8 +803,16 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
     summary.errors++;
     return summary;
   }
-  await supabase.from("center_plaud_connections").update({ last_error: null })
-    .eq("center_id", centerId).like("last_error", "No se pudo listar%");
+  if (listResult.emptyShape) {
+    // Una cuenta vacía y una respuesta que no sabemos leer se ven igual: se deja la forma.
+    console.warn(`[sync-plaud-recordings] list_files sin archivos (center ${centerId}): ${listResult.emptyShape}`);
+    await supabase.from("center_plaud_connections")
+      .update({ last_error: `No se pudo listar las grabaciones de Plaud: respuesta vacía ${listResult.emptyShape}`.slice(0, 300) })
+      .eq("center_id", centerId);
+  } else {
+    await supabase.from("center_plaud_connections").update({ last_error: null })
+      .eq("center_id", centerId).like("last_error", "No se pudo listar%");
+  }
 
   const files = listResult.files;
   summary.listed = files.length;
