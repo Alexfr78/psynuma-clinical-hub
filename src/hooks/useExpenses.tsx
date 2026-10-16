@@ -7,7 +7,7 @@ import type { Json } from '@/integrations/supabase/types';
 import { currentMonthISO, monthRange, resolveExpensePeriod, type ExpensePeriod } from '@/lib/expense-period';
 import { fetchAllRows } from '@/lib/fetch-all-rows';
 import type { AccountingExportInvoice } from '@/lib/export/invoiceAccountingExport';
-import type { AeatExpense } from '@/lib/export/aeatBooksExport';
+import type { AeatExpense, AeatSubstitution } from '@/lib/export/aeatBooksExport';
 
 export type ExpenseKind = 'fixed_recurring' | 'variable' | 'supplier_invoice' | 'professional_payment';
 export type ExpenseStatus = 'pending' | 'paid' | 'cancelled';
@@ -592,11 +592,19 @@ export function useAeatBooksData(range: QuarterRange) {
       const expenseQuery = () => supabase.from('expenses').select(EXPENSE_SELECT)
         .eq('center_id', centerId).gte('expense_date', start).lte('expense_date', end)
         .neq('status', 'cancelled').order('expense_date', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true });
-      const [invoices, expenses] = await Promise.all([
+      const substitutionQuery = () => supabase.from('invoice_substitutions')
+        .select('replacement_invoice_id, substituted_invoice_id, substituted_invoice:substituted_invoice_id(invoice_number, issue_date)')
+        .eq('center_id', centerId).order('id', { ascending: true });
+      const [invoices, expenses, substitutions] = await Promise.all([
         fetchAllRows((from, to) => invoiceQuery().range(from, to)),
         fetchAllRows((from, to) => expenseQuery().range(from, to)),
+        fetchAllRows((from, to) => substitutionQuery().range(from, to)),
       ]);
-      return { invoices: invoices as unknown as AccountingExportInvoice[], expenses: expenses as unknown as AeatExpense[] };
+      return {
+        invoices: invoices as unknown as AccountingExportInvoice[],
+        expenses: expenses as unknown as AeatExpense[],
+        substitutions: substitutions as unknown as AeatSubstitution[],
+      };
     },
     enabled: !!profile?.center_id,
   });

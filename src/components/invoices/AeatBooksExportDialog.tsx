@@ -27,7 +27,7 @@ export function AeatBooksExportDialog({ open, onOpenChange }: Props) {
   const { center } = useCenter(); const { data, isLoading, error } = useAeatBooksData(range);
   const input = useMemo<AeatBooksInput | null>(() => center && data ? {
     center: { id: center.id, name: center.name, tax_id: center.tax_id, aeat_activity_code: center.aeat_activity_code, aeat_activity_type: center.aeat_activity_type, aeat_iae_epigraph: center.aeat_iae_epigraph },
-    invoices: data.invoices, expenses: data.expenses, year: range.year, quarter: range.quarter,
+    invoices: data.invoices, expenses: data.expenses, substitutions: data.substitutions, year: range.year, quarter: range.quarter,
   } : null, [center, data, range]);
   const issues = useMemo(() => input ? validateAeatBooks(input) : { errors: [], warnings: [] }, [input]);
 

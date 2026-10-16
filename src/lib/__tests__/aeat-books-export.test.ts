@@ -87,6 +87,24 @@ describe('Libros Registro AEAT', () => {
     expect(buildAeatIssuedRows({ ...base, invoices: [registered] })[0][5]).toBe('F2');
   });
 
+  it('canje F3: simplificada en negativo y completa como F1, sin duplicar ingreso', () => {
+    const simplified = invoice({ id: 'sp', invoice_number: 'SP260018', issue_date: '2026-03-25', invoice_type: 'simplified',
+      recipient_snapshot: null, is_valid: false, subtotal: 1200, total: 1020, retention_amount: 180, retention_rate: 15,
+      series: { name: 'SP', invoice_type: 'simplified' },
+      invoice_items: [{ description: 'Contenidos', quantity: 1, unit_price: 1200, total: 1200, tax_rate: 0 }] });
+    const f3 = invoice({ id: 'f3', invoice_number: 'SF260200', issue_date: '2026-10-16', operation_date: '2026-03-25',
+      verifactu_invoice_type: 'F3', recipient_snapshot: { name: 'Isep', tax_id: 'B12345674' },
+      subtotal: 1200, total: 1020, retention_amount: 180, retention_rate: 15,
+      invoice_items: [{ description: 'Contenidos', quantity: 1, unit_price: 1200, total: 1200, tax_rate: 0 }] });
+    const rows = buildAeatIssuedRows({ ...base, quarter: 4, invoices: [simplified, f3],
+      substitutions: [{ replacement_invoice_id: 'f3', substituted_invoice_id: 'sp', substituted_invoice: { invoice_number: 'SP260018', issue_date: '2026-03-25' } }] });
+    expect(rows.map((row) => row[5])).toEqual(['F2', 'F2', 'F1']);
+    expect(rows.map((row) => row[7])).toEqual(['1200,00', '-1200,00', '1200,00']);
+    expect(rows.reduce((sum, row) => sum + Number((row[31] || '0').replace(',', '.')), 0)).toBe(180);
+    expect(rows[2][15]).toBe('B12345674');
+    expect(rows.every((row) => row[1] === '1T')).toBe(true);
+  });
+
   it('genera gastos SF y limita la cuota parcialmente deducible', () => {
     const expenses = [{ id: 'expense-1', kind: 'variable', status: 'paid', description: 'RETA', amount: 300,
       tax_base: 300, vat_rate: 0, vat_amount: 0, irpf_rate: null, irpf_amount: null, expense_date: '2026-04-02',

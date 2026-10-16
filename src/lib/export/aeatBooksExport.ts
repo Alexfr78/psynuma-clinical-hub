@@ -30,6 +30,12 @@ export interface AeatExpense {
 export interface AeatBooksInput {
   center: AeatCenter; invoices: AccountingExportInvoice[]; expenses: AeatExpense[];
   year: number; quarter: 1 | 2 | 3 | 4;
+  /** Canjes de simplificada por completa (F3): qué factura sustituye a cuál. */
+  substitutions?: AeatSubstitution[];
+}
+export interface AeatSubstitution {
+  replacement_invoice_id: string; substituted_invoice_id: string;
+  substituted_invoice: { invoice_number: string; issue_date: string } | null;
 }
 
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -56,7 +62,7 @@ function recipient(invoice: AccountingExportInvoice, type: string) {
   const snapshot = getRecipientSnapshot(invoice.recipient_snapshot);
   const taxId = normalizedTaxId(snapshot?.tax_id || invoice.patients?.tax_id);
   const name = snapshot?.name || [invoice.patients?.first_name, invoice.patients?.last_name].filter(Boolean).join(' ');
-  if (type === 'F2' || (type === 'R5' && !hasRecipientId(invoice))) return { nifType: '', country: '', id: '', name: 'VENTAS A CONSUMIDOR FINAL' };
+  if (type === 'F2' || ((type === 'R5' || type === 'F3') && !hasRecipientId(invoice))) return { nifType: '', country: '', id: '', name: 'VENTAS A CONSUMIDOR FINAL' };
   const validSpanish = taxId !== '' && validateSpanishTaxId(taxId).valid;
   return { nifType: validSpanish ? '' : taxId ? (snapshot?.id_type || '06') : '', country: validSpanish ? '' : (snapshot?.country || '').slice(0, 2).toUpperCase(), id: taxId, name: name || '' };
 }
@@ -100,7 +106,7 @@ interface IssuedEntry {
   invoiceNumber: string; lines: IssuedLine[];
 }
 
-function issuedEntries(invoice: AccountingExportInvoice): IssuedEntry[] {
+function issuedEntries(invoice: AccountingExportInvoice, input: AeatBooksInput): IssuedEntry[] {
   const type = aeatInvoiceType(invoice);
   const operationDate = resolveOperationDate(invoice) || invoice.issue_date;
   const groups = new Map<number, { base: number; vat: number }>();
@@ -133,6 +139,22 @@ function issuedEntries(invoice: AccountingExportInvoice): IssuedEntry[] {
       }],
     });
   }
+  // Canje de simplificada por completa: asiento negativo de la simplificada + asiento de la completa (F1).
+  // Es la primera opción de la FAQ de la AEAT; con un solo asiento F3 el ingreso del IRPF se contaría dos veces.
+  if (type === 'F3') {
+    const substitution = input.substitutions?.find((item) => item.replacement_invoice_id === invoice.id);
+    if (substitution) {
+      const substituted = input.invoices.find((item) => item.id === substitution.substituted_invoice_id);
+      entries.push({
+        invoice, type: substituted ? aeatInvoiceType(substituted) : 'F2',
+        issueDate: substitution.substituted_invoice?.issue_date || substituted?.issue_date || invoice.issue_date,
+        operationDate, invoiceNumber: substitution.substituted_invoice?.invoice_number || substituted?.invoice_number || invoice.invoice_number,
+        lines: lines.map((line) => ({ ...line, base: -line.base, vat: -line.vat, retentionAmount: line.retentionAmount ? -Number(line.retentionAmount) : line.retentionAmount })),
+      });
+      entries.push({ invoice, type: 'F1', issueDate: invoice.issue_date, operationDate, invoiceNumber: invoice.invoice_number, lines });
+      return entries;
+    }
+  }
   entries.push({ invoice, type, issueDate: invoice.issue_date, operationDate, invoiceNumber: invoice.invoice_number, lines });
   return entries;
 }
@@ -140,7 +162,7 @@ function issuedEntries(invoice: AccountingExportInvoice): IssuedEntry[] {
 export function buildAeatIssuedRows(input: AeatBooksInput): AeatRow[] {
   return input.invoices
     .filter((invoice) => isBookInvoice(invoice) && inRange(invoice.issue_date, input.year, input.quarter))
-    .flatMap(issuedEntries)
+    .flatMap((invoice) => issuedEntries(invoice, input))
     .flatMap(({ invoice, type, issueDate, operationDate, invoiceNumber, lines }) => {
       const id = splitNumber(invoiceNumber);
       const party = recipient(invoice, type);
@@ -213,8 +235,9 @@ export function validateAeatBooks(input: AeatBooksInput): { errors: AeatIssue[];
     const snapshot = getRecipientSnapshot(invoice.recipient_snapshot);
     const spanish = taxId !== '' && validateSpanishTaxId(taxId).valid;
     const foreignComplete = !spanish && Boolean(taxId && snapshot?.id_type?.match(/^0[2-6]$/) && (snapshot.id_type === '02' || snapshot.country?.length === 2));
-    if (type === 'F1' && !spanish && !foreignComplete) errors.push({ type: 'factura', id: invoice.id, href: `/facturas?invoice=${invoice.id}`, message: `La factura ${invoice.invoice_number} es F1 y no tiene identificación española válida ni identificación extranjera completa (tipo y país).` });
-    if (type === 'F2' && !extractXmlValue(fiscalXml(invoice), 'TipoFactura') && Math.abs(Number(invoice.total)) > 400) {
+    if ((type === 'F1' || type === 'F3') && !spanish && !foreignComplete) errors.push({ type: 'factura', id: invoice.id, href: `/facturas?invoice=${invoice.id}`, message: `La factura ${invoice.invoice_number} es F1 y no tiene identificación española válida ni identificación extranjera completa (tipo y país).` });
+    const exchanged = input.substitutions?.some((item) => item.substituted_invoice_id === invoice.id);
+    if (type === 'F2' && !exchanged && !extractXmlValue(fiscalXml(invoice), 'TipoFactura') && Math.abs(Number(invoice.total)) > 400) {
       warnings.push({ type: 'factura', id: invoice.id, href: `/facturas?invoice=${invoice.id}`, message: `La factura ${invoice.invoice_number} no identifica al paciente (sale como F2) y supera 400 €. Revísalo con tu gestor.` });
     }
     const operationYear = (resolveOperationDate(invoice) || issue).slice(0, 4);
