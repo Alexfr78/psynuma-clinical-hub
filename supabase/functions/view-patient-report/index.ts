@@ -66,10 +66,13 @@ Deno.serve(async (req) => {
     const row = link as PatientReportLinkRow;
     const isExpired = new Date(row.expires_at) < new Date();
 
-    const [{ data: patient }, { data: center }] = await Promise.all([
-      supabase.from("patients").select("first_name").eq("id", row.patient_id).maybeSingle(),
-      supabase.from("centers").select("name, logo_url, invoice_logo_url").eq("id", row.center_id).maybeSingle(),
-    ]);
+    // Sin el nombre del paciente: el enlace puede reenviarse o verse en otro
+    // dispositivo, y la página no debe identificar a quién pertenece.
+    const { data: center } = await supabase
+      .from("centers")
+      .select("name, logo_url, invoice_logo_url")
+      .eq("id", row.center_id)
+      .maybeSingle();
 
     // Registrar el acceso siempre — incluido cuando el enlace ya ha caducado
     // — porque es la prueba de entrega que protege al profesional ante una
@@ -94,7 +97,6 @@ Deno.serve(async (req) => {
         expired: isExpired,
         title: row.title,
         contentMarkdown: isExpired ? null : row.content_markdown,
-        patientFirstName: patient?.first_name ?? null,
         centerName: center?.name ?? null,
         centerLogoUrl: center?.invoice_logo_url || center?.logo_url || null,
         generatedAt: row.created_at,

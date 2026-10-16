@@ -677,7 +677,7 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
         aiGeneratedDocumentId: patientReportDoc?.id ?? null,
         contentMarkdown: reportMarkdown,
       });
-      const noticeMessage = buildPatientReportNotice(url, session.patient?.first_name);
+      const noticeMessage = buildPatientReportNotice(url);
 
       const { data: notification } = await supabase
         .from('notifications')

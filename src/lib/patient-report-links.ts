@@ -73,9 +73,8 @@ export async function createPatientReportLink(
  * Texto del aviso que sustituye al informe completo en el mensaje. Cálido
  * pero neutro: nada de "terapia", "sesión clínica" ni contenido que permita
  * inferir motivo o diagnóstico con solo ver la notificación en la pantalla
- * de bloqueo del móvil.
+ * de bloqueo del móvil. Tampoco lleva el nombre del paciente.
  */
-export function buildPatientReportNotice(url: string, patientFirstName?: string | null): string {
-  const greeting = patientFirstName ? `Hola ${patientFirstName},` : 'Hola,';
-  return `${greeting} tienes disponible un resumen. Puedes consultarlo aquí: ${url}\n\nEste enlace es personal e intransferible.`;
+export function buildPatientReportNotice(url: string): string {
+  return `Hola, tienes disponible un resumen. Puedes consultarlo aquí: ${url}\n\nEste enlace es personal e intransferible.`;
 }

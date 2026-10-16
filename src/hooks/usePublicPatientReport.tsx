@@ -6,7 +6,6 @@ export interface PublicPatientReport {
   expired: boolean;
   title: string;
   contentMarkdown: string | null;
-  patientFirstName: string | null;
   centerName: string | null;
   centerLogoUrl: string | null;
   generatedAt: string;

@@ -174,7 +174,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
       // First create a notification record, then invoke send-notification with notificationId
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
-        .select('patient_id, patient:patients!sessions_patient_id_fkey(first_name)')
+        .select('patient_id')
         .eq('id', sessionId)
         .single();
 
@@ -192,7 +192,7 @@ export function useTranscriptionAnalysis(options: UseTranscriptionAnalysisOption
         title,
         contentMarkdown: reportContent,
       });
-      const noticeMessage = buildPatientReportNotice(url, session.patient?.first_name);
+      const noticeMessage = buildPatientReportNotice(url);
 
       const { data: notification, error: insertError } = await supabase
         .from('notifications')

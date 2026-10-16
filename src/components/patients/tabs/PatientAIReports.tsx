@@ -209,7 +209,7 @@ export function PatientAIReports({ patientId }: PatientAIReportsProps) {
         title: doc.document_type.label,
         contentMarkdown: effectiveMarkdown(doc),
       });
-      const noticeMessage = buildPatientReportNotice(url, patientContact?.first_name);
+      const noticeMessage = buildPatientReportNotice(url);
 
       const { data: notification } = await supabase
         .from('notifications')
