@@ -756,8 +756,15 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
   const listResult = await listAllPlaudFiles(accessToken);
   if (!listResult.ok) {
     console.error(`[sync-plaud-recordings] list_files failed (center ${centerId}): ${listResult.error}`);
+    // Visible en Ajustes → Plaud: sin esto, un fallo al listar parece una cuenta vacía.
+    await supabase.from("center_plaud_connections")
+      .update({ last_error: `No se pudo listar las grabaciones de Plaud: ${listResult.error}`.slice(0, 300) })
+      .eq("center_id", centerId);
+    summary.errors++;
     return summary;
   }
+  await supabase.from("center_plaud_connections").update({ last_error: null })
+    .eq("center_id", centerId).like("last_error", "No se pudo listar%");
 
   const files = listResult.files;
   summary.listed = files.length;
