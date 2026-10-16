@@ -248,6 +248,10 @@ export function validateAeatBooks(input: AeatBooksInput): { errors: AeatIssue[];
     if (!expense.category?.aeat_expense_concept) errors.push({ type: 'categoria', id: expense.category?.id, href: '/configuracion?section=gastos-categorias', message: `Asigna un concepto AEAT a la categoría del gasto "${expense.description}".` });
     else if (!aeatCodeSet(AEAT_EXPENSE_CONCEPTS).has(expense.category.aeat_expense_concept)) errors.push({ type: 'categoria', id: expense.category.id, message: `El concepto AEAT de la categoría ${expense.category.name} no es válido.` });
     if (!aeatCodeSet(AEAT_RECEIVED_INVOICE_TYPES).has(expense.aeat_invoice_type || 'F1')) errors.push({ type: 'gasto', id: expense.id, message: `El gasto "${expense.description}" no tiene un tipo de factura AEAT válido.` });
+    // La AEAT rechaza el libro si la cuota no es base x tipo (Pre303/130: "Cuota IVA Soportado = Base Imponible * Tipo IVA").
+    const expenseBase = Number(expense.tax_base ?? expense.amount);
+    const expectedVat = Math.round(expenseBase * Number(expense.vat_rate ?? 0)) / 100;
+    if (Math.abs(Number(expense.vat_amount ?? 0) - expectedVat) > 0.01) errors.push({ type: 'gasto', id: expense.id, href: `/gastos?expense=${expense.id}`, message: `El gasto "${expense.description}" (${expense.expense_date}) tiene IVA ${Number(expense.vat_rate ?? 0)} % sobre ${expenseBase.toFixed(2)} €, pero la cuota es ${Number(expense.vat_amount ?? 0).toFixed(2)} € en vez de ${expectedVat.toFixed(2)} €. Corrige la base, el tipo o la cuota.` });
     if (Number(expense.deductible_vat_amount ?? expense.vat_amount ?? 0) > Number(expense.vat_amount ?? 0) + 0.005) errors.push({ type: 'gasto', id: expense.id, href: `/gastos?expense=${expense.id}`, message: `El IVA deducible de "${expense.description}" supera la cuota soportada.` });
     if (!expense.supplier?.tax_id && expense.aeat_invoice_type !== 'SF') warnings.push({ type: 'gasto', id: expense.id, message: `El gasto "${expense.description}" no identifica al proveedor.` });
     if (expense.supplier?.tax_id && !validateSpanishTaxId(expense.supplier.tax_id).valid && !expense.supplier.country?.trim()) errors.push({ type: 'gasto', id: expense.id, message: `El proveedor de "${expense.description}" tiene identificación extranjera pero no país.` });
@@ -259,6 +263,11 @@ export function validateAeatBooks(input: AeatBooksInput): { errors: AeatIssue[];
   }));
   const issuedRows = buildAeatIssuedRows(input); const receivedRows = buildAeatReceivedRows(input);
   validateLengths(issuedRows, issuedMax, 'factura', 35); validateLengths(receivedRows, receivedMax, 'gasto', 41);
+  issuedRows.forEach((row) => {
+    if (row[18] !== 'S1') return;
+    const base = Number(row[21].replace(',', '.')); const rate = Number(row[22].replace(',', '.')); const vat = Number(row[23].replace(',', '.'));
+    if (Math.abs(vat - Math.round(base * rate) / 100) > 0.01) errors.push({ type: 'factura', id: row[35], href: `/facturas?invoice=${row[35]}`, message: `La factura ${row[10]}${row[11]} tiene una cuota de IVA (${row[23]} €) que no es base × tipo (${row[21]} € × ${row[22]} %).` });
+  });
   issuedRows.forEach((row) => { if (!AEAT_VAT_RATES.includes(Number(row[22].replace(',', '.')) as typeof AEAT_VAT_RATES[number])) errors.push({ type: 'factura', id: row[35], message: `La factura ${row[35]} usa un tipo de IVA fuera de la lista oficial.` }); });
   return { errors, warnings };
 }

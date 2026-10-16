@@ -131,6 +131,16 @@ describe('Libros Registro AEAT', () => {
     expect(result.errors.some((issue) => issue.message.includes('supera'))).toBe(true);
   });
 
+  it('bloquea un gasto con tipo de IVA y cuota vacía (rechazo de la AEAT)', () => {
+    const expense = { id: 'emdr', kind: 'supplier_invoice', status: 'paid', description: 'Factura ESCUELA EMDR', amount: 230,
+      tax_base: 230, vat_rate: 21, vat_amount: null, irpf_rate: null, irpf_amount: null, expense_date: '2026-02-25',
+      invoice_issue_date: '2026-02-25', operation_date: null, supplier_invoice_number: '9', created_at: '2026-02-25T00:00:00Z',
+      aeat_invoice_type: 'F1', deductible_vat_amount: null, irpf_deductible_amount: null,
+      category: { id: 'cat', name: 'Formación', aeat_expense_concept: 'G22' }, supplier: { id: 's', name: 'Escuela', tax_id: 'B12345674', country: 'ES' } };
+    const result = validateAeatBooks({ ...base, expenses: [expense] });
+    expect(result.errors.some((issue) => issue.id === 'emdr' && issue.message.includes('48.30'))).toBe(true);
+  });
+
   it('forma el nombre oficial y limpia caracteres no válidos', () => {
     expect(aeatBooksFileName(2026, '12345678-Z', 'Consulta: Álvarez/Sur')).toBe('202612345678ZTConsulta AlvarezSur.xlsx');
   });
