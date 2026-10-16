@@ -341,6 +341,11 @@ function describeShape(value: unknown, depth = 0): string {
   if (value && typeof value === "object" && depth < 2) {
     return `{${Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k}:${describeShape(v, depth + 1)}`).join(",")}}`;
   }
+  if (typeof value === "string") {
+    // Solo la estructura: letras y cifras enmascaradas, así no se guarda ningún nombre.
+    const masked = value.slice(0, 220).replace(/\p{L}/gu, "a").replace(/\d/g, "9");
+    return `string(${value.length}) ${JSON.stringify(masked)}`;
+  }
   return typeof value;
 }
 
@@ -807,7 +812,7 @@ async function syncCenter(supabase: SupabaseClient, centerId: string, accessToke
     // Una cuenta vacía y una respuesta que no sabemos leer se ven igual: se deja la forma.
     console.warn(`[sync-plaud-recordings] list_files sin archivos (center ${centerId}): ${listResult.emptyShape}`);
     await supabase.from("center_plaud_connections")
-      .update({ last_error: `No se pudo listar las grabaciones de Plaud: respuesta vacía ${listResult.emptyShape}`.slice(0, 300) })
+      .update({ last_error: `No se pudo listar las grabaciones de Plaud: respuesta vacía ${listResult.emptyShape}`.slice(0, 400) })
       .eq("center_id", centerId);
   } else {
     await supabase.from("center_plaud_connections").update({ last_error: null })
