@@ -75,7 +75,6 @@ export default function PatientReportView() {
             )}
             <CardTitle className="font-display text-xl">{report.title}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {report.patientFirstName ? `Para ${report.patientFirstName} · ` : ''}
               {format(new Date(report.generatedAt), "d 'de' MMMM 'de' yyyy", { locale: es })}
               {report.centerName ? ` · ${report.centerName}` : ''}
             </p>
