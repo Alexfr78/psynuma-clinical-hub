@@ -15,8 +15,10 @@ import {
   useSessionParticipants,
   useSetSessionPartner,
   useSwapCouplePayer,
+  type PartnerSummary,
   type PayerSwapScope,
 } from '@/hooks/usePatientRelationships';
+import { useSessionMemberNotice, type SessionNoticeSession } from '@/hooks/useSessionMemberNotice';
 
 const CONFIRMATION_VIA_LABELS: Record<string, string> = {
   session_link: 'por el enlace de la cita',
@@ -27,8 +29,7 @@ const CONFIRMATION_VIA_LABELS: Record<string, string> = {
 };
 
 interface SessionCouplePanelProps {
-  session: {
-    id: string;
+  session: SessionNoticeSession & {
     patient_id: string | null;
     status?: string | null;
     recurring_series_id?: string | null;
@@ -53,6 +54,10 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
   const resolveCancellation = useResolveCoupleCancellation();
   const [choosing, setChoosing] = useState(false);
   const [choosingPayerScope, setChoosingPayerScope] = useState(false);
+  // Pareja recién añadida a una cita ya creada: los avisos anteriores no le llegaron.
+  const [confirmFor, setConfirmFor] = useState<string | null>(null);
+  const [sendingChannel, setSendingChannel] = useState<'whatsapp' | 'email' | null>(null);
+  const notice = useSessionMemberNotice();
 
   if (!session.patient_id || participants === undefined) return null;
 
@@ -68,14 +73,29 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
       variant: 'destructive',
     });
 
+  const isUpcoming = ['scheduled', 'confirmed'].includes(session.status ?? '');
+
   const addPartner = (partnerId: string) =>
     setPartner
       .mutateAsync({ sessionId: session.id, partnerId })
-      .then(() => {
+      .then(({ added }) => {
         setChoosing(false);
         toast({ title: 'Sesión de pareja', description: 'Se ha añadido el otro miembro.' });
+        if (added && isUpcoming) setConfirmFor(partnerId);
       })
       .catch(onError);
+
+  const sendConfirmation = async (member: PartnerSummary, channel: 'whatsapp' | 'email') => {
+    setSendingChannel(channel);
+    const ok = channel === 'whatsapp'
+      ? await notice.sendWhatsApp(session, member)
+      : await notice.sendEmail(session, member);
+    setSendingChannel(null);
+    if (ok) {
+      setConfirmFor(null);
+      toast({ title: `Confirmación enviada a ${member.first_name}` });
+    }
+  };
 
   if (!partner) {
     if (choosing) {
@@ -134,11 +154,46 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
       })
       .catch(onError);
 
+  const confirmPrompt = confirmFor === partner.id && (
+    <div className="space-y-2 rounded-md border bg-background p-3 text-sm">
+      <p>
+        ¿Enviar la confirmación de la cita a <span className="font-medium">{partner.first_name}</span>? Los
+        avisos enviados antes de añadirle no le llegaron.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-green-600 border-green-200 hover:bg-green-50"
+          disabled={!partner.phone || !!sendingChannel}
+          title={partner.phone ? undefined : 'No tiene teléfono'}
+          onClick={() => sendConfirmation(partner, 'whatsapp')}
+        >
+          <Icon name={sendingChannel === 'whatsapp' ? 'progress_activity' : 'send'} className={`mr-1 h-4 w-4 ${sendingChannel === 'whatsapp' ? 'animate-spin' : ''}`} />
+          WhatsApp
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!partner.email || !!sendingChannel}
+          title={partner.email ? undefined : 'No tiene email'}
+          onClick={() => sendConfirmation(partner, 'email')}
+        >
+          <Icon name={sendingChannel === 'email' ? 'progress_activity' : 'send'} className={`mr-1 h-4 w-4 ${sendingChannel === 'email' ? 'animate-spin' : ''}`} />
+          Email
+        </Button>
+        <Button size="sm" variant="ghost" disabled={!!sendingChannel} onClick={() => setConfirmFor(null)}>
+          No enviar
+        </Button>
+      </div>
+    </div>
+  );
+
   const members = [
     { id: session.patient_id, name: session.patient?.first_name ?? 'Titular' },
     { id: partner.id, name: partner.first_name },
   ];
-  const showConfirmations = ['scheduled', 'confirmed'].includes(session.status ?? '');
+  const showConfirmations = isUpcoming;
   const memberState = (id: string) => {
     if (pendingCancellation?.requested_by_patient_id === id) return { icon: 'cancel', tone: 'text-destructive', text: 'Ha cancelado' };
     const confirmation = confirmations?.find((c) => c.patient_id === id);
@@ -199,6 +254,7 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
           </Link>
         </span>
       </div>
+      {confirmPrompt}
       {showConfirmations && (
         <ul className="space-y-1 text-sm" aria-label="Confirmación de asistencia">
           {members.map((member) => {
@@ -214,7 +270,7 @@ export function SessionCouplePanel({ session, onNavigate }: SessionCouplePanelPr
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        Paga y recibe la factura: {payerName}. Los avisos de la cita llegan a los dos.
+        Paga y recibe la factura: {payerName}. Los avisos que se envíen a partir de ahora llegan a los dos.
       </p>
       {choosingPayerScope && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2 text-sm">

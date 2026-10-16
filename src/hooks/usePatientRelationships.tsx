@@ -158,20 +158,29 @@ export function useSetSessionPartner() {
   const { profile } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ sessionId, partnerId }: { sessionId: string; partnerId: string | null }) => {
+    mutationFn: async ({ sessionId, partnerId }: { sessionId: string; partnerId: string | null }): Promise<{ added: boolean }> => {
       if (!profile?.center_id) throw new Error('Sin centro asignado');
-      const { error: delError } = await supabase
-        .from('session_participants')
-        .delete()
-        .eq('session_id', sessionId);
+      // Solo se borra a quien sale: si la pareja ya estaba, conserva su confirmación.
+      let removeQuery = supabase.from('session_participants').delete().eq('session_id', sessionId);
+      if (partnerId) removeQuery = removeQuery.neq('patient_id', partnerId);
+      const { error: delError } = await removeQuery;
       if (delError) throw delError;
-      if (!partnerId) return;
+      if (!partnerId) return { added: false };
+      const { data: existing, error: existingError } = await supabase
+        .from('session_participants')
+        .select('patient_id')
+        .eq('session_id', sessionId)
+        .eq('patient_id', partnerId)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) return { added: false };
       const { error } = await supabase.from('session_participants').insert({
         session_id: sessionId,
         patient_id: partnerId,
         center_id: profile.center_id,
       });
       if (error) throw error;
+      return { added: true };
     },
     onSuccess: (_d, v) => {
       queryClient.invalidateQueries({ queryKey: qk.sessionParticipants.bySession(v.sessionId) });

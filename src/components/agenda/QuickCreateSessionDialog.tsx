@@ -5,7 +5,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { isDateBlocked, ScheduleException } from '@/lib/schedule-exceptions';
@@ -64,7 +64,7 @@ import { useLocations } from '@/hooks/useLocations';
 import { usePatientActiveBonos, useDeductBonoSession } from '@/hooks/useBonos';
 import { useResolvedPrice } from '@/hooks/useCustomPrices';
 
-import { sendSessionNotificationDirect, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
+import { sendSessionNotificationDirect, type NotificationMutationResult, WhatsAppDialogData } from '@/hooks/useSendSessionNotification';
 import { useSessionTypes } from '@/hooks/useSessionTypes';
 import { useCenter } from '@/hooks/useCenter';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
@@ -95,6 +95,8 @@ const quickSessionSchema = z.object({
   // Sesión de pareja: segundo miembro y quién de los dos paga (titular).
   partner_patient_id: z.string().optional(),
   couple_payer: z.enum(['patient', 'partner']).default('patient'),
+  // Pareja añadida a mano con un tipo de sesión que no es "de pareja".
+  with_partner: z.boolean().default(false),
   professional_id: z.string().uuid('Selecciona un profesional'),
   session_date: z.date({ required_error: 'Selecciona una fecha' }),
   start_time: z.string().min(1, 'Hora de inicio requerida'),
@@ -234,6 +236,7 @@ export function QuickCreateSessionDialog({
       patient_id: '',
       partner_patient_id: '',
       couple_payer: 'patient',
+      with_partner: false,
       professional_id: user?.id || '',
       session_date: initialDate || new Date(),
       start_time: initialStartTime || '09:00',
@@ -264,12 +267,13 @@ export function QuickCreateSessionDialog({
   const watchPartnerId = form.watch('partner_patient_id');
   const watchCouplePayer = form.watch('couple_payer');
   const isCoupleType = !!sessionTypes?.find((t) => t.id === watchSessionType)?.is_couple;
+  const isCoupleSession = isCoupleType || !!form.watch('with_partner');
   // El titular (quien paga) decide precio personalizado, bonos y modo de pago.
   const { titularId } = resolveCoupleRoles({
     patientId: watchPatientId,
     partnerId: watchPartnerId,
     payer: watchCouplePayer,
-    isCoupleType,
+    isCoupleType: isCoupleSession,
   });
   const setSessionPartner = useSetSessionPartner();
 
@@ -408,6 +412,7 @@ export function QuickCreateSessionDialog({
         patient_id: '',
         partner_patient_id: '',
         couple_payer: 'patient',
+        with_partner: false,
         professional_id: user?.id || professionals?.[0]?.id || '',
         session_date: dateForDefaults,
         start_time: initialStartTime || '09:00',
@@ -493,7 +498,7 @@ export function QuickCreateSessionDialog({
       patientId: values.patient_id,
       partnerId: values.partner_patient_id,
       payer: values.couple_payer,
-      isCoupleType: !!selectedSessionType?.is_couple,
+      isCoupleType: !!selectedSessionType?.is_couple || values.with_partner,
     });
     const titularPatient = patients?.find((p) => p.id === roles.titularId);
     const basePrice = selectedSessionType?.default_price ?? 0;
@@ -609,7 +614,48 @@ export function QuickCreateSessionDialog({
           });
         }
 
+        // Confirmación de la primera cita de la serie (a los dos, si es de pareja:
+        // el trigger de la serie ya ha copiado la pareja a cada cita).
+        const firstSession = [...recurringResult.createdSessions].sort((a, b) =>
+          `${a.session_date} ${a.start_time}`.localeCompare(`${b.session_date} ${b.start_time}`),
+        )[0];
+        const wantsNotice = values.notify_whatsapp || values.notify_email || values.notify_sms;
+        let seriesNotice: NotificationMutationResult | undefined;
+        if (wantsNotice && firstSession && titularPatient) {
+          try {
+            seriesNotice = await sendSessionNotificationDirect({
+              patientId: roles.titularId,
+              patientName: `${titularPatient.first_name} ${titularPatient.last_name}`,
+              patientPhone: titularPatient.phone,
+              patientEmail: titularPatient.email,
+              sessionId: firstSession.id,
+              sessionDate: format(parseISO(firstSession.session_date), 'dd/MM/yyyy'),
+              sessionTime: firstSession.start_time.slice(0, 5),
+              professionalName: selectedProfessional ? `${selectedProfessional.first_name} ${selectedProfessional.last_name}` : undefined,
+              sessionType: selectedSessionType?.name || values.session_type,
+              type: 'notification',
+              channels: {
+                whatsapp: values.notify_whatsapp,
+                email: values.notify_email,
+                sms: values.notify_sms,
+              },
+            }, profile!.center_id, center);
+            queryClient.invalidateQueries({ queryKey: qk.notifications.all });
+            queryClient.invalidateQueries({ queryKey: qk.whatsappMessages.all });
+          } catch (noticeError) {
+            console.error('Series confirmation error (non-critical):', noticeError);
+            toast({
+              title: 'Serie creada sin confirmación',
+              description: 'No se pudo enviar la confirmación. Puedes enviarla desde el detalle de la primera cita.',
+              variant: 'destructive',
+            });
+          }
+        }
+
         onOpenChange(false);
+        if (seriesNotice?.whatsappData && !seriesNotice.whatsappAutoSent) {
+          setWhatsappDialogData(seriesNotice.whatsappData);
+        }
         return;
       }
 
@@ -900,7 +946,7 @@ export function QuickCreateSessionDialog({
   const onSubmit = async (values: QuickSessionFormValues, asDraft: boolean) => {
     const selectedSessionType = sessionTypes?.find(t => t.id === values.session_type);
 
-    if (selectedSessionType?.is_couple && !values.partner_patient_id) {
+    if ((selectedSessionType?.is_couple || values.with_partner) && !values.partner_patient_id) {
       toast({
         title: 'Falta el otro miembro de la pareja',
         description: 'Elige con quién es la sesión de pareja.',
@@ -1359,7 +1405,7 @@ export function QuickCreateSessionDialog({
             <CoupleSessionFields form={form} isCoupleType={isCoupleType} />
 
             <SessionTypeLimitNotice
-              patientIds={[watchPatientId, isCoupleType ? watchPartnerId : null]}
+              patientIds={[watchPatientId, isCoupleSession ? watchPartnerId : null]}
               sessionTypeId={watchSessionType}
               sessionDate={watchSessionDate}
             />

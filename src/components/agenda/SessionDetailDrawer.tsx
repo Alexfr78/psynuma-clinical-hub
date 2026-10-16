@@ -79,12 +79,11 @@ import { CollectSessionPaymentDialog } from './CollectSessionPaymentDialog';
 import { CollectBonoPaymentDialog } from './CollectBonoPaymentDialog';
 import { CreateSessionInvoiceDialog } from './CreateSessionInvoiceDialog';
 import { SendInvoiceDialog } from '@/components/invoices/SendInvoiceDialog';
-import { useSendSessionNotification } from '@/hooks/useSendSessionNotification';
+import { useSessionMemberNotice } from '@/hooks/useSessionMemberNotice';
+import { useSessionParticipants } from '@/hooks/usePatientRelationships';
 import { useWhatsAppDelivery } from '@/hooks/useWhatsAppDelivery';
 import { useCenter } from '@/hooks/useCenter';
-import { DEFAULT_TEMPLATES } from '@/hooks/useCommunicationTemplates';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { openWhatsAppSmart } from '@/lib/whatsapp';
 import {
   getPaymentLinkUrlForSession,
 } from '@/lib/session-payment-link';
@@ -95,7 +94,7 @@ import { PatientSelector } from './PatientSelector';
 import { SessionCouplePanel } from './SessionCouplePanel';
 import { usePatient, Patient } from '@/hooks/usePatients';
 import { supabase } from '@/integrations/supabase/client';
-import { buildPublicUrl, getPublicBaseUrl } from '@/lib/public-base-url';
+import { buildPublicUrl } from '@/lib/public-base-url';
 import { checkPatientConsent, type ConsentCheckResult } from '@/lib/consent-verification';
 import { consentSendBlockReason } from '@/lib/consent-block-messages';
 import { useProfessionalIntegrations } from '@/hooks/useProfessionalIntegrations';
@@ -195,12 +194,13 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   const { data: sessionTypes } = useSessionTypes();
   const { center } = useCenter();
   const whatsappDelivery = useWhatsAppDelivery();
-  const sendEmailNotification = useSendSessionNotification();
+  const memberNotice = useSessionMemberNotice();
+  const { data: sessionParticipants } = useSessionParticipants(session?.id);
   const isMobile = useIsMobile();
   const { syncToGoogle, syncMoveToGoogle } = useGoogleCalendarUpdate(session?.professional_id);
   const deleteCalendarEvent = useDeleteCalendarEvent();
   const { integrations, isProviderConnected } = useProfessionalIntegrations(session?.professional_id);
-  const [isSendingWhatsAppNow, setIsSendingWhatsAppNow] = useState(false);
+  const [sendingNow, setSendingNow] = useState<'whatsapp' | 'email' | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isChangingModality, setIsChangingModality] = useState(false);
   const [isChangingSessionType, setIsChangingSessionType] = useState(false);
@@ -340,6 +340,30 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
   }, [session?.id, open]);
 
   if (!session) return null;
+
+  // "Enviar ahora": el titular y, en sesiones de pareja, también el otro miembro.
+  const noticeMembers = [
+    ...(session.patient ? [session.patient] : []),
+    ...(sessionParticipants ?? []).filter((p) => p.id !== session.patient?.id),
+  ];
+  const sendNowToMembers = async (channel: 'whatsapp' | 'email') => {
+    const override = localDateTime ? { date: localDateTime.date, startTime: localDateTime.startTime } : undefined;
+    setSendingNow(channel);
+    const sent: string[] = [];
+    try {
+      for (const member of noticeMembers) {
+        const ok = channel === 'whatsapp'
+          ? await memberNotice.sendWhatsApp(session, member, override)
+          : await memberNotice.sendEmail(session, member, override);
+        if (ok) sent.push(member.first_name);
+      }
+    } finally {
+      setSendingNow(null);
+    }
+    if (sent.length > 0) {
+      toast({ title: `${channel === 'whatsapp' ? 'WhatsApp' : 'Email'} enviado a ${sent.join(' y ')}` });
+    }
+  };
 
   const sessionRaw = session as SessionWithExtras;
   const sessionData: SessionWithExtras = {
@@ -2163,90 +2187,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     variant="outline" 
                     size="sm" 
                     className="text-green-600 border-green-200 hover:bg-green-50"
-                    disabled={!session.patient?.phone || isSendingWhatsAppNow || editingDateTime}
-                    onClick={async () => {
-                      if (!session.patient?.phone || !center?.id) return;
-
-                      const patientFirstName = session.patient?.first_name || '';
-                      const patientLastName = session.patient?.last_name || '';
-                      const patientFullName = `${patientFirstName} ${patientLastName}`.trim() || patientFirstName;
-
-                      const professionalName = session.professional 
-                        ? `${session.professional.first_name} ${session.professional.last_name}` 
-                        : '';
-
-                      // localDateTime holds a just-saved date/time; the session prop is stale until the parent refetches.
-                      const sessionDate = format(new Date(localDateTime?.date || session.session_date), "d 'de' MMMM", { locale: es });
-                      const sessionTime = (localDateTime?.startTime || session.start_time)?.slice(0, 5) || '';
-
-                      let appointmentLink = getPublicBaseUrl();
-                      if (session.access_token) {
-                        const { data: shortLinkData, error: shortLinkError } = await supabase.functions.invoke(
-                          'create-public-session-short-link',
-                          { body: { session_id: session.id } },
-                        );
-                        if (shortLinkError || !shortLinkData?.path) {
-                          toast({
-                            title: 'No se pudo crear el enlace corto',
-                            description: shortLinkError?.message || shortLinkData?.error,
-                            variant: 'destructive',
-                          });
-                          return;
-                        }
-                        appointmentLink = buildPublicUrl(shortLinkData.path);
-                      }
-
-                      // Build message from template
-                      let message = DEFAULT_TEMPLATES.whatsapp.notification.whatsapp_message || '';
-                      message = message
-                        .replace('{nombre_paciente}', patientFirstName)
-                        .replace('{profesional_nombre}', professionalName)
-                        .replace('{fecha}', sessionDate)
-                        .replace('{zona_horaria}', sessionTime)
-                        .replace('{sesion_tipo}', session.session_type || 'Individual')
-                        .replace('{link_sesion}', appointmentLink)
-                        .replace('{link_confirmar}', appointmentLink);
-
-                      setIsSendingWhatsAppNow(true);
-                      try {
-                        const { result, manualLink } = await whatsappDelivery.sendWhatsApp({
-                          phone: session.patient.phone,
-                          message,
-                          patientId: session.patient.id,
-                          patientName: patientFullName,
-                          sessionId: session.id,
-                          centerId: center.id,
-                          messageType: 'notification',
-                          templateParams: {
-                            templateName: 'recordatorio_cita_psycma',
-                            bodyParams: [patientFirstName, center.name || '', sessionDate, sessionTime],
-                            // The template's button URL is "https://psycma.psicologosexual.com/cita/{{1}}",
-                            // the session's own access_token route — not the /enlace/ short-link.
-                            buttonParam: session.access_token || undefined,
-                          },
-                        });
-
-                        // Manual fallback: open WhatsApp using configured-friendly behavior
-                        if (!result.autoSent && manualLink) {
-                          await openWhatsAppSmart(
-                            session.patient.phone,
-                            message,
-                            !isMobile ? 'web' : undefined
-                          );
-                        }
-                      } catch (e) {
-                        console.error('Error sending WhatsApp now:', e);
-                        toast({
-                          title: 'Error',
-                          description: 'No se pudo enviar el WhatsApp.',
-                          variant: 'destructive',
-                        });
-                      } finally {
-                        setIsSendingWhatsAppNow(false);
-                      }
-                    }}
+                    disabled={!noticeMembers.some((m) => m.phone) || sendingNow !== null || editingDateTime}
+                    onClick={() => sendNowToMembers('whatsapp')}
                   >
-                    {isSendingWhatsAppNow ? (
+                    {sendingNow === 'whatsapp' ? (
                       <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
                       <Icon name="send" className="h-4 w-4 mr-1" />
@@ -2264,37 +2208,10 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                   <Button 
                     variant="outline" 
                     size="sm"
-                    disabled={!session.patient?.email || sendEmailNotification.isPending || editingDateTime}
-                    onClick={() => {
-                      if (!session.patient?.email) return;
-                      
-                      const patientFullName = `${session.patient.first_name} ${session.patient.last_name}`;
-                      const professionalName = session.professional 
-                        ? `${session.professional.first_name || ''} ${session.professional.last_name || ''}`.trim()
-                        : '';
-                      const sessionDate = format(new Date(localDateTime?.date || session.session_date), "dd/MM/yyyy", { locale: es });
-                      const sessionTime = (localDateTime?.startTime || session.start_time)?.slice(0, 5) || '';
-                      
-                      sendEmailNotification.mutate({
-                        patientId: session.patient.id,
-                        patientName: patientFullName,
-                        patientEmail: session.patient.email,
-                        sessionId: session.id,
-                        sessionDate,
-                        sessionTime,
-                        professionalName,
-                        sessionType: session.session_type || 'Individual',
-                        type: 'notification',
-                        channels: {
-                          whatsapp: false,
-                          email: true,
-                          sms: false,
-                        },
-                        sessionAccessToken: session.access_token,
-                      });
-                    }}
+                    disabled={!noticeMembers.some((m) => m.email) || sendingNow !== null || editingDateTime}
+                    onClick={() => sendNowToMembers('email')}
                   >
-                    {sendEmailNotification.isPending ? (
+                    {sendingNow === 'email' ? (
                       <Icon name="progress_activity" className="h-4 w-4 mr-1 animate-spin" />
                     ) : (
                       <Icon name="send" className="h-4 w-4 mr-1" />
@@ -2302,11 +2219,16 @@ export function SessionDetailDrawer({ session, open, onOpenChange, onAnalyzeTran
                     Email
                   </Button>
                 </div>
-                {!session.patient?.phone && (
+                {noticeMembers.length > 1 && (
                   <p className="text-xs text-muted-foreground">
-                    El paciente no tiene teléfono registrado
+                    Se envía a {noticeMembers.map((m) => m.first_name).join(' y ')}.
                   </p>
                 )}
+                {noticeMembers.filter((m) => !m.phone).map((m) => (
+                  <p key={m.id} className="text-xs text-muted-foreground">
+                    {noticeMembers.length > 1 ? `${m.first_name} no tiene` : 'El paciente no tiene'} teléfono registrado
+                  </p>
+                ))}
                 {editingDateTime && (
                   <p className="text-xs text-muted-foreground">
                     Guarda la nueva fecha y hora antes de enviar

@@ -149,7 +149,7 @@ export async function sendSessionNotificationDirect(
   return payerResult;
 }
 
-async function sendSingleSessionNotification(
+export async function sendSingleSessionNotification(
   params: SendNotificationParams & { sessionAccessToken?: string },
   centerId: string,
   center: Center

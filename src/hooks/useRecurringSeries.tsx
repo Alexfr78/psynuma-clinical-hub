@@ -214,6 +214,7 @@ export function useCreateRecurringSeries() {
       return {
         seriesId: series.id,
         createdCount: sessionsToCreate.length,
+        createdSessions,
         bonoApplication,
       };
     },

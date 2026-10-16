@@ -22,11 +22,14 @@ const fullName = (p?: { first_name: string; last_name: string } | null) =>
 /**
  * Segundo miembro y pagador de una sesión de pareja. Se rellena solo con la
  * pareja vinculada en la ficha; si no hay vínculo, deja elegir a otro contacto.
+ * Con un tipo de sesión que no es de pareja, se puede añadir igualmente a mano.
  */
 export function CoupleSessionFields({ form, isCoupleType }: CoupleSessionFieldsProps) {
   const patientId = form.watch('patient_id');
   const partnerId = form.watch('partner_patient_id');
   const payer = form.watch('couple_payer');
+  const withPartner = form.watch('with_partner');
+  const active = isCoupleType || withPartner;
 
   const { data: link } = usePatientPartner(patientId || undefined);
   const { data: patient } = usePatient(patientId || undefined);
@@ -35,7 +38,7 @@ export function CoupleSessionFields({ form, isCoupleType }: CoupleSessionFieldsP
 
   // Al cambiar de contacto (o pasar a un tipo de pareja) se propone su pareja vinculada.
   useEffect(() => {
-    if (!isCoupleType) {
+    if (!active) {
       if (form.getValues('partner_patient_id')) form.setValue('partner_patient_id', '');
       prefilledFor.current = null;
       return;
@@ -49,18 +52,40 @@ export function CoupleSessionFields({ form, isCoupleType }: CoupleSessionFieldsP
       form.setValue('partner_patient_id', '');
       form.setValue('couple_payer', 'patient');
     }
-  }, [isCoupleType, patientId, link, form]);
+  }, [active, patientId, link, form]);
 
-  if (!isCoupleType || !patientId) return null;
+  if (!patientId) return null;
+
+  if (!active) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground"
+        onClick={() => form.setValue('with_partner', true)}
+      >
+        <Icon name="group_add" className="mr-1.5 h-4 w-4" />
+        {link ? `Hacerla de pareja con ${link.partner.first_name}` : 'Añadir pareja a esta sesión'}
+      </Button>
+    );
+  }
 
   const linkedPartnerId = link?.partner.id ?? null;
   const isAdHocPartner = !!partnerId && partnerId !== linkedPartnerId;
 
   return (
     <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Icon name="favorite" className="h-4 w-4 text-primary" />
-        Sesión de pareja
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Icon name="favorite" className="h-4 w-4 text-primary" />
+          Sesión de pareja
+        </div>
+        {!isCoupleType && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => form.setValue('with_partner', false)}>
+            Quitar
+          </Button>
+        )}
       </div>
 
       {partner ? (
