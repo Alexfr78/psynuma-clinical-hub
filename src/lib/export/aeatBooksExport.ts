@@ -46,10 +46,10 @@ const splitNumber = (invoiceNumber: string) => {
 
 function fiscalXml(invoice: AccountingExportInvoice): string {
   const extended = invoice as AccountingExportInvoice & { verifactu_records?: Array<{ xml_sent?: string | null; created_at?: string | null }> };
-  const latest = [...(extended.verifactu_records ?? [])]
+  const sorted = [...(extended.verifactu_records ?? [])]
     .filter((record) => record.xml_sent)
-    .sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
-    .at(-1);
+    .sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')));
+  const latest = sorted[sorted.length - 1];
   return String(latest?.xml_sent ?? '');
 }
 function recipient(invoice: AccountingExportInvoice, type: string) {
